@@ -212,7 +212,7 @@
       "dod": "NFR integration tests pass: gallery page p95 \u2264 300 ms with 1 000 seeded generations; detail p95 \u2264 150 ms; local overhead p95 \u2264 500 ms for 4 \u00d7 5 MB with a stubbed provider; restart with leftover staging/orphan dirs leaves only complete generations; stored raw response has no base64 payload and no key",
       "files_hint": ["tests/nfr.int.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t15-nfr-integration-tests.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

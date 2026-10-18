@@ -9,8 +9,8 @@ files_hint: ["tests/nfr.int.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T15 — Verify the performance and durability NFRs
