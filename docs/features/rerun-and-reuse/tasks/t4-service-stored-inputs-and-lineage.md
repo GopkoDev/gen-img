@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/service.ts", "src/server/modules/st
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Resolve stored-image references and record lineage when starting a generation

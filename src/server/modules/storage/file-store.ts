@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 const EXT: Record<string, string> = {
@@ -105,6 +105,11 @@ export function createFileStore(dataDir: string) {
       for (const name of readdirSync(gens)) {
         if (!knownIds.has(name)) rmSync(join(gens, name), { recursive: true, force: true });
       }
+    },
+
+    /** Bytes of a file whose relative path is recorded in the DB (stored-image reuse, ADR-0017). */
+    async readRecorded(relPath: string): Promise<Uint8Array> {
+      return new Uint8Array(await readFile(this.resolveRecorded(relPath)));
     },
 
     /** Absolute path of a path recorded in the DB; refuses anything outside the data dir (defense in depth). */

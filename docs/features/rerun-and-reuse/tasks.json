@@ -55,7 +55,7 @@
         "src/server/modules/generations/rerun.int.test.ts"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t4-service-stored-inputs-and-lineage.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

@@ -1,5 +1,5 @@
 import { AddTagRequest, checkComment, normalizeTag, SetCommentRequest } from "../../../shared/curation";
-import { checkInputFile, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import { checkInputFile, type InputSlot, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import { newId } from "../../lib/ids";
@@ -35,6 +35,7 @@ export type GenerationsServiceDeps = {
 
 const invalid = (fields: FieldErrors) => new AppError("VALIDATION_ERROR", "Some fields need fixing", 400, { fields });
 const gone = () => new AppError("NOT_FOUND", "Generation not found", 404);
+const NOT_STORED = "Not an image stored by gen-img"; // one answer for every miss — no existence leak (AC-13)
 
 /** Swaps the adapter's `{ "$image": N }` / `{ "$input": N }` placeholders for references to the stored files (ADR-0008). */
 function linkFiles(value: unknown, outputs: string[], inputs: string[] = []): unknown {
@@ -139,6 +140,9 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
           ...cost,
           createdAt: job.startedAt,
           durationMs,
+          ...(req.source
+            ? { sourceId: req.source.id, sourceRelation: req.source.relation, sourceOutput: req.source.output ?? null }
+            : {}),
           rawRequest: linkFiles(result.rawRequest, paths, inputPaths),
           rawResponse: linkFiles(result.rawResponse, paths),
         },
@@ -170,6 +174,9 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     const checked = checkFiles(files);
     if (!parsed.ok) throw invalid({ ...parsed.fields, ...checked.fields });
     if (Object.keys(checked.fields).length) throw invalid(checked.fields);
+    // Lineage is recorded only to a generation that exists when generating starts (spec AC-08).
+    if (parsed.value.source && !deps.repo.exists(parsed.value.source.id))
+      throw invalid({ source: "The source generation no longer exists" });
     const provider = deps.providers.get(parsed.value.provider);
     if (!provider) throw new AppError("NOT_FOUND", `Unknown provider: ${parsed.value.provider}`, 404);
     if (!provider.configured)
@@ -191,6 +198,36 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     return job;
   }
 
+  /**
+   * Orders the inputs as the request lists them: stored references are read from recorded rows + files
+   * (ADR-0017), upload slots pick the n-th file, each used exactly once. No `inputs` → uploads in order.
+   */
+  async function resolveInputs(slots: InputSlot[] | undefined, files: InputFile[]): Promise<InputFile[]> {
+    if (slots === undefined) return files;
+    const fields: FieldErrors = {};
+    const out: InputFile[] = [];
+    const used = new Set<number>();
+    for (const [i, slot] of slots.entries()) {
+      if ("upload" in slot) {
+        const file = files[slot.upload - 1];
+        if (!file || used.has(slot.upload)) fields.inputs = "Every attached file must be used once";
+        else {
+          used.add(slot.upload);
+          out.push(file);
+        }
+        continue;
+      }
+      const { generationId, kind, position } = slot.stored;
+      const rec = deps.repo.storedImage(generationId, kind, position);
+      const bytes = rec ? await deps.files.readRecorded(rec.path).catch(() => null) : null;
+      if (!rec || !bytes) fields[`inputs.${i + 1}`] = NOT_STORED;
+      else out.push({ bytes, name: rec.name });
+    }
+    if (used.size !== files.length) fields.inputs = "Every attached file must be used once";
+    if (Object.keys(fields).length) throw invalid(fields);
+    return out;
+  }
+
   return {
     startGeneration,
 
@@ -198,10 +235,20 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     async startGenerationChecked(body: unknown, files: InputFile[] = []): Promise<JobState> {
       const parsed = parseStartRequest(body);
       if (!parsed.ok) throw invalid(parsed.fields);
+      // Refuse before reading any stored file while the single slot is busy (ADR-0005, spec AC-14).
+      if (deps.jobs.current()?.status === "running")
+        throw new AppError(
+          "GENERATION_IN_PROGRESS",
+          "A generation is already in progress — wait until it finishes",
+          409,
+        );
+      if (parsed.value.source && !deps.repo.exists(parsed.value.source.id))
+        throw invalid({ source: "The source generation no longer exists" });
+      const inputs = await resolveInputs(parsed.value.inputs, files);
       const provider = deps.providers.get(parsed.value.provider);
       const model = provider?.configured ? await deps.catalog.find(parsed.value.provider, parsed.value.model) : null;
       if (model === undefined) throw invalid({ model: "This model is not offered by the provider" });
-      return startGeneration(body, model, files);
+      return startGeneration(body, model, inputs);
     },
 
     /** Replaces the comment; blank text removes it; last save wins (ADR-0016). */
