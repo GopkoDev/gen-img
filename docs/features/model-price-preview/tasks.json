@@ -72,7 +72,7 @@
         "src/server/modules/generations/cost-history.int.test.ts"
       ],
       "file": "docs/features/model-price-preview/tasks/t5-cost-history.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

@@ -148,3 +148,25 @@ describe("rerun-and-reuse NFRs", () => {
     expect(p95(runs)).toBeLessThanOrEqual(300);
   }, 60_000); // 21 × (80 MB read + base64) — well past Vitest's 5 s default
 });
+
+describe("model-price-preview NFRs", () => {
+  let t: ReturnType<typeof createTestApp>;
+  afterEach(() => t.cleanup());
+
+  it("cost history ≤ 50 ms p95 with 1 000 generations", async () => {
+    t = createTestApp();
+    t.db.transaction(() => {
+      for (let i = 0; i < 1000; i++)
+        seedGeneration(t.db, t.dataDir, {
+          id: `01NFRP${String(i).padStart(20, "0")}`,
+          model: i % 3 === 0 ? "x/tok" : "x/other",
+          costMicros: 40_000,
+          costStatus: "known",
+        });
+    })();
+    const runs = await timed(20, async () =>
+      expect((await t.app.request("/api/generations/cost-history?provider=openrouter&model=x%2Ftok")).status).toBe(200),
+    );
+    expect(p95(runs)).toBeLessThanOrEqual(50);
+  });
+});

@@ -193,6 +193,12 @@ export function createGenerationsRepo(db: Db) {
   const selectRecorded = db.prepare(
     "SELECT media_type FROM generation_images WHERE path = ? UNION ALL SELECT media_type FROM generation_inputs WHERE path = ?",
   );
+  const selectCostHistory = db.prepare(
+    `SELECT g.cost_micros, (SELECT count(*) FROM generation_images i WHERE i.generation_id = g.id) AS images
+     FROM generations g
+     WHERE g.provider = ? AND g.model = ? AND g.cost_status = 'known' AND g.cost_micros IS NOT NULL
+     ORDER BY g.id DESC LIMIT ?`,
+  );
   const selectIds = db.prepare("SELECT id FROM generations ORDER BY id").pluck();
   const selectPending = db.prepare(
     "SELECT id, provider, cost_ref, created_at, duration_ms FROM generations WHERE cost_status = 'pending' ORDER BY id",
@@ -328,6 +334,17 @@ export function createGenerationsRepo(db: Db) {
         comment: CommentRow.nullable().parse(selectComment.get(id) ?? null),
         tags: selectTags.all(id) as string[],
       };
+    },
+
+    /**
+     * Known costs of the last `limit` generations with this provider + model, as an average per received image
+     * (ADR-0021). Pending / unavailable costs and other models never count (spec AC-06).
+     */
+    costHistory(provider: string, model: string, limit = 20): { count: number; perImageMicros: number | null } {
+      const rows = selectCostHistory.all(provider, model, limit) as { cost_micros: number; images: number }[];
+      const images = rows.reduce((n, r) => n + r.images, 0);
+      const micros = rows.reduce((n, r) => n + r.cost_micros, 0);
+      return { count: rows.length, perImageMicros: images > 0 ? Math.round(micros / images) : null };
     },
 
     /** Newest first; `cursor` is the last id of the previous page. */

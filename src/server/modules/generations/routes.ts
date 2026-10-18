@@ -12,6 +12,7 @@ import type {
   OutputImage,
 } from "../../../shared/generations";
 import { MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import type { CostHistory } from "../../../shared/pricing";
 import { ProviderId } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import type { FileStore } from "../storage/file-store";
@@ -19,6 +20,11 @@ import type { ImageRecord, InputRecord } from "./repo";
 import type { GenerationsService, InputFile } from "./service";
 
 export type GenerationsRouteDeps = { service: GenerationsService; files: FileStore };
+
+const CostHistoryQuery = z.object({
+  provider: ProviderId,
+  model: z.string().min(1, { error: "Choose a model" }).max(200),
+});
 
 const ListQuery = z.object({
   cursor: z
@@ -126,6 +132,16 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
     const prompt = service.promptOf(id);
     return { id, relation, output, exists: prompt !== null, prompt };
   };
+
+  // Before `/generations/:id`, so «cost-history» is never read as an id.
+  app.get("/generations/cost-history", (c) => {
+    const q = CostHistoryQuery.safeParse(c.req.query());
+    if (!q.success)
+      throw new AppError("VALIDATION_ERROR", "Invalid cost history query", 400, {
+        fields: Object.fromEntries(q.error.issues.map((i) => [i.path.join("."), i.message])),
+      });
+    return c.json(service.costHistory(q.data.provider, q.data.model) satisfies CostHistory);
+  });
 
   app.get("/generations/:id", (c) => {
     const g = service.get(c.req.param("id"));
