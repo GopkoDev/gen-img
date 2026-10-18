@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/image-sniff.ts", "src/server/modules/
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Detect usable images: media type and dimensions from bytes

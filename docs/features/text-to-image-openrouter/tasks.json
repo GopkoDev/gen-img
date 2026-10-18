@@ -40,7 +40,7 @@
       "dod": "unit tests: PNG/JPEG/WebP(VP8/VP8L/VP8X)/GIF bytes return media type + width/height; empty, truncated or other formats return null",
       "files_hint": ["src/server/modules/providers/image-sniff.ts", "src/server/modules/providers/image-sniff.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t3-image-sniffing.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",
