@@ -47,3 +47,12 @@ if (typeof window.matchMedia !== "function") {
     return mql as unknown as MediaQueryList;
   };
 }
+
+// Radix popper content (Tooltip) measures itself with ResizeObserver, which jsdom lacks.
+if (typeof globalThis.ResizeObserver !== "function") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}

@@ -29,6 +29,15 @@ describe("RecentGenerations (SCR-06)", () => {
     expect(window.location.pathname).toBe(`/generations/${summary(2).id}`);
   });
 
+  it("labels a thumbnail with a prompt excerpt, not the whole prompt", async () => {
+    const prompt = `A cat in a neon city, ${"very ".repeat(30)}detailed`;
+    m.generations.mockResolvedValue({ items: [summary(1, { prompt })], nextCursor: null });
+    renderWithQuery(<RecentGenerations />);
+    const img = await screen.findByRole("img");
+    expect(img.getAttribute("alt")?.endsWith("…")).toBe(true);
+    expect((img.getAttribute("alt") ?? "").length).toBeLessThanOrEqual(81);
+  });
+
   it("never shows more than ten (AC-14)", async () => {
     m.generations.mockResolvedValue({ items: Array.from({ length: 12 }, (_, i) => summary(12 - i)), nextCursor: null });
     renderWithQuery(<RecentGenerations />);

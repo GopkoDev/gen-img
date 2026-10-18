@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { formatRelative } from "@/lib/format";
+import { excerpt, formatRelative } from "@/lib/format";
 import { Link, replace } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 
@@ -26,7 +26,7 @@ function Tile({ g }: { g: GenerationSummary }) {
           ) : (
             <img
               src={g.thumbnail.url}
-              alt={g.prompt}
+              alt={excerpt(g.prompt)}
               loading="lazy"
               className="h-full w-full object-cover"
               onError={() => setBroken(true)}

@@ -324,11 +324,44 @@ describe("App shell — draft, job and carried sources across sections", () => {
     at("/generations/01SRC");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     m.generations.mockResolvedValue({ items: [], nextCursor: null });
+    const recent = () => m.generations.mock.calls.filter(([, limit]) => limit === 10).length;
+    const before = recent();
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Delete generation" })));
     await screen.findByText("Generation deleted.");
     fireEvent.click(entry("Generate"));
     const panel = screen.getByRole("region", { name: "Recent generations" });
     expect(await within(panel).findByText("No generations yet.")).toBeVisible();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(recent() - before).toBe(1);
+  });
+
+  it("shows the running generation next to the menu button on a narrow window (AC-06, AC-10)", async () => {
+    const width = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      m.currentJob.mockResolvedValue({ job: job({}) });
+      const { container } = at("/gallery");
+      const header = container.querySelector("[data-slot=sidebar-inset] header") as HTMLElement;
+      await waitFor(() => expect(header).toHaveTextContent("generation running"));
+    } finally {
+      window.innerWidth = width;
+    }
+  });
+
+  it("keeps no extra indicator in the header on a wide window (the sidebar shows it)", async () => {
+    m.currentJob.mockResolvedValue({ job: job({}) });
+    const { container } = at("/gallery");
+    await waitFor(() => expect(entry("Generate")).toHaveTextContent("generation running"));
+    expect(container.querySelector("[data-slot=sidebar-inset] header")).not.toHaveTextContent("generation running");
+  });
+
+  it("collapsed, an entry names itself in a tooltip and keeps the running indicator (AC-16)", async () => {
+    m.currentJob.mockResolvedValue({ job: job({}) });
+    at("/gallery");
+    fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    await waitFor(() => expect(entry("Generate")).toHaveTextContent("generation running"));
+    fireEvent.focus(entry("Generate"));
+    expect(await screen.findByRole("tooltip", { name: "Generate" })).toBeInTheDocument();
   });
 
   it("applies nothing carried on a detail deep link (the panel is hidden there)", async () => {

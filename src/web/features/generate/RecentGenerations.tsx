@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { api } from "@/lib/api";
+import { excerpt } from "@/lib/format";
 import { Link } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 
@@ -25,7 +26,7 @@ function Thumb({ g }: { g: GenerationSummary }) {
       ) : (
         <img
           src={g.thumbnail.url}
-          alt={g.prompt}
+          alt={excerpt(g.prompt)}
           loading="lazy"
           className="h-full w-full object-cover transition-opacity hover:opacity-80"
           onError={() => setBroken(true)}

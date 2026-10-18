@@ -37,7 +37,7 @@ function systemPrefers(dark: boolean) {
 
 async function pick(name: "Light" | "Dark" | "System") {
   fireEvent.pointerDown(screen.getByRole("button", { name: "Toggle theme" }), { button: 0, pointerType: "mouse" });
-  await act(async () => fireEvent.click(await screen.findByRole("menuitem", { name })));
+  await act(async () => fireEvent.click(await screen.findByRole("menuitemradio", { name })));
 }
 
 const ui = () => (
@@ -81,6 +81,15 @@ describe("theme (ADR-0024)", () => {
     await pick("System");
     expect(root).toHaveClass("light");
     expect(localStorage.getItem(KEY)).toBe("system");
+  });
+
+  it("shows the current choice in the menu", async () => {
+    media = systemPrefers(false);
+    localStorage.setItem(KEY, "dark");
+    render(ui());
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Toggle theme" }), { button: 0, pointerType: "mouse" });
+    expect(await screen.findByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemradio", { name: "System" })).toHaveAttribute("aria-checked", "false");
   });
 
   it("starts from the remembered choice; an unknown stored value means system", () => {

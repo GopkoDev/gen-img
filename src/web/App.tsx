@@ -10,7 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { GenerationDetail } from "@/features/gallery/GenerationDetail";
 import { Link, type Route, useRoute } from "@/lib/router";
 import { SECTIONS, type Section, sectionFor } from "@/sections";
@@ -42,6 +42,16 @@ function Crumbs({ route, current }: { route: Route; current: Section | undefined
   );
 }
 
+/** On a narrow window the sidebar is a closed sheet, so its entries' indicators show next to the menu button. */
+function HeaderIndicators({ sections }: { sections: readonly Section[] }) {
+  const { isMobile } = useSidebar();
+  if (!isMobile) return null;
+  return sections.map((s) => {
+    const Indicator = s.indicator;
+    return Indicator && <Indicator key={s.id} />;
+  });
+}
+
 /** The app frame — the `sidebar-08` block: sidebar + inset with the current page (ADR-0022). Kept-mounted
  * sections stay rendered, hidden (ADR-0023). */
 export function App({ sections = SECTIONS }: { sections?: readonly Section[] }) {
@@ -59,6 +69,7 @@ export function App({ sections = SECTIONS }: { sections?: readonly Section[] }) 
         <header className="flex h-16 shrink-0 items-center gap-2 px-4">
           <h1 className="sr-only">Ukiyo</h1>
           <SidebarTrigger className="-ml-1" />
+          <HeaderIndicators sections={sections} />
           <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
           <Crumbs route={route} current={current} />
         </header>
