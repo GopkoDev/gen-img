@@ -23,7 +23,7 @@ import {
   type SourceRef,
   StartGenerationRequest,
 } from "../../../shared/generations";
-import { arrangeModels, pickModel } from "../../../shared/model-groups";
+import { arrangeModels, hiddenSuitable, pickModel } from "../../../shared/model-groups";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { useModelPreferences } from "../models/preferences";
 import { type Attachment, InputImages } from "./InputImages";
@@ -79,7 +79,7 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
   );
 }
 
-function Notice({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+function Notice({ title, children, action }: { title: ReactNode; children?: ReactNode; action?: ReactNode }) {
   return (
     <div
       role="alert"
@@ -170,6 +170,8 @@ export function GeneratePanel() {
   const [loadingSource, setLoadingSource] = useState(false);
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [modelNotice, setModelNotice] = useState<string | null>(null);
+  // Reuse found only hidden models that take input images (AC-13); shown only while no model is selected.
+  const [hiddenInputs, setHiddenInputs] = useState(false);
   const [removedNote, setRemovedNote] = useState<string | null>(null);
   const [carryOnLoad, setCarryOnLoad] = useState(false);
   // Set when no visible model suited an automatic choice: the model stays empty until the Owner picks one.
@@ -197,6 +199,7 @@ export function GeneratePanel() {
     slowPick.current = null;
     setSourceGone(false);
     setModelNotice(null);
+    setHiddenInputs(false);
     setRemovedNote(null);
     setErrors({});
     setRefused([]);
@@ -316,6 +319,16 @@ export function GeneratePanel() {
     return () => clearInterval(timer);
   }, [running]);
 
+  // Nothing selected because the Owner hid what would have been picked: say so instead of "none" (AC-13).
+  const hiddenNotice =
+    modelId || pending || !prefsReady
+      ? null
+      : hiddenInputs
+        ? `The ${provider?.name ?? "provider"} models that take input images are hidden — show one on the`
+        : !modelNotice && models.data && hiddenSuitable(models.data.models, prefs)
+          ? `All ${provider?.name ?? "provider"} models are hidden — show one on the`
+          : null;
+
   const model: ImageModel | undefined = models.data?.models.find((x) => x.id === modelId);
   // biome-ignore lint/correctness/useExhaustiveDependencies: carries over only when a new list arrives, not on each keystroke
   useEffect(() => {
@@ -386,7 +399,8 @@ export function GeneratePanel() {
     } else {
       noAutoPick.current = true;
       setModelId("");
-      setModelNotice(`No ${provider?.name ?? "provider"} model takes input images — switch provider.`);
+      if (hiddenSuitable(list, prefs, takesInputs)) setHiddenInputs(true);
+      else setModelNotice(`No ${provider?.name ?? "provider"} model takes input images — switch provider.`);
     }
   }, [models.data, pending, prefsReady]);
 
@@ -764,6 +778,19 @@ export function GeneratePanel() {
           />
         )}
         {modelNotice && <Notice title={modelNotice} />}
+        {hiddenNotice && (
+          <Notice
+            title={
+              <>
+                {hiddenNotice}{" "}
+                <Link to="/models" className="underline underline-offset-4">
+                  Models page
+                </Link>
+                .
+              </>
+            }
+          />
+        )}
         {body}
       </CardContent>
     </Card>

@@ -63,7 +63,7 @@
         "docs/design-system.md"
       ],
       "file": "docs/features/models-page/tasks/t4-models-page.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T5",
@@ -79,7 +79,7 @@
         "src/shared/model-groups.test.ts"
       ],
       "file": "docs/features/models-page/tasks/t5-hidden-suitable-notice.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

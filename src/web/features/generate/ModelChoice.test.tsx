@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { modelPreferencesKey } from "@/features/models/preferences";
 import { api } from "@/lib/api";
-import { renderWithQuery } from "@/test-utils";
 import type { Generation } from "../../../shared/generations";
 import type { ModelPreference } from "../../../shared/models";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
@@ -89,7 +90,13 @@ function setup(opts: {
   m.price.mockResolvedValue({ price: { kind: "unknown" }, fetchedAt: "x" });
   m.currentJob.mockResolvedValue({ job: null });
   m.generation.mockResolvedValue({ ...SOURCE, ...opts.source });
-  renderWithQuery(<GeneratePanel />);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <GeneratePanel />
+    </QueryClientProvider>,
+  );
+  return client;
 }
 
 /** The closed model picker: a button (not a combobox) that reports aria-expanded. */
@@ -242,9 +249,50 @@ describe("GeneratePanel — automatic model choice goes through pickModel (AC-10
       prefs: { openrouter: [pref("openrouter", "x/b", { hidden: true })] },
       address: "/?reuse=01SRC&output=1",
     });
-    expect(await screen.findByText("No OpenRouter model takes input images — switch provider.")).toBeInTheDocument();
+    const notice = await screen.findByRole("alert");
+    expect(notice).toHaveTextContent(
+      "The OpenRouter models that take input images are hidden — show one on the Models page.",
+    );
+    expect(screen.getByRole("link", { name: "Models page" })).toHaveAttribute("href", "/models");
+    expect(screen.queryByText(/switch provider/)).not.toBeInTheDocument();
     await expectSelected("Choose a model");
     expect(screen.queryByRole("button", { expanded: false, name: /Bravo/ })).not.toBeInTheDocument();
+  });
+
+  it("reuse when no model takes input images at all keeps the «switch provider» wording", async () => {
+    setup({
+      models: { openrouter: [A, B, C] },
+      prefs: { openrouter: [pref("openrouter", "x/b", { hidden: true })] },
+      address: "/?reuse=01SRC&output=1",
+    });
+    expect(await screen.findByText("No OpenRouter model takes input images — switch provider.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Models page" })).not.toBeInTheDocument();
+  });
+
+  it("says all of the provider's models are hidden, with a link, when none is visible on first load", async () => {
+    setup({
+      models: { openrouter: [A, B] },
+      prefs: { openrouter: [pref("openrouter", "x/a", { hidden: true }), pref("openrouter", "x/b", { hidden: true })] },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "All OpenRouter models are hidden — show one on the Models page.",
+    );
+    expect(screen.getByRole("link", { name: "Models page" })).toHaveAttribute("href", "/models");
+    await expectSelected("Choose a model");
+  });
+
+  it("keeps the model the Owner chose selected and marked «hidden» when it is hidden elsewhere", async () => {
+    const client = setup({ models: { openrouter: [A, B, C] } });
+    await expectSelected("Alpha");
+    fireEvent.click(await trigger());
+    fireEvent.click(await screen.findByRole("button", { name: /^Bravo/ }));
+    await expectSelected("Bravo");
+    client.setQueryData(modelPreferencesKey("openrouter"), {
+      preferences: [pref("openrouter", "x/b", { hidden: true })],
+    });
+    await waitFor(() => expect(screen.getByRole("button", { expanded: false })).toHaveTextContent("hidden"));
+    await expectSelected("Bravo");
+    expect(screen.queryByText(/are hidden/)).not.toBeInTheDocument();
   });
 
   it("keeps a re-run's hidden model selected and marks it «hidden» on the closed trigger", async () => {
