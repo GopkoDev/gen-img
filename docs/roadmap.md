@@ -25,7 +25,7 @@ The single owner, on one machine, generates images from text and/or input images
 | 4 | Vercel AI Gateway — image-only models (`/v1/images/generations`, `/v1/images/edits`) and multimodal LLMs (chat `modalities`), with async cost lookup (`pending → known / unavailable`) | idea-brief.md §6 Risks | M | shipped → [`features/vercel-ai-gateway`](./features/vercel-ai-gateway/spec.md) |
 | 5 | Curate the gallery — add a comment, tag, delete a generation | idea-brief.md §7 Recommendation | M | shipped → [`features/curate-gallery`](./features/curate-gallery/spec.md) |
 | 6 | Re-run & reuse — re-run with the same inputs (same or another model) via a pre-filled form, and use an output as the next input in one click with parent→child lineage | idea-brief.md §7 Recommendation | M | shipped → [`features/rerun-and-reuse`](./features/rerun-and-reuse/spec.md) |
-| 7 | Model price preview — show each model's price in the model picker and a pre-run estimate («≈ $0.04 for 2 images»); exact for per-image pricing, approximate for per-token. Source: public `GET /api/v1/images/models/{author}/{slug}/endpoints` → `pricing[]` (`billable`, `unit`, `cost_usd`, `variant`), no key needed (checked 2026-10-18) | owner request 2026-10-18 | S | building → [`features/model-price-preview`](./features/model-price-preview/spec.md) |
+| 7 | Model price preview — show each model's price in the model picker and a pre-run estimate («≈ $0.04 for 2 images»); exact for per-image pricing, approximate for per-token. Source: public `GET /api/v1/images/models/{author}/{slug}/endpoints` → `pricing[]` (`billable`, `unit`, `cost_usd`, `variant`), no key needed (checked 2026-10-18) | owner request 2026-10-18 | S | shipped → [`features/model-price-preview`](./features/model-price-preview/spec.md) |
 
 ## Not yet specified
 
@@ -94,3 +94,4 @@ flowchart LR
 | 4 · Vercel AI Gateway | 2026-10-18 | [changelog](./features/vercel-ai-gateway/CHANGELOG.md) · branch `feature/vercel-ai-gateway` (PR pending — no remote; independent review pending) |
 | 5 · Curate the gallery | 2026-10-18 | [changelog](./features/curate-gallery/CHANGELOG.md) · branch `feature/curate-gallery` (not merged; independent review pending) |
 | 6 · Re-run & reuse | 2026-10-18 | [changelog](./features/rerun-and-reuse/CHANGELOG.md) · branch `feature/rerun-and-reuse` (not merged; independent review pending) |
+| 7 · Model price preview | 2026-10-18 | [changelog](./features/model-price-preview/CHANGELOG.md) · branch `feature/model-price-preview` (not merged; independent review pending) |
