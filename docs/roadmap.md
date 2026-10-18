@@ -25,6 +25,7 @@ The single owner, on one machine, generates images from text and/or input images
 | 4 | Vercel AI Gateway — image-only models (`/v1/images/generations`, `/v1/images/edits`) and multimodal LLMs (chat `modalities`), with async cost lookup (`pending → known / unavailable`) | idea-brief.md §6 Risks | M | idea |
 | 5 | Curate the gallery — add a comment, tag, delete a generation | idea-brief.md §7 Recommendation | S | idea |
 | 6 | Re-run & reuse — re-run with the same inputs (same or another model) via a pre-filled form, and use an output as the next input in one click with parent→child lineage | idea-brief.md §7 Recommendation | S | idea |
+| 7 | Model price preview — show each model's price in the model picker and a pre-run estimate («≈ $0.04 for 2 images»); exact for per-image pricing, approximate for per-token. Source: public `GET /api/v1/images/models/{author}/{slug}/endpoints` → `pricing[]` (`billable`, `unit`, `cost_usd`, `variant`), no key needed (checked 2026-10-18) | owner request 2026-10-18 | S | idea |
 
 ## Not yet specified
 
@@ -70,6 +71,7 @@ flowchart LR
   s2 -->|ImageProvider port + cost_status field + gallery| s4["4 · Vercel AI Gateway"]
   s2 -->|generation rows + detail view| s5["5 · Curate"]
   s3 -->|re-run and reuse resend stored input images| s6["6 · Re-run & reuse"]
+  s3 -->|both change the generate panel and the model catalog| s7["7 · Model price preview"]
 ```
 
 ## Execution path
@@ -81,6 +83,7 @@ flowchart LR
 | 3 | 3 ∥ 4 | 3: `src/server/modules/providers/` OpenRouter adapter + `src/web/features/generate/` (new) · 4: `src/server/modules/providers/` Vercel adapter (new). Disjoint adapter files: the port and `cost_status` are fixed in step 2 | 6 |
 | 4 | 5 | `src/server/modules/generations/` + `src/web/features/gallery/` (new). Can start while step 4 is still running, since 4 stays inside its Vercel adapter | — |
 | 5 | 6 | `src/web/features/generate/` + `src/web/features/gallery/` + `src/server/modules/generations/` lineage (new). It shares the gallery and generations with step 5, so it runs after it | — |
+| 6 | 7 | `src/server/modules/providers/` catalog + `src/web/features/generate/`. Runs after step 3 (both edit the generate panel and catalog); independent of 4–6 otherwise, so it can move earlier once 3 ships | — |
 
 ## Shipped
 
