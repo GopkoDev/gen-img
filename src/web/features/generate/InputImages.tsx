@@ -111,8 +111,9 @@ export function InputImages({ attachments, range, refused, error, disabled, onAd
           </span>
         </section>
       )}
-      {refused.map((r) => (
-        <p key={r} className="text-destructive text-sm">
+      {refused.map((r, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: the same refusal can repeat (the same file dropped twice)
+        <p key={`${i}-${r}`} className="text-destructive text-sm">
           {r}
         </p>
       ))}

@@ -260,9 +260,11 @@ describe("generations routes", () => {
     const g = seedGeneration(t.db, t.dataDir);
     mkdirSync(join(t.dataDir, "generations", "UNRECORDED"), { recursive: true });
     writeFileSync(join(t.dataDir, "generations", "UNRECORDED", "output-1.png"), "x");
+    writeFileSync(join(t.dataDir, g.images[0]?.path.replace("output-1", "input-9") ?? ""), "stray"); // exists on disk, not recorded
     expect((await t.app.request(`/api/files/${g.images[0]?.path}`)).status).toBe(200);
     for (const p of [
       "generations/UNRECORDED/output-1.png",
+      `generations/${g.id}/input-9.png`,
       "gen-img.db",
       "generations/../gen-img.db",
       "%2e%2e/%2e%2e/etc/passwd",

@@ -66,6 +66,23 @@ describe("GeneratePanel — input images (SCR-01)", () => {
     expect(screen.queryByLabelText("Choose files")).not.toBeInTheDocument();
   });
 
+  it("refuses an oversized file before reading it, and lists repeated refusals separately", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByLabelText("Choose files");
+    const huge = new File([new Uint8Array(11 * 1024 * 1024)], "huge.png", { type: "image/png" });
+    const read = vi.spyOn(huge, "arrayBuffer");
+    await attach(huge);
+    expect(await screen.findByText("huge.png — larger than 10 MB")).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+
+    const bad = new File(["heic"], "x.heic", { type: "image/heic" });
+    await attach(bad, bad);
+    expect(await screen.findAllByText("x.heic — not a supported image")).toHaveLength(2);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    errors.mockRestore();
+  });
+
   it("refuses unsupported files with a reason and keeps the others", async () => {
     renderWithQuery(<GeneratePanel />);
     await screen.findByLabelText("Choose files");
@@ -127,6 +144,21 @@ describe("GeneratePanel — input images (SCR-01)", () => {
       ),
     );
     expect(await screen.findByText("Flagged input")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove a.png" })).toBeInTheDocument();
+  });
+
+  it("keeps the attachments after a successful generation", async () => {
+    m.startGeneration.mockResolvedValue({ job: job({}) });
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByLabelText("Choose files");
+    fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "Again" } });
+    await attach(png("a.png"));
+    await screen.findByRole("button", { name: "Remove a.png" });
+    m.currentJob.mockResolvedValue({ job: job({ status: "succeeded", generationId: "01OK" }) });
+    m.generation.mockResolvedValue(undefined as never);
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    await waitFor(() => expect(m.startGeneration).toHaveBeenCalled());
+    expect(await screen.findByText("Saved to gallery")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove a.png" })).toBeInTheDocument();
   });
 });

@@ -14,6 +14,7 @@ import {
   checkInputFile,
   type FieldErrors,
   type Job,
+  MAX_INPUT_BYTES,
   MAX_INPUT_IMAGES,
   StartGenerationRequest,
 } from "../../../shared/generations";
@@ -125,7 +126,11 @@ export function GeneratePanel() {
     const accepted: Attachment[] = [];
     const reasons: string[] = [];
     for (const file of files) {
-      const checked = checkInputFile(new Uint8Array(await file.arrayBuffer()), file.name);
+      // Refuse oversized files before reading them — a dropped multi-GB video must not be loaded into memory.
+      const checked =
+        file.size > MAX_INPUT_BYTES
+          ? ({ ok: false, message: `${file.name} — larger than 10 MB` } as const)
+          : checkInputFile(new Uint8Array(await file.arrayBuffer()), file.name);
       if (checked.ok) accepted.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
       else reasons.push(checked.message);
     }
