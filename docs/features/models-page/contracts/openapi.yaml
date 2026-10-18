@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: Ukiyo — models-page
+  version: 0.1.0
+  description: >
+    Delta for roadmap step 10 over the step 9 contract (model-picker-preferences/contracts/openapi.yaml). The
+    Models page reads the existing operations — GET /providers, GET /providers/{providerId}/models,
+    GET /providers/{providerId}/price, GET /model-preferences — unchanged. One rule changes (ADR-0029): a
+    PATCH /model-preferences whose named flags are all false is accepted for any model id of a known provider,
+    without checking the provider's catalog, its availability or its key. Every /api route passes the request
+    guard (ADR-0007); errors use the envelope { error: { code, message, details? } }.
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard replaces it
+paths:
+  /model-preferences:
+    patch:
+      operationId: setModelPreference
+      summary: Change one model's favorite and/or hidden flag (step 9) — turning flags off needs no provider (models-page AC-08, AC-12)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetPreferenceRequest" }
+            examples:
+              forget: { value: { provider: openrouter, model: "retired/old-model", favorite: false, hidden: false } }
+              hide: { value: { provider: openrouter, model: "google/gemini-2.5-flash-image", hidden: true } }
+      responses:
+        "200":
+          description: The model's preference after the change (both flags false and updatedAt null when nothing is stored any more)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelPreference" }
+              example: { provider: openrouter, model: "retired/old-model", favorite: false, hidden: false, updatedAt: null }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { description: "NOT_FOUND — unknown provider (any write), or a model the provider doesn't offer (only when a flag turns on)", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { description: "PROVIDER_NOT_CONFIGURED — only when a flag turns on", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "502": { description: "PROVIDER_ERROR — the model list couldn't be loaded; only when a flag turns on", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+components:
+  responses:
+    Error:
+      description: VALIDATION_ERROR (400) or FORBIDDEN (403)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+  schemas:
+    ProviderId: { type: string, enum: [openrouter, vercel] }
+    ModelPreference:
+      type: object
+      required: [provider, model, favorite, hidden, updatedAt]
+      properties:
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string, minLength: 1, maxLength: 200 }
+        favorite: { type: boolean }
+        hidden: { type: boolean }
+        updatedAt: { type: [string, "null"], format: date-time }
+    SetPreferenceRequest:
+      type: object
+      required: [provider, model]
+      minProperties: 3
+      additionalProperties: false
+      properties:
+        provider: { type: string, minLength: 1 }
+        model: { type: string, minLength: 1, maxLength: 200 }
+        favorite: { type: boolean }
+        hidden: { type: boolean }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
