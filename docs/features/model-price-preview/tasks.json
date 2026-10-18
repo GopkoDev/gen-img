@@ -10,7 +10,7 @@
       "dod": "unit tests: per-image exact and range estimates incl. input images, rounding up to the cent, \u00ab< $0.01\u00bb, per-token history estimate, unknown \u2192 no estimate",
       "files_hint": ["src/shared/pricing.ts", "src/shared/pricing.test.ts"],
       "file": "docs/features/model-price-preview/tasks/t1-price-shape-and-estimate.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

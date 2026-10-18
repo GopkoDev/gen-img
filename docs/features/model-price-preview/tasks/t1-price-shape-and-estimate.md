@@ -9,8 +9,8 @@ files_hint: ["src/shared/pricing.ts", "src/shared/pricing.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Define the shared price shape and the estimate function
