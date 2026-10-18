@@ -81,3 +81,69 @@ describe("curate-gallery NFRs", () => {
     expect(existsSync(join(t.dataDir, keep.images[0]?.path ?? ""))).toBe(true);
   });
 });
+
+describe("rerun-and-reuse NFRs", () => {
+  let t: ReturnType<typeof createTestApp>;
+  afterEach(() => t?.cleanup());
+
+  it("detail with lineage ≤ 150 ms p95 with 1 000 generations and 50 derived from the opened one", async () => {
+    t = createTestApp();
+    const src = "01NFRL00000000000000000000";
+    t.db.transaction(() => {
+      seedGeneration(t.db, t.dataDir, { id: src });
+      for (let i = 0; i < 999; i++)
+        seedGeneration(t.db, t.dataDir, {
+          id: `01NFRM${String(i).padStart(20, "0")}`,
+          ...(i < 50 ? { sourceId: src, sourceRelation: "rerun" as const } : {}),
+        });
+    })();
+    const runs = await timed(20, async () => expect((await t.app.request(`/api/generations/${src}`)).status).toBe(200));
+    expect(p95(runs)).toBeLessThanOrEqual(150);
+  });
+
+  it("server work before the provider call ≤ 300 ms p95 for 8 stored input images of ≤ 10 MB each", async () => {
+    let sentAt = 0;
+    const models = {
+      data: [
+        {
+          id: "x/editor",
+          name: "Editor",
+          architecture: { output_modalities: ["image"] },
+          supported_parameters: { input_references: { type: "range", min: 0, max: 8 } },
+        },
+      ],
+    };
+    const { fakeFetch } = await import("../../../../tests/helpers/fake-fetch");
+    const fetch = fakeFetch((url) => {
+      if (url.endsWith("/images/models")) return { body: models };
+      sentAt = performance.now();
+      return { status: 503, body: { error: { code: 503, message: "stub" } } };
+    });
+    t = createTestApp({ openRouterApiKey: "k" }, { fetch });
+    const src = seedGeneration(t.db, t.dataDir, { id: "01NFRS00000000000000000000", inputs: 8 });
+    const big = new Uint8Array(10 * 1024 * 1024 - 1024);
+    big.set((await import("../../../../tests/helpers/generations")).TINY_PNG);
+    for (const i of src.inputs) writeFileSync(join(t.dataDir, i.path), big);
+    await t.app.request("/api/providers/openrouter/models"); // warm the catalog cache, as a real panel does
+    const body = {
+      provider: "openrouter",
+      model: "x/editor",
+      prompt: "Again",
+      params: { n: 1 },
+      inputs: src.inputs.map((i) => ({ stored: { generationId: src.id, kind: "input", position: i.position } })),
+    };
+    const runs: number[] = [];
+    for (let r = 0; r < 20; r++) {
+      const t0 = performance.now();
+      expect((await t.app.request("/api/generations", json("POST", body))).status).toBe(202);
+      for (let w = 0; w < 400 && sentAt < t0; w++) await new Promise((res) => setTimeout(res, 1));
+      runs.push(sentAt - t0);
+      for (let w = 0; w < 400; w++) {
+        const job = (await (await t.app.request("/api/generation-job")).json()) as { job: { status: string } | null };
+        if (job.job?.status !== "running") break;
+        await new Promise((res) => setTimeout(res, 2));
+      }
+    }
+    expect(p95(runs)).toBeLessThanOrEqual(300);
+  });
+});

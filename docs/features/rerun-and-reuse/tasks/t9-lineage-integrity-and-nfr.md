@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/lineage-integrity.int.test.ts", "sr
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T9 — Verify derived generations survive source deletion and the NFRs

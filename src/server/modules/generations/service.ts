@@ -205,24 +205,30 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
   async function resolveInputs(slots: InputSlot[] | undefined, files: InputFile[]): Promise<InputFile[]> {
     if (slots === undefined) return files;
     const fields: FieldErrors = {};
-    const out: InputFile[] = [];
     const used = new Set<number>();
-    for (const [i, slot] of slots.entries()) {
-      if ("upload" in slot) {
-        const file = files[slot.upload - 1];
-        if (!file || used.has(slot.upload)) fields.inputs = "Every attached file must be used once";
-        else {
+    // Stored files are read in parallel; the order of `slots` is kept.
+    const resolved = await Promise.all(
+      slots.map(async (slot, i): Promise<InputFile | null> => {
+        if ("upload" in slot) {
+          const file = files[slot.upload - 1];
+          if (!file || used.has(slot.upload)) {
+            fields.inputs = "Every attached file must be used once";
+            return null;
+          }
           used.add(slot.upload);
-          out.push(file);
+          return file;
         }
-        continue;
-      }
-      const { generationId, kind, position } = slot.stored;
-      const rec = deps.repo.storedImage(generationId, kind, position);
-      const bytes = rec ? await deps.files.readRecorded(rec.path).catch(() => null) : null;
-      if (!rec || !bytes) fields[`inputs.${i + 1}`] = NOT_STORED;
-      else out.push({ bytes, name: rec.name });
-    }
+        const { generationId, kind, position } = slot.stored;
+        const rec = deps.repo.storedImage(generationId, kind, position);
+        const bytes = rec ? await deps.files.readRecorded(rec.path).catch(() => null) : null;
+        if (!rec || !bytes) {
+          fields[`inputs.${i + 1}`] = NOT_STORED;
+          return null;
+        }
+        return { bytes, name: rec.name };
+      }),
+    );
+    const out = resolved.filter((f): f is InputFile => f !== null);
     if (used.size !== files.length) fields.inputs = "Every attached file must be used once";
     if (Object.keys(fields).length) throw invalid(fields);
     return out;

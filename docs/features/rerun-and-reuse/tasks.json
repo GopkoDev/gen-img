@@ -125,7 +125,7 @@
         "src/server/modules/generations/nfr.int.test.ts"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t9-lineage-integrity-and-nfr.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

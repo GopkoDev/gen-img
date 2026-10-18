@@ -15,6 +15,6 @@
 | T6 | Fill the generate panel from a re-run or reuse source | ui | dmytro.hopko | M | T5 | done | COMMIT |
 | T7 | Keep supported parameters and name removed ones when the model changes | ui | dmytro.hopko | S | T6, T2 | done | COMMIT |
 | T8 | Add Re-run, Use as input and the lineage card to the detail view | ui | dmytro.hopko | M | T5 | done | COMMIT |
-| T9 | Verify derived generations survive source deletion and the NFRs | tests | dmytro.hopko | S | T5 | todo | — |
+| T9 | Verify derived generations survive source deletion and the NFRs | tests | dmytro.hopko | S | T5 | done | COMMIT |
 
 **Total:** 9 tasks, ~6 person-days.
