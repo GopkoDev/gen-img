@@ -55,14 +55,12 @@ paths:
               properties:
                 request:
                   type: string
-                  description: JSON-encoded StartGenerationRequest
+                  description: JSON-encoded StartGenerationRequest, sent as a plain text form field
                 inputs:
                   type: array
                   maxItems: 8
                   description: input images in attach order — PNG, JPEG, WebP or GIF, each ≤ 10 485 760 bytes; count within the model's params.inputs range
                   items: { type: string, format: binary }
-            encoding:
-              request: { contentType: application/json }
       responses:
         "202":
           description: Job accepted and running
