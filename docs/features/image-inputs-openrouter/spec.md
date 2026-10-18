@@ -66,23 +66,23 @@ Committed approach: extend the existing generation flow — the generate form ga
 
 **Given** the Owner has chosen a model that accepts input images and attached two supported images
 **When** the Owner writes a prompt and generates
-**Then** the generation is saved with copies of both input images, and its detail view shows the inputs in the order they were attached next to the outputs
+**Then** the generation is saved with copies of both input images, and its detail view shows the inputs in the order they were attached (no reordering in this slice — remove and re-attach to change it) next to the outputs; after success the attachments and the prompt stay in the form so the Owner can iterate, until the Owner removes them
 
 ### AC-02 (US-02) — happy path
 
 **Given** the Owner opens the generate form
 **When** the Owner chooses a model
-**Then** the form offers an input-images area only if the model accepts input images, states how many it accepts (e.g. «up to 4», «1 to 10»), and hides it for text-only models
+**Then** the form offers an input-images area only if the model accepts input images, states how many it accepts (e.g. «up to 4», «1 to 8»), and hides it for text-only models; gen-img caps any model at 8 input images per generation even when the model lists more
 
 ### AC-03 (US-01) — error
 
 **Given** the Owner attaches files
-**When** a file is not a PNG, JPEG, WebP or GIF picture (e.g. HEIC, PDF, a broken file) or is larger than 10 MB
-**Then** the system refuses that file with the reason («not a supported image», «larger than 10 MB»), keeps the other attachments, and nothing is sent
+**When** a file is not a PNG, JPEG, WebP or GIF picture (e.g. HEIC, PDF, a broken file) or is larger than 10 MB (10 × 1024 × 1024 bytes)
+**Then** the system refuses that file with the reason («not a supported image», «larger than 10 MB»), keeps the other attachments, and nothing is sent; the same file may be attached twice and then counts twice
 
 ### AC-04 (US-02) — error
 
-**Given** the chosen model accepts at most N input images
+**Given** the chosen model accepts at most N input images (N = the smaller of the model's maximum and 8)
 **When** the Owner attaches more than N and tries to generate
 **Then** the system blocks the request and tells the Owner the model takes at most N input images
 
@@ -108,7 +108,7 @@ Committed approach: extend the existing generation flow — the generate form ga
 
 **Given** the Owner has attached images and then switches to another model
 **When** the new model accepts fewer input images or none at all
-**Then** the form keeps the attachments, marks the ones the new model can't take, and blocks generating until the Owner removes them or switches back
+**Then** the form keeps the attachments, marks the ones beyond the new model's maximum (the last-attached first; all of them when the model takes none), and blocks generating until the Owner removes them or switches back
 
 ### AC-09 (US-01) — error
 
@@ -120,7 +120,7 @@ Committed approach: extend the existing generation flow — the generate form ga
 
 **Given** some generations were made with input images
 **When** the Owner browses the gallery
-**Then** those tiles show how many input images went in, and text-only generations show no such hint
+**Then** those tiles show a small «N inputs» hint, and text-only generations show no such hint
 
 ### AC-11 (US-01) — cross-context
 
@@ -132,7 +132,7 @@ Committed approach: extend the existing generation flow — the generate form ga
 
 | Aspect | Target | Measurement |
 |---|---|---|
-| Input image size | ≤ 10 MB per image; count limited by the model's catalog range | unit + web tests |
+| Input image size and count | ≤ 10 MB (10 × 1024 × 1024 bytes) per image; count within the model's catalog range and ≤ 8 | unit + web + integration tests |
 | Local overhead with inputs (excluding provider time) | ≤ 1 000 ms p95 for 4 input images of 10 MB + 4 output images of 5 MB | integration test with a stubbed provider |
 | Detail view with inputs | ≤ 150 ms p95 server time | integration test over a seeded data dir |
 | Raw request size in metadata | 0 bytes of embedded input image data in the stored raw request | integration test asserts no data-URL payload remains |
