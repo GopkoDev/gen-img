@@ -9,8 +9,8 @@ files_hint: ["vitest.config.ts", "src/web/features/models/ModelsPage.nfr.test.ts
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

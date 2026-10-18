@@ -12,6 +12,6 @@
 | T3 | Describe a model's supported parameters for the table | domain | dmytro.hopko | S | — | done | COMMIT |
 | T4 | Build the Models page section | ui | dmytro.hopko | L | T1, T2, T3 | done | COMMIT |
 | T5 | Say in the generate form when the suitable models are hidden | ui | dmytro.hopko | S | T2 | done | COMMIT |
-| T6 | Measure the Models page rendering in a serial web timing project | tests | dmytro.hopko | S | T4 | todo | — |
+| T6 | Measure the Models page rendering in a serial web timing project | tests | dmytro.hopko | S | T4 | done | COMMIT |
 
 **Total:** 6 tasks, ~4 person-days.

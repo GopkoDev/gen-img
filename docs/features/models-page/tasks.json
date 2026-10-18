@@ -90,7 +90,7 @@
       "dod": "nfr-web project runs alone and last; 20 renders of 100 rows ≤ 300 ms p95",
       "files_hint": ["vitest.config.ts", "src/web/features/models/ModelsPage.nfr.test.tsx", "CLAUDE.md"],
       "file": "docs/features/models-page/tasks/t6-models-page-timing.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }
