@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/routes.ts", "src/server/modules/gen
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T5 — Expose stored-image inputs and lineage through the routes

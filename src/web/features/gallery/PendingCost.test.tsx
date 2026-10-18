@@ -39,6 +39,8 @@ const gen = (over: Partial<Generation> = {}): Generation => ({
   rawResponse: {},
   tags: [],
   comment: null,
+  source: null,
+  derived: { items: [], total: 0 },
   ...over,
 });
 

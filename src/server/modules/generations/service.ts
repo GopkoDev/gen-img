@@ -317,6 +317,8 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     dismissJob: () => deps.jobs.dismiss(),
     list: (q: { cursor?: string; limit: number }) => deps.repo.listPage(q),
     get: (id: string) => deps.repo.get(id),
+    exists: (id: string) => deps.repo.exists(id),
+    derivedOf: (id: string) => deps.repo.derivedOf(id),
     recordedImage: (path: string) => deps.repo.recordedImage(path),
     sweepOnBoot: () => deps.files.sweep(new Set(deps.repo.allIds())),
     /** Resolves when the in-flight job (if any) has finished — for tests and graceful shutdown. */

@@ -125,11 +125,17 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
   app.get("/generations/:id", (c) => {
     const g = service.get(c.req.param("id"));
     if (!g) throw new AppError("NOT_FOUND", "Generation not found", 404);
+    const { sourceId, sourceRelation, sourceOutput, costRef: _ref, ...rest } = g;
     return c.json({
-      ...g,
+      ...rest,
       provider: ProviderId.parse(g.provider),
       images: g.images.map(toImage),
       inputs: g.inputs.map(toInput),
+      source:
+        sourceId && sourceRelation
+          ? { id: sourceId, relation: sourceRelation, output: sourceOutput, exists: service.exists(sourceId) }
+          : null,
+      derived: service.derivedOf(g.id),
     } satisfies Generation);
   });
 

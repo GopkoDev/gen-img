@@ -46,6 +46,8 @@ const gen = (): Generation => ({
   rawResponse: {},
   tags: [],
   comment: null,
+  source: null,
+  derived: { items: [], total: 0 },
 });
 
 describe("Delete a generation (SCR-03)", () => {

@@ -35,6 +35,8 @@ const gen = (over: Partial<Generation> = {}): Generation => ({
   rawResponse: { data: [{ b64_json: { $file: "generations/01X/output-1.png" } }] },
   tags: [],
   comment: null,
+  source: null,
+  derived: { items: [], total: 0 },
   ...over,
 });
 

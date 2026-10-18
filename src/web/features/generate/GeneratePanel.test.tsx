@@ -208,6 +208,8 @@ describe("GeneratePanel (SCR-01)", () => {
       rawResponse: {},
       tags: [],
       comment: null,
+      source: null,
+      derived: { items: [], total: 0 },
     });
     renderWithQuery(<GeneratePanel />);
     expect(await screen.findByText("Saved to gallery")).toBeInTheDocument();

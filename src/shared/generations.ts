@@ -234,6 +234,9 @@ export const Generation = z.object({
   rawResponse: z.unknown(),
   tags: z.array(Tag),
   comment: Comment.nullable(),
+  /** Lineage, one level each way (ADR-0018). */
+  source: LineageSource.nullable(),
+  derived: DerivedList,
 });
 export type Generation = z.infer<typeof Generation>;
 
