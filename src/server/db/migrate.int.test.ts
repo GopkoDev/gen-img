@@ -19,15 +19,47 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001"]);
-    expect(appliedVersions(db)).toEqual(["0001"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0002");
     expect(migrateDown(db)?.version).toBe("0001");
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002"]);
+  });
+
+  it("0002_create_generations enforces the generation invariants and reverts cleanly", () => {
+    migrateUp(db);
+    const insert = db.prepare(
+      `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
+         cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response)
+       VALUES (@id, 'openrouter', 'm', @prompt, '{}', NULL, 1, @cost, @status, '2026-10-18T00:00:00.000Z', 10, '{}', '{}')`,
+    );
+    insert.run({ id: "01A", prompt: "ok", cost: 40000, status: "known" });
+    insert.run({ id: "01B", prompt: "ok", cost: null, status: "unavailable" });
+    expect(() => insert.run({ id: "01C", prompt: "   ", cost: null, status: "unavailable" })).toThrow(/CHECK/);
+    expect(() => insert.run({ id: "01D", prompt: "ok", cost: null, status: "known" })).toThrow(/CHECK/);
+    expect(() => insert.run({ id: "01E", prompt: "ok", cost: 1, status: "free" })).toThrow(/CHECK/);
+
+    const img = db.prepare(
+      `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
+       VALUES (?, 1, 'generations/x/output-1.png', ?, 1, 1, 1)`,
+    );
+    img.run("01A", "image/png");
+    expect(() => img.run("01B", "image/svg+xml")).toThrow(/CHECK/);
+    expect(() => img.run("nope", "image/png")).toThrow(/FOREIGN KEY/);
+    db.prepare("DELETE FROM generations WHERE id = '01A'").run();
+    expect(db.prepare("SELECT count(*) FROM generation_images").pluck().get()).toBe(0);
+
+    migrateDown(db);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'generation%'")
+      .pluck()
+      .all();
+    expect(tables).toEqual([]);
   });
 
   it("runs up/down SQL and reverts only the latest migration", () => {

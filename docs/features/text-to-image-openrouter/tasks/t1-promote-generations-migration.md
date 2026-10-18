@@ -9,8 +9,8 @@ files_hint: ["docs/features/text-to-image-openrouter/migrations/01_create_genera
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Promote the generations migration into the live tree

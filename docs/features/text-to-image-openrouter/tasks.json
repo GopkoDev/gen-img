@@ -6,10 +6,7 @@
       "title": "Promote the generations migration into the live tree",
       "layer": "migration",
       "deps": [],
-      "acs": [
-        "AC-02",
-        "AC-08"
-      ],
+      "acs": ["AC-02", "AC-08"],
       "dod": "migration 0002_create_generations applies and reverts cleanly in an integration test",
       "files_hint": [
         "docs/features/text-to-image-openrouter/migrations/01_create_generations.up.sql",
@@ -17,17 +14,14 @@
         "migrations/"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t1-promote-generations-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
       "title": "Implement generation domain rules: validation, params, cost conversion",
       "layer": "domain",
       "deps": [],
-      "acs": [
-        "AC-05",
-        "AC-07"
-      ],
+      "acs": ["AC-05", "AC-07"],
       "dod": "unit tests cover prompt/model/n validation against model support and USD\u2192micro-USD conversion incl. fractional cents and missing cost",
       "files_hint": [
         "src/server/modules/generations/domain.ts",
@@ -42,15 +36,9 @@
       "title": "Detect usable images: media type and dimensions from bytes",
       "layer": "domain",
       "deps": [],
-      "acs": [
-        "AC-06",
-        "AC-09"
-      ],
+      "acs": ["AC-06", "AC-09"],
       "dod": "unit tests: PNG/JPEG/WebP(VP8/VP8L/VP8X)/GIF bytes return media type + width/height; empty, truncated or other formats return null",
-      "files_hint": [
-        "src/server/modules/providers/image-sniff.ts",
-        "src/server/modules/providers/image-sniff.test.ts"
-      ],
+      "files_hint": ["src/server/modules/providers/image-sniff.ts", "src/server/modules/providers/image-sniff.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t3-image-sniffing.md",
       "status": "todo"
     },
@@ -58,16 +46,8 @@
       "id": "T4",
       "title": "Define the ImageProvider port and build the OpenRouter adapter",
       "layer": "infra",
-      "deps": [
-        "T3"
-      ],
-      "acs": [
-        "AC-03",
-        "AC-06",
-        "AC-09",
-        "AC-10",
-        "AC-14"
-      ],
+      "deps": ["T3"],
+      "acs": ["AC-03", "AC-06", "AC-09", "AC-10", "AC-14"],
       "dod": "adapter unit tests against recorded fixtures: catalog mapping, success with 1..n images, missing cost, refusal statuses, zero usable images, timeout via abort signal, redaction (no key, b64 \u2192 placeholders)",
       "files_hint": [
         "src/server/modules/providers/port.ts",
@@ -84,15 +64,9 @@
       "title": "Build the file store: stage, commit, discard, sweep, recorded reads",
       "layer": "infra",
       "deps": [],
-      "acs": [
-        "AC-08",
-        "AC-12"
-      ],
+      "acs": ["AC-08", "AC-12"],
       "dod": "integration tests on a temp data dir: staged files invisible until commit; commit is a sync rename; discard removes staging + moved dir; sweep removes .staging/* and dirs not in the known-id set; read rejects any path not passed as recorded",
-      "files_hint": [
-        "src/server/modules/storage/file-store.ts",
-        "src/server/modules/storage/file-store.int.test.ts"
-      ],
+      "files_hint": ["src/server/modules/storage/file-store.ts", "src/server/modules/storage/file-store.int.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t5-file-store.md",
       "status": "todo"
     },
@@ -100,17 +74,8 @@
       "id": "T6",
       "title": "Write the generations repo: atomic insert, gallery page, detail, recorded path lookup",
       "layer": "infra",
-      "deps": [
-        "T1",
-        "T2"
-      ],
-      "acs": [
-        "AC-02",
-        "AC-04",
-        "AC-07",
-        "AC-16",
-        "AC-18"
-      ],
+      "deps": ["T1", "T2"],
+      "acs": ["AC-02", "AC-04", "AC-07", "AC-16", "AC-18"],
       "dod": "integration tests: insert + read back round-trips every field through zod; page of 24 newest first with nextCursor; detail; isRecordedPath; insert inside transaction rolls back when the commit callback throws",
       "files_hint": [
         "src/server/modules/generations/repo.ts",
@@ -124,18 +89,8 @@
       "id": "T7",
       "title": "Run generations as a single-slot job and save results atomically",
       "layer": "app",
-      "deps": [
-        "T4",
-        "T5",
-        "T6"
-      ],
-      "acs": [
-        "AC-01",
-        "AC-06",
-        "AC-08",
-        "AC-16",
-        "AC-17"
-      ],
+      "deps": ["T4", "T5", "T6"],
+      "acs": ["AC-01", "AC-06", "AC-08", "AC-16", "AC-17"],
       "dod": "integration tests with a fake provider: start \u2192 running \u2192 succeeded with saved generation; second start while running \u2192 GENERATION_IN_PROGRESS; provider error / 0 images / timeout \u2192 failed with reason and nothing saved; storage failure (stage or commit) \u2192 failed, no rows, no files; partial (2 of 4) saved; failure notice persists across a new service instance until dismiss",
       "files_hint": [
         "src/server/modules/generations/jobs.ts",
@@ -151,10 +106,7 @@
       "title": "Guard every API request by Host, Origin and Fetch Metadata",
       "layer": "wiring",
       "deps": [],
-      "acs": [
-        "AC-11",
-        "AC-19"
-      ],
+      "acs": ["AC-11", "AC-19"],
       "dod": "unit tests over the header matrix + an integration test that a cross-site request to /api/health is refused with FORBIDDEN and a same-origin one passes",
       "files_hint": [
         "src/server/lib/request-guard.ts",
@@ -169,14 +121,8 @@
       "id": "T9",
       "title": "Expose providers and the cached model catalog",
       "layer": "ports",
-      "deps": [
-        "T4"
-      ],
-      "acs": [
-        "AC-03",
-        "AC-13",
-        "AC-14"
-      ],
+      "deps": ["T4"],
+      "acs": ["AC-03", "AC-13", "AC-14"],
       "dod": "integration tests via app.request(): providers list shows configured flag; models list maps the fixture, is cached for 10 min (injected clock), 409 when not configured, 502 PROVIDER_ERROR when the catalog fails",
       "files_hint": [
         "src/server/modules/providers/routes.ts",
@@ -190,21 +136,8 @@
       "id": "T10",
       "title": "Expose generations, job and file routes and wire the app",
       "layer": "ports",
-      "deps": [
-        "T7",
-        "T8",
-        "T9"
-      ],
-      "acs": [
-        "AC-01",
-        "AC-02",
-        "AC-04",
-        "AC-05",
-        "AC-12",
-        "AC-15",
-        "AC-17",
-        "AC-18"
-      ],
+      "deps": ["T7", "T8", "T9"],
+      "acs": ["AC-01", "AC-02", "AC-04", "AC-05", "AC-12", "AC-15", "AC-17", "AC-18"],
       "dod": "integration tests via app.request() with a fixture-backed provider: start 202 \u2192 job polling \u2192 detail with all fields; validation 400 with details.fields; 409 in progress; list paging + empty; detail 404; file 200 for recorded path, 404 for unrecorded / traversal; boot sweep runs on createApp",
       "files_hint": [
         "src/server/modules/generations/routes.ts",
@@ -221,12 +154,8 @@
       "id": "T11",
       "title": "Add the typed web API client and the two-route router",
       "layer": "ui",
-      "deps": [
-        "T10"
-      ],
-      "acs": [
-        "AC-18"
-      ],
+      "deps": ["T10"],
+      "acs": ["AC-18"],
       "dod": "web tests: router renders home at / and detail at /generations/:id, navigate() pushes history and popstate re-renders; formatCost renders micro-USD and \u00abunavailable\u00bb",
       "files_hint": [
         "src/web/lib/api.ts",
@@ -242,24 +171,10 @@
       "id": "T12",
       "title": "Build the generate panel (SCR-01) in all its states",
       "layer": "ui",
-      "deps": [
-        "T11"
-      ],
-      "acs": [
-        "AC-01",
-        "AC-03",
-        "AC-05",
-        "AC-06",
-        "AC-08",
-        "AC-13",
-        "AC-14",
-        "AC-17"
-      ],
+      "deps": ["T11"],
+      "acs": ["AC-01", "AC-03", "AC-05", "AC-06", "AC-08", "AC-13", "AC-14", "AC-17"],
       "dod": "web tests (mocked api): not-configured state; models loading/error+retry; only supported params shown; client validation messages; generating locks the form; failure panel with provider reason + dismiss keeps prompt; success shows latest result; running job from another tab shows \u00abin progress\u00bb",
-      "files_hint": [
-        "src/web/features/generate/",
-        "src/web/features/generate/GeneratePanel.test.tsx"
-      ],
+      "files_hint": ["src/web/features/generate/", "src/web/features/generate/GeneratePanel.test.tsx"],
       "file": "docs/features/text-to-image-openrouter/tasks/t12-generate-panel-ui.md",
       "status": "todo"
     },
@@ -267,19 +182,10 @@
       "id": "T13",
       "title": "Build the gallery (SCR-02) with paging and empty state",
       "layer": "ui",
-      "deps": [
-        "T11"
-      ],
-      "acs": [
-        "AC-04",
-        "AC-15",
-        "AC-18"
-      ],
+      "deps": ["T11"],
+      "acs": ["AC-04", "AC-15", "AC-18"],
       "dod": "web tests (mocked api): empty state CTA; tiles show prompt excerpt, provider \u00b7 model badge, relative time; Load more appends next page and hides when nextCursor null; error + retry",
-      "files_hint": [
-        "src/web/features/gallery/Gallery.tsx",
-        "src/web/features/gallery/Gallery.test.tsx"
-      ],
+      "files_hint": ["src/web/features/gallery/Gallery.tsx", "src/web/features/gallery/Gallery.test.tsx"],
       "file": "docs/features/text-to-image-openrouter/tasks/t13-gallery-ui.md",
       "status": "todo"
     },
@@ -287,17 +193,8 @@
       "id": "T14",
       "title": "Build the generation detail page (SCR-03)",
       "layer": "ui",
-      "deps": [
-        "T11"
-      ],
-      "acs": [
-        "AC-02",
-        "AC-07",
-        "AC-09",
-        "AC-10",
-        "AC-16",
-        "AC-18"
-      ],
+      "deps": ["T11"],
+      "acs": ["AC-02", "AC-07", "AC-09", "AC-10", "AC-16", "AC-18"],
       "dod": "web tests (mocked api): all metadata rows; cost \u00abunavailable\u00bb never $0; requested vs \u00ab2 of 4 received\u00bb with dimensions; accepted \u00abnot reported\u00bb; raw exchange labelled redacted; not-found state",
       "files_hint": [
         "src/web/features/gallery/GenerationDetail.tsx",
@@ -310,16 +207,10 @@
       "id": "T15",
       "title": "Verify the performance and durability NFRs",
       "layer": "tests",
-      "deps": [
-        "T10"
-      ],
-      "acs": [
-        "AC-08"
-      ],
+      "deps": ["T10"],
+      "acs": ["AC-08"],
       "dod": "NFR integration tests pass: gallery page p95 \u2264 300 ms with 1 000 seeded generations; detail p95 \u2264 150 ms; local overhead p95 \u2264 500 ms for 4 \u00d7 5 MB with a stubbed provider; restart with leftover staging/orphan dirs leaves only complete generations; stored raw response has no base64 payload and no key",
-      "files_hint": [
-        "tests/nfr.int.test.ts"
-      ],
+      "files_hint": ["tests/nfr.int.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t15-nfr-integration-tests.md",
       "status": "todo"
     }

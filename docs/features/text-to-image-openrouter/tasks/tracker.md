@@ -7,7 +7,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | Promote the generations migration into the live tree | migration | dmytro.hopko | S | — | todo | — |
+| T1 | Promote the generations migration into the live tree | migration | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Implement generation domain rules: validation, params, cost conversion | domain | dmytro.hopko | S | — | todo | — |
 | T3 | Detect usable images: media type and dimensions from bytes | domain | dmytro.hopko | S | — | todo | — |
 | T4 | Define the ImageProvider port and build the OpenRouter adapter | infra | dmytro.hopko | M | T3 | todo | — |
