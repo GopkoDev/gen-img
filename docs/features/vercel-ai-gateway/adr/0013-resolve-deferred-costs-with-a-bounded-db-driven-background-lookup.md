@@ -19,7 +19,7 @@ Vercel states a generation's price only through a later lookup (`GET /v1/generat
 
 ## Decision drivers
 
-- Spec AC-05/AC-06/AC-07; spec §6 lookup bounds (≤ 8 lookups, 5 s → 60 s backoff, 10 min deadline).
+- Spec AC-05/AC-06/AC-07; spec §6 lookup bounds (≤ 8 lookups, 5 s → 60 s backoff, the last one at the 10 min deadline — amended after the independent review, since the backoff alone ends at ~5¼ min).
 - ADR-0005: the job slot must free as soon as images are saved.
 - ADR-0002/0004: `generations` must stay provider-agnostic.
 
