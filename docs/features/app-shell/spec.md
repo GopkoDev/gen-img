@@ -128,7 +128,7 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 | Section switch | the new section's page is shown ≤ 100 ms after the click on a warm app (no full page load) | component test asserts no document reload + manual check at ship |
 | Draft survival | 100 % of draft fields (prompt, model, parameters, attachments) intact after Generate → Gallery → Generate | component test |
 | Adding a section | one declaration in one place adds the entry, its address and its page; no edit to the navigation bar itself | unit test over the section list + review |
-| Server load | switching sections makes no request that the shown page would not make anyway; no extra polling for the running-generation indicator | component test counts job requests |
+| Server load | switching sections makes no new request for a page already visited, and the running-generation indicator adds no requests of its own (one poller only) | component test counts job requests |
 
 ## 6.1 Security / privacy
 
