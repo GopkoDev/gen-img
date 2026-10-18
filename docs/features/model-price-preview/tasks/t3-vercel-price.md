@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/vercel.ts", "src/server/modules/provi
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Map Vercel's inline model-list pricing to the price shape

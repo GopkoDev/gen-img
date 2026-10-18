@@ -41,7 +41,7 @@
         "tests/fixtures/vercel/"
       ],
       "file": "docs/features/model-price-preview/tasks/t3-vercel-price.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

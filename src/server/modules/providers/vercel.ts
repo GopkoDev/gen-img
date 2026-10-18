@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import type { ModelPrice } from "../../../shared/pricing";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
 import { jsonWithImageRefs, toDataUrl } from "./inline-json";
@@ -26,7 +27,32 @@ const CatalogEntry = z.looseObject({
   modalities: z
     .looseObject({ input: z.array(z.string()).optional(), output: z.array(z.string()).optional() })
     .optional(),
+  pricing: z.looseObject({}).optional(),
 });
+
+const usd = (v: unknown): number | null => {
+  const n = typeof v === "string" || typeof v === "number" ? Number(v) : Number.NaN;
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+const SizePrice = z.looseObject({ size: z.string(), cost: z.unknown() });
+
+/** Vercel list pricing → ModelPrice (SAD §8). gen-img sends no size, so the default per-image price applies. */
+function toPrice(pricing: Record<string, unknown> | undefined): ModelPrice {
+  if (!pricing) return { kind: "unknown" };
+  const image = usd(pricing.image);
+  if (image !== null) return { kind: "per-image", output: { minUsd: image, maxUsd: image }, input: null };
+  const sizes = (Array.isArray(pricing.image_dimension_quality_pricing) ? pricing.image_dimension_quality_pricing : [])
+    .flatMap((e) => SizePrice.safeParse(e).data ?? [])
+    .flatMap((e) => (usd(e.cost) === null ? [] : [{ size: e.size, cost: usd(e.cost) as number }]));
+  const def = sizes.find((e) => e.size === "default");
+  if (def) return { kind: "per-image", output: { minUsd: def.cost, maxUsd: def.cost }, input: null };
+  if (sizes.length) {
+    const costs = sizes.map((e) => e.cost);
+    return { kind: "per-image", output: { minUsd: Math.min(...costs), maxUsd: Math.max(...costs) }, input: null };
+  }
+  if (usd(pricing.output) !== null || usd(pricing.input) !== null) return { kind: "per-token" };
+  return { kind: "unknown" };
+}
 const Catalog = z.looseObject({ data: z.array(CatalogEntry) });
 const ImagesAnswer = z.looseObject({
   id: z.string().optional(),
@@ -95,6 +121,8 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
     return { status: res.status, body };
   }
 
+  const prices = new Map<string, ModelPrice>(); // from the same public listing as the models (ADR-0020)
+
   async function listModels(signal?: AbortSignal): Promise<ImageModel[]> {
     // The catalog is public: no key is sent (Vercel REST reference, «No authentication required»).
     const parsed = Catalog.safeParse((await call(`${BASE}/models`, { signal })).body);
@@ -104,6 +132,7 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
       const kind = kindOf(entry);
       if (!kind) continue;
       kinds.set(entry.id, kind);
+      prices.set(entry.id, toPrice(entry.pricing));
       models.push(toModel(entry, kind));
     }
     return models;
@@ -148,6 +177,11 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
     configured: Boolean(opts.apiKey),
     listModels,
     lookupCost,
+
+    async priceOf(modelId, signal) {
+      if (!prices.has(modelId)) await listModels(signal); // one refresh for a model the listing didn't have
+      return prices.get(modelId) ?? { kind: "unknown" };
+    },
 
     async generate(input: GenerateInput, signal: AbortSignal): Promise<GenerationResult> {
       if (!opts.apiKey) throw fail(null, "Vercel AI Gateway is not configured");
