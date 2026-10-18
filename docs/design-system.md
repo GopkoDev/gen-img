@@ -42,11 +42,14 @@ updated_at: "2026-10-18"
 | Input | `src/web/components/ui/input.tsx:20` | default / focus / disabled / invalid (`aria-invalid`) | |
 | Select | `src/web/components/ui/select.tsx:150` | closed / open / disabled / invalid | short fixed option lists |
 | Textarea | `src/web/components/ui/textarea.tsx:17` | default / focus / disabled / invalid (`aria-invalid`) | prompt entry |
+| NavBar | `src/web/components/NavBar.tsx:9` | default / current entry (`aria-current`) / section indicator (generation running, failed) / narrow (top row below `md`) | app frame; entries come from `SECTIONS` |
+| NotFound | `src/web/components/NotFound.tsx:5` | default | unknown in-app address |
 
 ## Interaction & writing conventions
 
 - **Errors:** inline — a field error under its field; a request-level error as a destructive-tinted panel above the form's submit button. No toasts.
 - **Empty states:** plain text + one call-to-action button.
+- **Navigation:** a left navigation bar lists the sections (≥ `md`; a top row below); the current section is marked with `aria-current="page"` + accent background; the tab title is «<Section> · Ukiyo».
 - **Loading:** a muted «Loading…» line for lists/details; an in-button spinner + disabled form for in-flight actions.
 - **Validation:** on submit; errors attach to fields via `aria-invalid` + a message line under the field.
 - **Microcopy tone:** short, plain, no exclamation marks; say what happened and what to do next.
