@@ -152,6 +152,18 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     expect(screen.getByRole("button", { name: "Remove cat.png" })).toBeInTheDocument();
   });
 
+  it("carries the source's parameters over to the replacement model, names what was dropped, and can generate", async () => {
+    setup([EDITOR], "/?rerun=01SRC"); // x/seedy is gone; Editor takes inputs but no seed / aspect ratio, 1 image
+    expect(await screen.findByText(/The original model x\/seedy isn't available/)).toBeInTheDocument();
+    expect(await screen.findByText(/Not supported by this model: .*seed/)).toBeInTheDocument();
+    expect(screen.getByText(/Images lowered to 1/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled());
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Generate" })));
+    await waitFor(() =>
+      expect(m.startGeneration).toHaveBeenCalledWith(expect.objectContaining({ model: "x/editor", params: { n: 1 } })),
+    );
+  });
+
   it("says the source no longer exists when it can't be loaded", async () => {
     setup([SEEDY], "/?rerun=01GONE", async () => {
       throw new ApiError(404, "NOT_FOUND", "Generation not found");
@@ -171,6 +183,9 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Generate" })));
     expect(await screen.findByText("The source generation no longer exists.")).toBeInTheDocument();
+    // its stored images can't be sent any more — they are taken off the draft and that is said
+    expect(screen.queryByRole("button", { name: "Remove cat.png" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Images from the deleted source were removed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove the link" }));
     expect(screen.queryByText("The source generation no longer exists.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Re-run of/)).not.toBeInTheDocument();

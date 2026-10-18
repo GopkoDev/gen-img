@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
+import { jsonWithImageRefs, toDataUrl } from "./inline-json";
 import {
   type CostLookup,
   type GenerateInput,
@@ -157,18 +158,18 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
       const inputs = input.inputs ?? [];
       const headers = { authorization: `Bearer ${opts.apiKey}`, "content-type": "application/json" };
       const post = (path: string, body: unknown) =>
-        call(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body), signal });
+        call(`${BASE}${path}`, {
+          method: "POST",
+          headers,
+          body: typeof body === "string" ? body : JSON.stringify(body),
+          signal,
+        });
       const images: ProviderImage[] = [];
 
       // Route per ADR-0012: attached images → edits (D5 default), else the model kind decides.
       if (inputs.length) {
         const base = { model: input.model, prompt: input.prompt, n: input.params.n, response_format: "b64_json" };
-        const body = {
-          ...base,
-          images: inputs.map((img) => ({
-            image_url: `data:${img.mediaType};base64,${Buffer.from(img.bytes).toString("base64")}`,
-          })),
-        };
+        const body = jsonWithImageRefs(base, "images", inputs.map(toDataUrl), (url) => ({ image_url: url }));
         const answer = ImagesAnswer.safeParse((await post("/images/edits", body)).body);
         if (!answer.success) throw fail(200, "Vercel AI Gateway returned an unexpected answer");
         const data = answer.data.data.map((d) => ({

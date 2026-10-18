@@ -33,7 +33,10 @@ describe("generations service — re-run and reuse from stored images", () => {
   });
   afterEach(() => t.cleanup());
 
-  function build(generate: ImageProvider["generate"] = async () => result()) {
+  function build(
+    generate: ImageProvider["generate"] = async () => result(),
+    files: ReturnType<typeof createFileStore> = createFileStore(t.dataDir),
+  ) {
     const calls: GenerateInput[] = [];
     const provider: ImageProvider = {
       id: "openrouter",
@@ -51,7 +54,7 @@ describe("generations service — re-run and reuse from stored images", () => {
       providers: registry,
       catalog: createModelCatalog(registry),
       repo,
-      files: createFileStore(t.dataDir),
+      files,
       jobs: createJobSlot(t.dataDir),
       costSync: { track: vi.fn(), forget: vi.fn() },
       timeoutMs: 180_000,
@@ -132,24 +135,38 @@ describe("generations service — re-run and reuse from stored images", () => {
         details: { fields: { "inputs.1": "Not an image stored by gen-img" } },
       });
     }
-    // recorded row whose file vanished (e.g. a deletion in flight) → same answer
+    // a recorded image whose file vanished means its generation is being deleted (sad §11) — say so
     const { rmSync } = await import("node:fs");
     rmSync(join(t.dataDir, src.images[0]?.path ?? ""));
     await expect(svc.startGenerationChecked(body({ inputs: [stored(src.id, "output", 1)] }))).rejects.toMatchObject({
-      details: { fields: { "inputs.1": "Not an image stored by gen-img" } },
+      details: { fields: { "inputs.1": "The source generation no longer exists" } },
     });
     expect(calls).toHaveLength(0);
   });
 
-  it("refuses an output that can't be an input (larger than 10 MB)", async () => {
+  it("refuses an output that can't be an input (larger than 10 MB) without reading it", async () => {
     const src = seedGeneration(t.db, t.dataDir, { id: id(4) });
     const big = new Uint8Array(11 * 1024 * 1024);
     big.set(TINY_PNG);
     writeFileSync(join(t.dataDir, src.images[0]?.path ?? ""), big);
-    const { svc, calls } = build();
+    const files = createFileStore(t.dataDir);
+    const read = vi.spyOn(files, "readRecorded");
+    const { svc, calls } = build(undefined, files);
     await expect(svc.startGenerationChecked(body({ inputs: [stored(src.id, "output", 1)] }))).rejects.toMatchObject({
       details: { fields: { "inputs.1": expect.stringMatching(/larger than 10 MB/) } },
     });
+    expect(read).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("refuses a reuse record that names an output the source doesn't have", async () => {
+    const src = seedGeneration(t.db, t.dataDir, { id: id(5), images: 1 });
+    const { svc, calls } = build();
+    await expect(
+      svc.startGenerationChecked(
+        body({ source: { id: src.id, relation: "reuse", output: 9 }, inputs: [stored(src.id, "output", 1)] }),
+      ),
+    ).rejects.toMatchObject({ details: { fields: { source: "Output 9 doesn't exist in the source generation" } } });
     expect(calls).toHaveLength(0);
   });
 

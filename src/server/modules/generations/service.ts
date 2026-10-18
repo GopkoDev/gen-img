@@ -1,5 +1,5 @@
 import { AddTagRequest, checkComment, normalizeTag, SetCommentRequest } from "../../../shared/curation";
-import { checkInputFile, type InputSlot, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import { checkInputFile, type InputSlot, MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import { newId } from "../../lib/ids";
@@ -36,6 +36,7 @@ export type GenerationsServiceDeps = {
 const invalid = (fields: FieldErrors) => new AppError("VALIDATION_ERROR", "Some fields need fixing", 400, { fields });
 const gone = () => new AppError("NOT_FOUND", "Generation not found", 404);
 const NOT_STORED = "Not an image stored by gen-img"; // one answer for every miss — no existence leak (AC-13)
+const SOURCE_GONE = "The source generation no longer exists";
 
 /** Swaps the adapter's `{ "$image": N }` / `{ "$input": N }` placeholders for references to the stored files (ADR-0008). */
 function linkFiles(value: unknown, outputs: string[], inputs: string[] = []): unknown {
@@ -175,8 +176,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     if (!parsed.ok) throw invalid({ ...parsed.fields, ...checked.fields });
     if (Object.keys(checked.fields).length) throw invalid(checked.fields);
     // Lineage is recorded only to a generation that exists when generating starts (spec AC-08).
-    if (parsed.value.source && !deps.repo.exists(parsed.value.source.id))
-      throw invalid({ source: "The source generation no longer exists" });
+    checkSource(parsed.value.source);
     const provider = deps.providers.get(parsed.value.provider);
     if (!provider) throw new AppError("NOT_FOUND", `Unknown provider: ${parsed.value.provider}`, 404);
     if (!provider.configured)
@@ -202,6 +202,18 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
    * Orders the inputs as the request lists them: stored references are read from recorded rows + files
    * (ADR-0017), upload slots pick the n-th file, each used exactly once. No `inputs` → uploads in order.
    */
+  /** The lineage a request claims must be real: the source exists and, for a reuse, has that output (AC-03, AC-08). */
+  function checkSource(source: { id: string; relation: string; output?: number } | undefined): void {
+    if (!source) return;
+    if (!deps.repo.exists(source.id)) throw invalid({ source: SOURCE_GONE });
+    if (
+      source.relation === "reuse" &&
+      source.output !== undefined &&
+      !deps.repo.storedImage(source.id, "output", source.output)
+    )
+      throw invalid({ source: `Output ${source.output} doesn't exist in the source generation` });
+  }
+
   async function resolveInputs(slots: InputSlot[] | undefined, files: InputFile[]): Promise<InputFile[]> {
     if (slots === undefined) return files;
     const fields: FieldErrors = {};
@@ -220,9 +232,19 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
         }
         const { generationId, kind, position } = slot.stored;
         const rec = deps.repo.storedImage(generationId, kind, position);
-        const bytes = rec ? await deps.files.readRecorded(rec.path).catch(() => null) : null;
-        if (!rec || !bytes) {
-          fields[`inputs.${i + 1}`] = NOT_STORED;
+        if (!rec) {
+          fields[`inputs.${i + 1}`] = NOT_STORED; // one answer for every unknown reference (AC-13)
+          return null;
+        }
+        // A recorded image whose file is gone belongs to a generation being deleted (ADR-0014, sad §11).
+        const size = await deps.files.sizeRecorded(rec.path);
+        if (size !== null && size > MAX_INPUT_BYTES) {
+          fields[`inputs.${i + 1}`] = `${rec.name} — larger than 10 MB`;
+          return null;
+        }
+        const bytes = size === null ? null : await deps.files.readRecorded(rec.path).catch(() => null);
+        if (!bytes) {
+          fields[`inputs.${i + 1}`] = SOURCE_GONE;
           return null;
         }
         return { bytes, name: rec.name };
@@ -248,8 +270,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
           "A generation is already in progress — wait until it finishes",
           409,
         );
-      if (parsed.value.source && !deps.repo.exists(parsed.value.source.id))
-        throw invalid({ source: "The source generation no longer exists" });
+      checkSource(parsed.value.source);
       const inputs = await resolveInputs(parsed.value.inputs, files);
       const provider = deps.providers.get(parsed.value.provider);
       const model = provider?.configured ? await deps.catalog.find(parsed.value.provider, parsed.value.model) : null;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
+import { jsonWithImageRefs, toDataUrl } from "./inline-json";
 import {
   type GenerateInput,
   type GenerationResult,
@@ -94,13 +95,8 @@ export function createOpenRouterProvider(opts: { apiKey: string | undefined; fet
         ...(input.params.seed !== undefined ? { seed: input.params.seed } : {}),
       };
       const body = inputs.length
-        ? {
-            ...base,
-            input_references: inputs.map((img) =>
-              reference(`data:${img.mediaType};base64,${Buffer.from(img.bytes).toString("base64")}`),
-            ),
-          }
-        : base;
+        ? jsonWithImageRefs(base, "input_references", inputs.map(toDataUrl), reference)
+        : JSON.stringify(base);
       // The stored request keeps a placeholder per input; `generations` links it to the stored copy (ADR-0008).
       const redactedBody = inputs.length
         ? { ...base, input_references: inputs.map((_, i) => reference({ $input: i + 1 })) }
@@ -108,7 +104,7 @@ export function createOpenRouterProvider(opts: { apiKey: string | undefined; fet
       const raw = await call(url, {
         method: "POST",
         headers: { authorization: `Bearer ${opts.apiKey}`, "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body,
         signal,
       });
       const parsed = ImagesResponse.safeParse(raw);

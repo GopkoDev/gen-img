@@ -133,11 +133,12 @@ describe("rerun-and-reuse NFRs", () => {
       inputs: src.inputs.map((i) => ({ stored: { generationId: src.id, kind: "input", position: i.position } })),
     };
     const runs: number[] = [];
-    for (let r = 0; r < 20; r++) {
+    // Run 0 warms the file cache and JIT and is not measured; 20 measured runs follow.
+    for (let r = 0; r <= 20; r++) {
       const t0 = performance.now();
       expect((await t.app.request("/api/generations", json("POST", body))).status).toBe(202);
       for (let w = 0; w < 400 && sentAt < t0; w++) await new Promise((res) => setTimeout(res, 1));
-      runs.push(sentAt - t0);
+      if (r > 0) runs.push(sentAt - t0);
       for (let w = 0; w < 400; w++) {
         const job = (await (await t.app.request("/api/generation-job")).json()) as { job: { status: string } | null };
         if (job.job?.status !== "running") break;
@@ -145,5 +146,5 @@ describe("rerun-and-reuse NFRs", () => {
       }
     }
     expect(p95(runs)).toBeLessThanOrEqual(300);
-  });
+  }, 60_000); // 21 × (80 MB read + base64) — well past Vitest's 5 s default
 });

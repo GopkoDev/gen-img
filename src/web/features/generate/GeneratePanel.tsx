@@ -298,8 +298,14 @@ export function GeneratePanel() {
         setModelNotice(
           `The original model ${pending.model} isn't available — choose another. The prompt, parameters and images are kept.`,
         );
-        if (list[0]) setModelId(list[0].id);
+        // Same rule as a manual switch: carry supported parameters over, name what was dropped (AC-05, AC-10).
+        const fallback = list[0];
+        if (fallback) {
+          setModelId(fallback.id);
+          carryTo(fallback);
+        }
       }
+      setCarryOnLoad(false); // the draft settled the model; a later list load must not re-carry
       return;
     }
     const current = list.find((x) => x.id === modelId) ?? list[0];
@@ -332,8 +338,25 @@ export function GeneratePanel() {
     onError: (err) => {
       if (err instanceof ApiError && err.code === "VALIDATION_ERROR" && err.details?.fields) {
         const fields = err.details.fields as FieldErrors;
-        if (fields.source) setSourceGone(true);
-        setErrors(fields);
+        const gone =
+          fields.source === "The source generation no longer exists" ||
+          Object.values(fields).includes("The source generation no longer exists");
+        if (gone) {
+          setSourceGone(true);
+          // Its stored images can't be sent any more: take them off the draft and say so (sad §11).
+          const goneId = draftSource?.id;
+          const keep = attachments.filter((a) => !a.stored || a.stored.generationId !== goneId);
+          if (keep.length !== attachments.length) {
+            setAttachments(keep);
+            setRemovedNote("Images from the deleted source were removed.");
+          }
+          const rest = Object.fromEntries(
+            Object.entries(fields).filter(
+              ([k, v]) => !(k.startsWith("inputs.") && v === "The source generation no longer exists"),
+            ),
+          );
+          setErrors(rest);
+        } else setErrors(fields);
       } else if (err instanceof ApiError && err.code === "GENERATION_IN_PROGRESS")
         qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
       else setRequestError(err instanceof Error ? err.message : String(err));

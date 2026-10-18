@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 const EXT: Record<string, string> = {
@@ -107,9 +107,14 @@ export function createFileStore(dataDir: string) {
       }
     },
 
+    /** Size of a recorded file, or `null` when it is gone — checked before reading (no 10 MB+ reads). */
+    async sizeRecorded(relPath: string): Promise<number | null> {
+      return (await stat(this.resolveRecorded(relPath)).catch(() => null))?.size ?? null;
+    },
+
     /** Bytes of a file whose relative path is recorded in the DB (stored-image reuse, ADR-0017). */
     async readRecorded(relPath: string): Promise<Uint8Array> {
-      return new Uint8Array(await readFile(this.resolveRecorded(relPath)));
+      return readFile(this.resolveRecorded(relPath)); // a Buffer is a Uint8Array — no 10 MB copy
     },
 
     /** Absolute path of a path recorded in the DB; refuses anything outside the data dir (defense in depth). */
