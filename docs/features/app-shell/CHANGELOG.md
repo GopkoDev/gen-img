@@ -16,6 +16,8 @@
 - Address changes: the gallery moved from `/` to `/gallery`; the «deleted» notice is now `/gallery?deleted=1`; new carried flag `/?focus=prompt`. `/?rerun=` and `/?reuse=&output=` are unchanged.
 - Revisiting a section reloads nothing (gallery and detail are refreshed by changes and on window focus); a finished generation also refreshes an open detail page.
 - Review: independent `sdd:reviewer` — no blockers; R1–R6 fixed on the branch ([review](./_review/review-2026-10-18.md)).
+- Known gap: the production bundle is one ~581 kB chunk (Vite's 500 kB warning); code-splitting is left for later.
+- Review of the amendment: independent `sdd:reviewer` — no blockers; B1–B6 fixed ([review](./_review/review-2026-10-18.md)).
 - Rollback: revert the branch.
 
 **Acceptance criteria delivered:** AC-01 … AC-16 (spec §5); the narrow sheet, both themes, the no-flash load and the section-switch timing are additionally for a manual browser check.
