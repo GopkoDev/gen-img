@@ -57,8 +57,9 @@ describe("generations repo", () => {
     const repo = createGenerationsRepo(t.db);
     const seeded = seedGeneration(t.db, t.dataDir);
     const gen = { ...seeded, id: "01ROLLBACK0000000000000000" };
+    const images = seeded.images.map((i) => ({ ...i, path: i.path.replace(seeded.id, gen.id) }));
     expect(() =>
-      repo.insertAtomic(gen, seeded.images, () => {
+      repo.insertAtomic(gen, images, () => {
         throw new Error("rename failed");
       }),
     ).toThrow("rename failed");

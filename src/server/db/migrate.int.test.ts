@@ -19,16 +19,25 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0003");
     expect(migrateDown(db)?.version).toBe("0002");
     expect(migrateDown(db)?.version).toBe("0001");
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003"]);
+  });
+
+  it("0003 serves the image-by-path lookup from an index, not a table scan", () => {
+    migrateUp(db);
+    const plan = db
+      .prepare("EXPLAIN QUERY PLAN SELECT media_type FROM generation_images WHERE path = ?")
+      .all("generations/x/output-1.png") as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/USING (COVERING )?INDEX generation_images_path/);
   });
 
   it("0002_create_generations enforces the generation invariants and reverts cleanly", () => {
@@ -46,14 +55,15 @@ describe("migration runner", () => {
 
     const img = db.prepare(
       `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
-       VALUES (?, 1, 'generations/x/output-1.png', ?, 1, 1, 1)`,
+       VALUES (?, 1, ?, ?, 1, 1, 1)`,
     );
-    img.run("01A", "image/png");
-    expect(() => img.run("01B", "image/svg+xml")).toThrow(/CHECK/);
-    expect(() => img.run("nope", "image/png")).toThrow(/FOREIGN KEY/);
+    img.run("01A", "generations/01A/output-1.png", "image/png");
+    expect(() => img.run("01B", "generations/01B/output-1.svg", "image/svg+xml")).toThrow(/CHECK/);
+    expect(() => img.run("nope", "generations/nope/output-1.png", "image/png")).toThrow(/FOREIGN KEY/);
     db.prepare("DELETE FROM generations WHERE id = '01A'").run();
     expect(db.prepare("SELECT count(*) FROM generation_images").pluck().get()).toBe(0);
 
+    migrateDown(db);
     migrateDown(db);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'generation%'")
