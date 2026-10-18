@@ -201,7 +201,7 @@
         "src/web/features/gallery/GenerationDetail.test.tsx"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t14-detail-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T15",

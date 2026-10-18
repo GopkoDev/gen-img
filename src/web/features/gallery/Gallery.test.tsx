@@ -8,7 +8,9 @@ vi.mock("@/lib/api", () => ({ api: { generations: vi.fn() } }));
 const generations = vi.mocked(api.generations);
 
 describe("Gallery (SCR-02)", () => {
-  beforeEach(() => generations.mockReset());
+  beforeEach(() => {
+    generations.mockReset();
+  });
 
   it("shows an empty state that points to the generate form", async () => {
     generations.mockResolvedValue({ items: [], nextCursor: null });

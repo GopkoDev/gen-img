@@ -20,7 +20,7 @@
 | T11 | Add the typed web API client and the two-route router | ui | dmytro.hopko | S | T10 | done | COMMIT |
 | T12 | Build the generate panel (SCR-01) in all its states | ui | dmytro.hopko | M | T11 | todo | — |
 | T13 | Build the gallery (SCR-02) with paging and empty state | ui | dmytro.hopko | S | T11 | done | COMMIT |
-| T14 | Build the generation detail page (SCR-03) | ui | dmytro.hopko | S | T11 | todo | — |
+| T14 | Build the generation detail page (SCR-03) | ui | dmytro.hopko | S | T11 | done | COMMIT |
 | T15 | Verify the performance and durability NFRs | tests | dmytro.hopko | S | T10 | done | COMMIT |
 
 **Total:** 15 tasks, ~8 person-days.

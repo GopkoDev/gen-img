@@ -1,0 +1,137 @@
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
+import type { ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiError, api } from "@/lib/api";
+import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
+import { Link } from "@/lib/router";
+import type { Generation, RequestedParams } from "../../../shared/generations";
+
+const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter" };
+
+function describeRequested(p: RequestedParams): string {
+  const parts: string[] = [];
+  if (p.aspectRatio) parts.push(`aspect ratio ${p.aspectRatio}`);
+  if (p.seed !== undefined) parts.push(`seed ${p.seed}`);
+  parts.push(`${p.n} image${p.n === 1 ? "" : "s"}`);
+  return parts.join(" · ");
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words">{children}</dd>
+    </>
+  );
+}
+
+function Raw({ title, value }: { title: string; value: unknown }) {
+  return (
+    <details className="rounded-md border">
+      <summary className="cursor-pointer px-3 py-2 text-sm">{title}</summary>
+      <pre className="max-h-96 overflow-auto border-t bg-muted p-3 text-xs">{JSON.stringify(value, null, 2)}</pre>
+    </details>
+  );
+}
+
+function Detail({ g }: { g: Generation }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex gap-4 overflow-x-auto">
+        {g.images.map((img) => (
+          <a key={img.position} href={img.url} target="_blank" rel="noreferrer" className="shrink-0">
+            <img
+              src={img.url}
+              alt={`Output ${img.position} of: ${g.prompt}`}
+              className="max-h-[60vh] rounded-lg border object-contain"
+            />
+          </a>
+        ))}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 text-sm">
+              <Row label="Provider">{PROVIDER_NAMES[g.provider] ?? g.provider}</Row>
+              <Row label="Model">{g.model}</Row>
+              <Row label="Prompt">
+                <span className="select-text whitespace-pre-wrap">{g.prompt}</span>
+              </Row>
+              <Row label="Created">{formatDateTime(g.createdAt)}</Row>
+              <Row label="Duration">{formatDuration(g.durationMs)}</Row>
+              <Row label="Cost">
+                <span className="flex items-center gap-2">
+                  {formatCost(g.costMicros, g.costStatus)}
+                  <Badge variant={g.costStatus === "known" ? "secondary" : "outline"}>{g.costStatus}</Badge>
+                </span>
+              </Row>
+            </dl>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Parameters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 text-sm">
+              <Row label="Requested">{describeRequested(g.requestedParams)}</Row>
+              <Row label="Received">
+                {g.images.length} of {g.imagesRequested} image{g.imagesRequested === 1 ? "" : "s"} ·{" "}
+                {g.images.map((i) => `${i.width}×${i.height}`).join(", ")}
+              </Row>
+              <Row label="Accepted">{g.acceptedParams ? JSON.stringify(g.acceptedParams) : "not reported"}</Row>
+            </dl>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Raw exchange (redacted)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Raw title="Request" value={g.rawRequest} />
+          <Raw title="Response" value={g.rawResponse} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/** SCR-03 — one generation with all its stored metadata. */
+export function GenerationDetail({ id }: { id: string }) {
+  const q = useQuery({ queryKey: ["generation", id], queryFn: () => api.generation(id) });
+  const back = (
+    <Button variant="link" asChild className="px-0">
+      <Link to="/">
+        <ArrowLeft /> Gallery
+      </Link>
+    </Button>
+  );
+
+  let body: ReactNode;
+  if (q.isPending) body = <p className="text-muted-foreground text-sm">Loading…</p>;
+  else if (q.isError && q.error instanceof ApiError && q.error.status === 404) body = <p>Generation not found.</p>;
+  else if (q.isError)
+    body = (
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+        <p className="text-sm">Couldn't load this generation</p>
+        <Button variant="outline" size="sm" onClick={() => q.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  else body = <Detail g={q.data} />;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {back}
+      {body}
+    </div>
+  );
+}

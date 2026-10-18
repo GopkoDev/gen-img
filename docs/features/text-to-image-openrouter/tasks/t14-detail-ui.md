@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/GenerationDetail.tsx", "src/web/features/
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T14 — Build the generation detail page (SCR-03)
