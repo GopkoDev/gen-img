@@ -1,0 +1,96 @@
+{
+  "slug": "models-page",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Accept preference writes that only turn flags off without checking the provider",
+      "layer": "ports",
+      "deps": [],
+      "acs": ["AC-08", "AC-11", "AC-12"],
+      "dod": "integration tests: off-writes succeed for a retired id, with the catalog down and with the provider unconfigured; turn-on writes keep step 9's refusals; unknown provider refused; foreign page refused; nfr covers the off-write path",
+      "files_hint": [
+        "src/server/modules/models/routes.ts",
+        "src/server/modules/models/routes.int.test.ts",
+        "src/server/modules/models/nfr.int.test.ts"
+      ],
+      "file": "docs/features/models-page/tasks/t1-off-writes-skip-the-catalog.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Share preference reads and a per-flag optimistic mutation between the picker and the Models page",
+      "layer": "app",
+      "deps": [],
+      "acs": ["AC-04", "AC-05"],
+      "dod": "hook tests with deferred responses: per-flag rollback, success writes only its flag, no invalidation while a sibling is in flight, one refetch after the last settles; picker tests green on the shared hook",
+      "files_hint": [
+        "src/web/features/models/preferences.ts",
+        "src/web/features/models/preferences.test.tsx",
+        "src/web/features/generate/useModelPreferences.ts",
+        "src/web/features/generate/ModelPicker.tsx",
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/features/generate/PricePreview.tsx"
+      ],
+      "file": "docs/features/models-page/tasks/t2-shared-preference-hooks.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Describe a model's supported parameters for the table",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-01"],
+      "dod": "unit tests: every parameter supported / unsupported, input ranges, max images default 1",
+      "files_hint": ["src/web/features/models/params.ts", "src/web/features/models/params.test.ts"],
+      "file": "docs/features/models-page/tasks/t3-describe-model-parameters.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Build the Models page section",
+      "layer": "ui",
+      "deps": ["T1", "T2", "T3"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-14"],
+      "dod": "component tests: rows + parameters + every price state, lookups only for rows in view and once per visit, hide/unhide and ★ with per-toggle failure, list error + retry, not configured / none configured, preferences unreadable, no-longer-offered list only from a loaded list, forget success and failure; Models section in the registry",
+      "files_hint": [
+        "src/web/components/ui/table.tsx",
+        "src/web/components/ui/switch.tsx",
+        "src/web/features/models/ModelsPage.tsx",
+        "src/web/features/models/ModelsPage.test.tsx",
+        "src/web/sections.tsx",
+        "src/web/sections.test.tsx",
+        "tests/helpers/setup-dom.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/models-page/tasks/t4-models-page.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Say in the generate form when the suitable models are hidden",
+      "layer": "ui",
+      "deps": ["T2"],
+      "acs": ["AC-04", "AC-10", "AC-13"],
+      "dod": "tests: the hidden-suitable notice (inputs case and all-hidden case) links to the Models page; an Owner-chosen model hidden elsewhere stays selected and marked; a re-run of a hidden model selects it",
+      "files_hint": [
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/features/generate/ModelChoice.test.tsx",
+        "src/shared/model-groups.ts",
+        "src/shared/model-groups.test.ts"
+      ],
+      "file": "docs/features/models-page/tasks/t5-hidden-suitable-notice.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Measure the Models page rendering in a serial web timing project",
+      "layer": "tests",
+      "deps": ["T4"],
+      "acs": ["AC-01"],
+      "dod": "nfr-web project runs alone and last; 20 renders of 100 rows ≤ 300 ms p95",
+      "files_hint": ["vitest.config.ts", "src/web/features/models/ModelsPage.nfr.test.tsx", "CLAUDE.md"],
+      "file": "docs/features/models-page/tasks/t6-models-page-timing.md",
+      "status": "todo"
+    }
+  ]
+}
