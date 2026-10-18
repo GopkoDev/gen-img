@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/port.ts", "src/server/modules/provide
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Define the ImageProvider port and build the OpenRouter adapter

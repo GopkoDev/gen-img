@@ -1,0 +1,18 @@
+{
+  "created": 1792200000,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEklEQVR4nGP4z8DwHxkzEBQAAGHtF+mRbBMEAAAAAElFTkSuQmCC",
+      "media_type": "image/png"
+    },
+    {
+      "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAMAAAAECAYAAABLLYUHAAAAEklEQVR4nGP4z8DwH4YZiOMAAG3iF+mqJZvLAAAAAElFTkSuQmCC"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 4175,
+    "total_tokens": 4175,
+    "cost": 0.04
+  }
+}

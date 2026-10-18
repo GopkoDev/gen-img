@@ -1,0 +1,75 @@
+{
+  "data": [
+    {
+      "id": "qwen/qwen-image-2.1-turbo",
+      "name": "Qwen: Qwen Image 2.1 Turbo",
+      "description": "Qwen Image 2.1 Turbo is the fast, lower-cost tier of the Qwen Image 2.1 series f",
+      "created": 1792194104,
+      "architecture": {
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"]
+      },
+      "supported_parameters": {
+        "resolution": {
+          "type": "enum",
+          "values": ["1K", "2K"]
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": ["1:1", "1:2", "1:4", "2:1", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "9:16", "16:9"]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 6
+        },
+        "input_references": {
+          "type": "range",
+          "min": 0,
+          "max": 4
+        },
+        "seed": {
+          "type": "boolean"
+        }
+      },
+      "supports_streaming": false,
+      "endpoints": "/api/v1/images/models/qwen/qwen-image-2.1-turbo/endpoints"
+    },
+    {
+      "id": "recraft/recraft-v4.1-flash",
+      "name": "Recraft: Recraft V4.1 Flash",
+      "description": "Recraft V4.1 Flash is a text-to-image model from Recraft, the speed and cost tie",
+      "created": 1790177946,
+      "architecture": {
+        "input_modalities": ["text"],
+        "output_modalities": ["image"]
+      },
+      "supported_parameters": {
+        "aspect_ratio": {
+          "type": "enum",
+          "values": ["1:1", "4:3", "3:4", "16:9", "9:16", "auto"]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 6
+        }
+      },
+      "supports_streaming": false,
+      "endpoints": "/api/v1/images/models/recraft/recraft-v4.1-flash/endpoints"
+    },
+    {
+      "id": "meta/muse-image",
+      "name": "Meta: Muse Image",
+      "description": "Muse Image is an agentic image generation model from Meta that generates and edi",
+      "created": 1787764532,
+      "architecture": {
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"]
+      },
+      "supported_parameters": {},
+      "supports_streaming": false,
+      "endpoints": "/api/v1/images/models/meta/muse-image/endpoints"
+    }
+  ]
+}

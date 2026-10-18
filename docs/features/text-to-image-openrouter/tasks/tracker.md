@@ -10,7 +10,7 @@
 | T1 | Promote the generations migration into the live tree | migration | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Implement generation domain rules: validation, params, cost conversion | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Detect usable images: media type and dimensions from bytes | domain | dmytro.hopko | S | — | done | COMMIT |
-| T4 | Define the ImageProvider port and build the OpenRouter adapter | infra | dmytro.hopko | M | T3 | todo | — |
+| T4 | Define the ImageProvider port and build the OpenRouter adapter | infra | dmytro.hopko | M | T3 | done | COMMIT |
 | T5 | Build the file store: stage, commit, discard, sweep, recorded reads | infra | dmytro.hopko | S | — | todo | — |
 | T6 | Write the generations repo: atomic insert, gallery page, detail, recorded path lookup | infra | dmytro.hopko | M | T1, T2 | todo | — |
 | T7 | Run generations as a single-slot job and save results atomically | app | dmytro.hopko | M | T4, T5, T6 | todo | — |

@@ -57,7 +57,7 @@
         "tests/fixtures/openrouter/"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t4-openrouter-adapter.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

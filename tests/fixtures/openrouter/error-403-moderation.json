@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": 403,
+    "message": "Input was flagged by moderation",
+    "metadata": {
+      "reasons": ["violence"],
+      "flagged_input": "\u2026",
+      "provider_name": "OpenAI",
+      "model_slug": "openai/gpt-image-1"
+    }
+  }
+}
