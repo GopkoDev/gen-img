@@ -1,0 +1,24 @@
+import { z } from "zod";
+
+export const ProviderId = z.enum(["openrouter"]);
+export type ProviderId = z.infer<typeof ProviderId>;
+
+export const ProvidersResponse = z.object({
+  providers: z.array(z.object({ id: ProviderId, name: z.string(), configured: z.boolean() })),
+});
+export type ProvidersResponse = z.infer<typeof ProvidersResponse>;
+
+/** An image model with only the optional parameters it supports — an absent key means unsupported. */
+export const ImageModel = z.object({
+  id: z.string(),
+  name: z.string(),
+  params: z.object({
+    aspectRatio: z.object({ values: z.array(z.string()) }).optional(),
+    seed: z.object({ min: z.number().int().optional(), max: z.number().int().optional() }).optional(),
+    n: z.object({ max: z.number().int().min(1).max(4) }).optional(),
+  }),
+});
+export type ImageModel = z.infer<typeof ImageModel>;
+
+export const ModelsResponse = z.object({ models: z.array(ImageModel), fetchedAt: z.string() });
+export type ModelsResponse = z.infer<typeof ModelsResponse>;

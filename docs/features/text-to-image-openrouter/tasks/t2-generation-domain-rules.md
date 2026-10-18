@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/domain.ts", "src/server/modules/gen
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Implement generation domain rules: validation, params, cost conversion

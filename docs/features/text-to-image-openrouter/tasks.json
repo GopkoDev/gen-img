@@ -29,7 +29,7 @@
         "src/shared/generations.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t2-generation-domain-rules.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
