@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: gen-img — curate-gallery
+  version: 0.4.0
+  description: >
+    Curation of saved generations: one comment, up to 10 tags, and all-or-nothing deletion (spec §1).
+    Delta over the shipped contracts (text-to-image-openrouter, image-inputs-openrouter, vercel-ai-gateway):
+    new operations below, plus `tags` / `hasComment` on GenerationSummary and `comment` / `tags` on Generation.
+    Every route passes the request guard (ADR-0007) → 403 FORBIDDEN for foreign pages. Errors use
+    `{ error: { code, message, details? } }`.
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard replaces it
+paths:
+  /generations/{id}:
+    delete:
+      operationId: deleteGeneration
+      summary: Delete a generation with all its files, all-or-nothing (AC-04, AC-09, AC-10, AC-12, AC-14; ADR-0014)
+      parameters: [{ $ref: "#/components/parameters/GenerationId" }]
+      responses:
+        "204": { description: "Deleted — record, comment, tags and files are gone" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: STORAGE_ERROR — the directory could not be moved; the generation is fully intact
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { error: { code: STORAGE_ERROR, message: "The generation could not be deleted: EACCES: permission denied" } } } }
+  /generations/{id}/comment:
+    put:
+      operationId: setComment
+      summary: Replace the comment; a blank body removes it; last save wins (AC-01, AC-06, AC-14; ADR-0016)
+      parameters: [{ $ref: "#/components/parameters/GenerationId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetCommentRequest" }
+            example: { body: "Good composition — try a warmer palette next" }
+      responses:
+        "200":
+          description: The stored comment, or null when removed
+          content: { application/json: { schema: { $ref: "#/components/schemas/CommentResponse" } } }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /generations/{id}/tags:
+    post:
+      operationId: addTag
+      summary: Add one tag (normalized; a duplicate leaves the list unchanged; at most 10) (AC-02, AC-07, AC-08; ADR-0016)
+      parameters: [{ $ref: "#/components/parameters/GenerationId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddTagRequest" }
+            example: { tag: "  Neon   City " }
+      responses:
+        "200":
+          description: All tags of the generation, in insertion order
+          content: { application/json: { schema: { $ref: "#/components/schemas/TagsResponse" }, example: { tags: [portrait, neon city] } } }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /generations/{id}/tags/{tag}:
+    delete:
+      operationId: removeTag
+      summary: Remove one tag by its normalized value (no-op when absent) (AC-02, AC-14)
+      parameters:
+        - { $ref: "#/components/parameters/GenerationId" }
+        - { name: tag, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 32 } }
+      responses:
+        "200":
+          description: Remaining tags in insertion order
+          content: { application/json: { schema: { $ref: "#/components/schemas/TagsResponse" } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  parameters:
+    GenerationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[0-9A-Z]{1,26}$" }
+  responses:
+    ValidationError:
+      description: VALIDATION_ERROR — details.fields maps `body` / `tag` to a plain-language reason
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: { code: VALIDATION_ERROR, message: "Some fields need fixing", details: { fields: { tag: "A generation can have at most 10 tags" } } } }
+    Forbidden:
+      description: FORBIDDEN — request guard refusal (AC-13)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    NotFound:
+      description: NOT_FOUND — the generation no longer exists (AC-14)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: { code: NOT_FOUND, message: "Generation not found" } }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [VALIDATION_ERROR, NOT_FOUND, STORAGE_ERROR, FORBIDDEN, INTERNAL_ERROR] }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    Tag:
+      type: string
+      description: normalized — trimmed, inner spaces collapsed, lower-case; letters of any alphabet, digits, space, «-», «_»
+      minLength: 1
+      maxLength: 32
+    Comment:
+      type: object
+      required: [body, updatedAt]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000, description: "characters (code points), line breaks kept" }
+        updatedAt: { type: string, format: date-time }
+    SetCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, maxLength: 2000, description: "blank or whitespace-only removes the comment" }
+    CommentResponse:
+      type: object
+      required: [comment]
+      properties:
+        comment:
+          oneOf: [{ $ref: "#/components/schemas/Comment" }, { type: "null" }]
+    AddTagRequest:
+      type: object
+      required: [tag]
+      properties:
+        tag: { type: string, maxLength: 200, description: "raw input; normalized by the server" }
+    TagsResponse:
+      type: object
+      required: [tags]
+      properties:
+        tags: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/Tag" } }
+    GenerationSummaryCurationDelta:
+      description: Fields added to GenerationSummary (gallery tiles, AC-03)
+      type: object
+      required: [tags, hasComment]
+      properties:
+        tags: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/Tag" } }
+        hasComment: { type: boolean }
+    GenerationCurationDelta:
+      description: Fields added to Generation (detail view, AC-01…AC-03)
+      type: object
+      required: [tags, comment]
+      properties:
+        tags: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/Tag" } }
+        comment:
+          oneOf: [{ $ref: "#/components/schemas/Comment" }, { type: "null" }]
