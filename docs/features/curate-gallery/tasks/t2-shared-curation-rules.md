@@ -9,8 +9,8 @@ files_hint: ["src/shared/curation.ts", "src/shared/curation.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Implement the shared tag and comment rules

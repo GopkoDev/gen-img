@@ -8,7 +8,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
 | T1 | Promote the curation migration | migration | dmytro.hopko | S | — | done | COMMIT |
-| T2 | Implement the shared tag and comment rules | domain | dmytro.hopko | S | — | todo | — |
+| T2 | Implement the shared tag and comment rules | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Add comment, tag and atomic-delete queries to the generations repo | infra | dmytro.hopko | M | T1, T2 | todo | — |
 | T4 | Let the file store move a generation into staging and purge it | infra | dmytro.hopko | S | — | todo | — |
 | T5 | Curate and delete generations in the service without disturbing running work | app | dmytro.hopko | M | T3, T4 | todo | — |

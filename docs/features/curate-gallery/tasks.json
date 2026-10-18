@@ -25,7 +25,7 @@
       "dod": "unit tests: normalizeTag trims, collapses spaces, lower-cases (incl. Cyrillic), accepts letters of any alphabet/digits/space/-/_ 1\u201332 chars and rejects the rest with the spec message; checkComment counts characters (code points) \u2264 2000 and treats blank as removal",
       "files_hint": ["src/shared/curation.ts", "src/shared/curation.test.ts"],
       "file": "docs/features/curate-gallery/tasks/t2-shared-curation-rules.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
