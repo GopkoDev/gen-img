@@ -221,6 +221,7 @@ describe("generations service", () => {
 
   it.each([
     ["stage", { failStage: true }],
+    ["the second image", { failSecondImage: true }],
     ["commit", { failCommit: true }],
   ] as const)("leaves no rows and no files when storing fails at %s", async (_where, opts) => {
     const svc = build(

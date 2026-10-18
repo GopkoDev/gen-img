@@ -75,6 +75,7 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(screen.getByLabelText("Seed")).toBeInTheDocument();
     expect(screen.getByLabelText("Images")).toHaveAttribute("max", "4");
 
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent(/^Qwen Image$/); // closed picker: name only
     fireEvent.pointerDown(screen.getByRole("combobox", { name: "Model" }), {
       button: 0,
       ctrlKey: false,
@@ -145,6 +146,11 @@ describe("GeneratePanel (SCR-01)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Couldn't dismiss the notice")).toBeInTheDocument();
     expect(screen.getByText("A generation is already in progress — wait until it finishes")).toBeInTheDocument();
+
+    // once the job changes, the stale dismiss error goes away
+    m.currentJob.mockResolvedValue({ job: job({ id: "J2" }) });
+    await act(async () => window.dispatchEvent(new Event("visibilitychange")));
+    await waitFor(() => expect(screen.queryByText("Couldn't dismiss the notice")).not.toBeInTheDocument());
   });
 
   it("shows the provider's reason, keeps the prompt, and dismisses the notice", async () => {

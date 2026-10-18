@@ -101,6 +101,10 @@ export function GeneratePanel() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [dismissError, setDismissError] = useState<string | null>(null);
 
+  // A dismiss error is about the notice it failed on — drop it once the job changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on the job identity, not read from it
+  useEffect(() => setDismissError(null), [job?.id, job?.status]);
+
   // Re-render every second while a generation runs, so «Started N s ago» counts up between polls.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -213,7 +217,10 @@ export function GeneratePanel() {
         <Field id="model" label="Model" error={errors.model}>
           <Select value={modelId} onValueChange={selectModel} disabled={disabled}>
             <SelectTrigger id="model" className="w-full" {...invalid("model")}>
-              <SelectValue placeholder={models.isPending ? "Loading models…" : "Choose a model"} />
+              {/* The closed picker shows the name only; the open list shows name + id (AC-03). */}
+              <SelectValue placeholder={models.isPending ? "Loading models…" : "Choose a model"}>
+                {model?.name}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {models.data?.models.map((x) => (
