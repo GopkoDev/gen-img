@@ -1,5 +1,5 @@
 ---
-status: Draft
+status: Approved
 owner: "dmytro.hopko"
 reviewers: []
 updated_at: "2026-10-18"
