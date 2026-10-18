@@ -9,8 +9,8 @@ files_hint: ["docs/features/vercel-ai-gateway/migrations/01_add_generation_cost_
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Promote the cost_ref migration

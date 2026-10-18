@@ -18,11 +18,29 @@ describe("migration runner", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  /** Rolls back until `version` is the latest applied one — independent of how many migrations exist. */
+  function downTo(version: string) {
+    while (appliedVersions(db).at(-1) !== version) migrateDown(db);
+  }
+
+  it("0005_add_generation_cost_ref adds the cost reference and serves pending lookups from an index", () => {
+    migrateUp(db);
+    const cols = db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all();
+    expect(cols).toContain("cost_ref");
+    const plan = db
+      .prepare("EXPLAIN QUERY PLAN SELECT id, cost_ref FROM generations WHERE cost_status = 'pending'")
+      .all() as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/generations_cost_pending/);
+    downTo("0004");
+    expect(db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all()).not.toContain("cost_ref");
+  });
+
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0005");
     expect(migrateDown(db)?.version).toBe("0004");
     expect(migrateDown(db)?.version).toBe("0003");
     expect(migrateDown(db)?.version).toBe("0002");
@@ -30,7 +48,7 @@ describe("migration runner", () => {
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
   });
 
   it("0004_create_generation_inputs keeps input copies consistent and reverts cleanly", () => {
@@ -53,7 +71,7 @@ describe("migration runner", () => {
     db.prepare("DELETE FROM generations WHERE id = '01A'").run();
     expect(db.prepare("SELECT count(*) FROM generation_inputs").pluck().get()).toBe(0);
 
-    migrateDown(db);
+    downTo("0003");
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'generation_inputs%'").pluck().all()).toEqual([]);
   });
 
@@ -88,9 +106,7 @@ describe("migration runner", () => {
     db.prepare("DELETE FROM generations WHERE id = '01A'").run();
     expect(db.prepare("SELECT count(*) FROM generation_images").pluck().get()).toBe(0);
 
-    migrateDown(db);
-    migrateDown(db);
-    migrateDown(db);
+    downTo("0001");
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'generation%'")
       .pluck()

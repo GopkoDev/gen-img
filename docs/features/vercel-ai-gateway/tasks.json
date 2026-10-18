@@ -14,7 +14,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t1-promote-cost-ref-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
