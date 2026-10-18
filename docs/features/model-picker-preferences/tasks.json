@@ -1,0 +1,159 @@
+{
+  "slug": "model-picker-preferences",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the model_preferences migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "migration 0008 applies and reverts cleanly; integration test proves the both-off CHECK and the (provider, model) PK",
+      "files_hint": [
+        "docs/features/model-picker-preferences/migrations/01_create_model_preferences.up.sql",
+        "docs/features/model-picker-preferences/migrations/01_create_model_preferences.down.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t1-model-preferences-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Read and set model preferences through a models module",
+      "layer": "ports",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-12"
+      ],
+      "dod": "integration tests: list + set (merge, upsert, delete-on-both-off), unknown model/provider 404, catalog down 502, not configured 409, foreign page 403, retired rows still listed, preferences survive reopening the data dir",
+      "files_hint": [
+        "src/shared/models.ts",
+        "src/server/modules/models/",
+        "src/server/app.ts",
+        "src/web/lib/api.ts",
+        "tests/helpers/models.ts"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t2-preferences-repo-and-routes.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Share in-flight price lookups, cap them at 4 and cache failures for a minute",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-02"
+      ],
+      "dod": "unit tests: concurrent same-model lookups share one upstream call; never more than 4 upstream lookups in flight; a failure is answered from cache for 60 s then retried; the catalog loads its list once for concurrent misses",
+      "files_hint": [
+        "src/server/modules/providers/prices.ts",
+        "src/server/modules/providers/catalog.ts",
+        "src/server/modules/providers/prices.int.test.ts",
+        "src/server/modules/providers/prices.test.ts"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t3-price-lookup-limits.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Arrange models into favorites and others and pick models for automatic choices",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "unit tests: groups in provider order, hidden excluded (even favorites), hidden-but-selected first in others, retired preferences ignored, pickModel prefers favorites and never returns a hidden model, none when nothing suitable, null prefs → plain list",
+      "files_hint": [
+        "src/shared/model-groups.ts",
+        "src/shared/model-groups.test.ts"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t4-arrange-and-pick-models.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Build the ModelPicker popover with prices and favorite toggles",
+      "layer": "ui",
+      "deps": [
+        "T2",
+        "T4"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-09",
+        "AC-10",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "component tests: grouped/plain lists, every short-price state incl. «…» and «couldn't load», ★ toggles without selecting (pointer + keyboard), rollback message on failure, hidden-but-selected row, degraded list when preferences fail, refetch on reopening",
+      "files_hint": [
+        "src/web/components/ui/popover.tsx",
+        "src/web/features/generate/ModelPicker.tsx",
+        "src/web/features/generate/ModelPicker.test.tsx",
+        "src/web/features/generate/PricePreview.tsx",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t5-model-picker-component.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Use ModelPicker and pickModel in the generate panel",
+      "layer": "ui",
+      "deps": [
+        "T5"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-11",
+        "AC-14"
+      ],
+      "dod": "component tests: the panel preselects the first favorite, never auto-picks a hidden model (load, provider switch, unavailable re-run model, reuse), keeps a hidden re-run model selected and marked; all earlier generate tests green against the new picker",
+      "files_hint": [
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/features/generate/GeneratePanel.test.tsx",
+        "src/web/features/generate/CarryOver.test.tsx",
+        "src/web/features/generate/DraftSource.test.tsx",
+        "src/web/features/generate/InputImages.test.tsx",
+        "src/web/features/generate/ProviderSelect.test.tsx",
+        "src/web/AppShell.test.tsx"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t6-generate-panel-wiring.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Prove the preference timings in the nfr project",
+      "layer": "tests",
+      "deps": [
+        "T2"
+      ],
+      "acs": [
+        "AC-03"
+      ],
+      "dod": "nfr test: listing 100 preferences ≤ 100 ms p95 and saving a ★ ≤ 50 ms p95 with a warm catalog",
+      "files_hint": [
+        "src/server/modules/models/nfr.int.test.ts"
+      ],
+      "file": "docs/features/model-picker-preferences/tasks/t7-preferences-nfr.md",
+      "status": "todo"
+    }
+  ]
+}
