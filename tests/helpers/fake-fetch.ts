@@ -18,7 +18,9 @@ export function fakeFetch(route: Route) {
     if (reply === "hang")
       return new Promise<Response>((_, reject) => {
         const signal = init.signal;
-        signal?.addEventListener("abort", () => reject(signal.reason ?? new DOMException("Aborted", "AbortError")));
+        const abort = () => reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+        if (signal?.aborted) return abort(); // like real fetch: an already-aborted signal rejects at once
+        signal?.addEventListener("abort", abort);
       });
     return new Response(JSON.stringify(reply.body ?? {}), {
       status: reply.status ?? 200,

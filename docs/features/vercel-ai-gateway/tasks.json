@@ -45,7 +45,7 @@
         "tests/fixtures/vercel/"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t3-vercel-adapter-generate.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

@@ -1,0 +1,29 @@
+{
+  "id": "gen_01CHATREF00000000000000000",
+  "object": "chat.completion",
+  "created": 1792200000,
+  "model": "google/gemini-3.1-flash-image",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here is a red square.",
+        "images": [
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAADCAYAAABbNsX4AAAAEUlEQVR4nGNgaPj/HwMTLQgAf+glY8r8JtIAAAAASUVORK5CYII="
+            }
+          }
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 15,
+    "completion_tokens": 28,
+    "total_tokens": 43
+  }
+}

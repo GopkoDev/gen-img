@@ -1,0 +1,16 @@
+{
+  "id": "gen_01CHATTEXT0000000000000000",
+  "object": "chat.completion",
+  "created": 1792200000,
+  "model": "google/gemini-3.1-flash-image",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I can't draw that."
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}

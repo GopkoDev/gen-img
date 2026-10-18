@@ -1,0 +1,6 @@
+{
+  "error": {
+    "message": "Insufficient funds. Add credits to your AI Gateway balance.",
+    "type": "insufficient_funds"
+  }
+}

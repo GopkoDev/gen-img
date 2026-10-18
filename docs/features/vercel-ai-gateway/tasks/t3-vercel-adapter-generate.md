@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/vercel.ts", "src/server/modules/provi
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Build the Vercel adapter: catalog and the three call paths
