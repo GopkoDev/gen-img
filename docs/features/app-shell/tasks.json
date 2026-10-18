@@ -92,7 +92,7 @@
         "tests/helpers/setup-dom.ts"
       ],
       "file": "docs/features/app-shell/tasks/t6-vendor-sidebar-block.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

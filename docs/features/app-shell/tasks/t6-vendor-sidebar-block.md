@@ -9,8 +9,8 @@ files_hint: ["src/web/components/ui/sidebar.tsx", "src/web/components/ui/sheet.t
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Vendor the sidebar-08 block and its primitives, trimmed and on the project conventions

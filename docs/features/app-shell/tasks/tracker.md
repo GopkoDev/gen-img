@@ -9,7 +9,7 @@
 | T3 | Keep the draft across sections and show the running generation in the bar | ui | dmytro.hopko | S | T2 | done | COMMIT |
 | T4 | Point gallery and detail navigation at the sections | ui | dmytro.hopko | S | T3 | done | COMMIT |
 | T5 | Prove section addresses get the app page and the API stays guarded | ports | dmytro.hopko | S | T1 | done | COMMIT |
-| T6 | Vendor the sidebar-08 block and its primitives, trimmed and on the project conventions | infra | dmytro.hopko | S | T2 | todo | SELECT |
+| T6 | Vendor the sidebar-08 block and its primitives, trimmed and on the project conventions | infra | dmytro.hopko | S | T2 | done | COMMIT |
 | T7 | Put the app frame on the sidebar block (SCR-04) | ui | dmytro.hopko | S | T6 | todo | SELECT |
 | T8 | Follow the system theme with a Light / Dark / System toggle (ADR-0024) | ui | dmytro.hopko | S | T7 | todo | SELECT |
 | T9 | Show the ten latest generations next to the generate form (SCR-06, ADR-0025) | ui | dmytro.hopko | S | T7 | todo | SELECT |

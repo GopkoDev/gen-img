@@ -18,3 +18,32 @@ if (typeof URL.createObjectURL !== "function") {
   URL.createObjectURL = () => `blob:test/${++n}`;
   URL.revokeObjectURL = () => {};
 }
+
+// The sidebar block reads the viewport through matchMedia (narrow → sheet), which jsdom lacks; tests resize via
+// window.innerWidth and dispatch "resize" — the listener set below fires on it.
+if (typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    const matches = () => (max ? window.innerWidth <= Number(max[1]) : false);
+    const listeners = new Set<() => void>();
+    const mql = {
+      media: query,
+      get matches() {
+        return matches();
+      },
+      onchange: null,
+      addEventListener: (_: string, l: () => void) => {
+        listeners.add(l);
+        window.addEventListener("resize", l);
+      },
+      removeEventListener: (_: string, l: () => void) => {
+        listeners.delete(l);
+        window.removeEventListener("resize", l);
+      },
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    };
+    return mql as unknown as MediaQueryList;
+  };
+}
