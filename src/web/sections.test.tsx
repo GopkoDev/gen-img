@@ -1,5 +1,8 @@
+import { fireEvent, screen, within } from "@testing-library/react";
 import { Boxes } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { renderWithQuery } from "@/test-utils";
+import { App } from "./App";
 import { SECTIONS, type Section, sectionFor } from "./sections";
 
 describe("sections registry", () => {
@@ -26,5 +29,32 @@ describe("sections registry", () => {
     const models: Section = { id: "models", path: "/models", label: "Models", icon: Boxes, page: () => null };
     const extra = [...SECTIONS, models];
     expect(sectionFor({ name: "page", pathname: "/models", search: "" }, extra)?.id).toBe("models");
+  });
+
+  it("one extra entry gets a bar entry, an address and a page — no change to the bar or the frame", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ status: "ok" })),
+    );
+    const models: Section = {
+      id: "models",
+      path: "/models",
+      label: "Models",
+      icon: Boxes,
+      page: () => <p>Models page</p>,
+    };
+    window.history.replaceState(null, "", "/models");
+    renderWithQuery(<App sections={[...SECTIONS, models]} />);
+    const link = within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Models" });
+    expect(link).toHaveAttribute("href", "/models");
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Models page")).toBeVisible();
+    expect(document.title).toBe("Models · Ukiyo");
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Gallery" }),
+    );
+    expect(screen.queryByText("Models page")).not.toBeInTheDocument();
+    window.history.replaceState(null, "", "/");
+    vi.unstubAllGlobals();
   });
 });
