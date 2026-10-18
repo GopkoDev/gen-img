@@ -23,6 +23,7 @@ updated_at: "2026-10-18"
 - Provider — an external image-generation service Ukiyo calls with the owner's key (OpenRouter, Vercel AI Gateway). NOT a model: one provider offers many image models.
 - Re-run — starting a new generation from an existing one with the same provider, model, prompt, parameters and input images pre-filled; the Owner may change anything before generating. NOT a promise of the same picture: re-running resends the same inputs, results can differ.
 - Reuse (use as input) — attaching one of a generation's output images as an input image of the next generation in one action, without saving and re-uploading the file. NOT a re-run: only that image is carried over.
+- Section — one top-level area of Ukiyo with its own page and address, listed in the navigation bar (today Generate and Gallery; later Models, Folders). NOT a generation's detail page: a detail page belongs to the Gallery section.
 - Source generation — the generation a re-run or reuse started from (the parent in the lineage). NOT the provider's original request: it is a Ukiyo generation record.
 - Tag — a short label the Owner attaches to a generation to group it with others (normalized: trimmed, lower-case; a generation holds each tag once). NOT a model or provider attribute: tags come only from the Owner.
 
