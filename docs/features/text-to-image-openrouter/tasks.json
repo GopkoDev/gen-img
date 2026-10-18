@@ -187,7 +187,7 @@
       "dod": "web tests (mocked api): empty state CTA; tiles show prompt excerpt, provider \u00b7 model badge, relative time; Load more appends next page and hides when nextCursor null; error + retry",
       "files_hint": ["src/web/features/gallery/Gallery.tsx", "src/web/features/gallery/Gallery.test.tsx"],
       "file": "docs/features/text-to-image-openrouter/tasks/t13-gallery-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T14",

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { Gallery } from "@/features/gallery/Gallery";
 import { api } from "@/lib/api";
 import { Link, useRoute } from "@/lib/router";
 
@@ -21,7 +22,10 @@ export function App() {
       ) : (
         <main className="grid gap-6 p-6 lg:grid-cols-[380px_1fr]">
           <section aria-label="Generate" />
-          <section aria-label="Gallery" />
+          <section aria-label="Gallery" className="flex flex-col gap-4">
+            <h2 className="font-semibold">Gallery</h2>
+            <Gallery />
+          </section>
         </main>
       )}
     </div>

@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/Gallery.tsx", "src/web/features/gallery/G
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T13 — Build the gallery (SCR-02) with paging and empty state
