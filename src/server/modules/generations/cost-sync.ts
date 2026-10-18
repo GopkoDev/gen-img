@@ -120,6 +120,13 @@ export function createCostSync(deps: CostSyncDeps) {
       }
     },
 
+    /** Cancels a generation's scheduled lookup — it was deleted (curate-gallery AC-10). */
+    forget(id: string): void {
+      const handle = scheduled.get(id);
+      if (handle !== undefined) timers.clear(handle);
+      scheduled.delete(id);
+    },
+
     stop(): void {
       for (const handle of scheduled.values()) timers.clear(handle);
       scheduled.clear();

@@ -85,7 +85,7 @@ describe("generations service", () => {
       repo: createGenerationsRepo(t.db),
       files,
       jobs: createJobSlot(t.dataDir),
-      costSync: { track: () => {} },
+      costSync: { track: () => {}, forget: () => {} },
       timeoutMs: opts.timeoutMs ?? 180_000,
     });
   }
@@ -310,7 +310,7 @@ describe("generations service — second provider and deferred costs", () => {
       repo: createGenerationsRepo(t.db),
       files: createFileStore(t.dataDir),
       jobs: createJobSlot(t.dataDir),
-      costSync: { track },
+      costSync: { track, forget: vi.fn() },
       timeoutMs: 180_000,
     });
     return { svc, track, vc };

@@ -1,3 +1,4 @@
+import { AddTagRequest, checkComment, normalizeTag, SetCommentRequest } from "../../../shared/curation";
 import { checkInputFile, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
@@ -27,12 +28,13 @@ export type GenerationsServiceDeps = {
   repo: GenerationsRepo;
   files: FileStore;
   jobs: JobSlot;
-  /** Resolves `pending` costs in the background (ADR-0013). */
-  costSync: Pick<CostSync, "track">;
+  /** Resolves `pending` costs in the background (ADR-0013); `forget` cancels one on deletion. */
+  costSync: Pick<CostSync, "track" | "forget">;
   timeoutMs: number;
 };
 
 const invalid = (fields: FieldErrors) => new AppError("VALIDATION_ERROR", "Some fields need fixing", 400, { fields });
+const gone = () => new AppError("NOT_FOUND", "Generation not found", 404);
 
 /** Swaps the adapter's `{ "$image": N }` / `{ "$input": N }` placeholders for references to the stored files (ADR-0008). */
 function linkFiles(value: unknown, outputs: string[], inputs: string[] = []): unknown {
@@ -200,6 +202,62 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
       const model = provider?.configured ? await deps.catalog.find(parsed.value.provider, parsed.value.model) : null;
       if (model === undefined) throw invalid({ model: "This model is not offered by the provider" });
       return startGeneration(body, model, files);
+    },
+
+    /** Replaces the comment; blank text removes it; last save wins (ADR-0016). */
+    setComment(id: string, body: unknown, now: Date = new Date()) {
+      const parsed = SetCommentRequest.safeParse(body);
+      if (!parsed.success) throw invalid({ body: "Comment must be text" });
+      const checked = checkComment(parsed.data.body);
+      if (!checked.ok) throw invalid({ body: checked.message });
+      const res = deps.repo.setComment(id, checked.body, now.toISOString());
+      if (res.status === "missing") throw gone();
+      return { comment: res.comment };
+    },
+
+    /** Adds one normalized tag; a duplicate leaves the list unchanged; at most 10 (ADR-0015, ADR-0016). */
+    addTag(id: string, body: unknown) {
+      const parsed = AddTagRequest.safeParse(body);
+      if (!parsed.success) throw invalid({ tag: parsed.error.issues[0]?.message ?? "Tag must be text" });
+      const normalized = normalizeTag(parsed.data.tag);
+      if (!normalized.ok) throw invalid({ tag: normalized.message });
+      const res = deps.repo.addTag(id, normalized.tag);
+      if (res.status === "missing") throw gone();
+      if (res.status === "limit") throw invalid({ tag: "A generation can have at most 10 tags" });
+      return { tags: res.tags };
+    },
+
+    /** Removes one tag by its normalized value; absent → unchanged list. */
+    removeTag(id: string, raw: string) {
+      const normalized = normalizeTag(raw);
+      const res = deps.repo.removeTag(id, normalized.ok ? normalized.tag : raw);
+      if (res.status === "missing") throw gone();
+      return { tags: res.tags };
+    },
+
+    /**
+     * Deletes a generation all-or-nothing (ADR-0014): rows and the directory move share one transaction; then the
+     * moved files are purged, its cost lookup cancelled and it stops being the latest result.
+     */
+    deleteGeneration(id: string): void {
+      let deleted: boolean;
+      try {
+        deleted = deps.repo.deleteAtomic(id, () => deps.files.trashSync(id));
+      } catch (err) {
+        throw new AppError(
+          "STORAGE_ERROR",
+          `The generation could not be deleted: ${err instanceof Error ? err.message : String(err)}`,
+          500,
+        );
+      }
+      if (!deleted) throw gone();
+      try {
+        deps.files.purge(id);
+      } catch (err) {
+        console.error(`generations: purge of deleted ${id} failed — the boot sweep will finish it`, err);
+      }
+      deps.costSync.forget(id);
+      deps.jobs.forgetGeneration(id);
     },
 
     getJob: () => deps.jobs.current(),

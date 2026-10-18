@@ -124,6 +124,17 @@ describe("cost resolver", () => {
     expect(resolved.get("YOUNG")).toBeNull(); // deadline reached → unavailable, never pending forever
   });
 
+  it("forget() cancels one generation's lookups and leaves the others", async () => {
+    const { sync, calls, resolved } = setup([]);
+    sync.track(entry({ id: "GONE", costRef: "gen_gone" }));
+    sync.track(entry({ id: "KEEP", costRef: "gen_keep" }));
+    sync.forget("GONE");
+    await vi.advanceTimersByTimeAsync(COST_DEADLINE_MS + 1_000);
+    expect(calls.some((c) => c.endsWith("gen_gone"))).toBe(false);
+    expect(resolved.has("GONE")).toBe(false);
+    expect(calls.some((c) => c.endsWith("gen_keep"))).toBe(true);
+  });
+
   it("stop() cancels every scheduled lookup", async () => {
     const { sync, calls } = setup([]);
     sync.track(entry());

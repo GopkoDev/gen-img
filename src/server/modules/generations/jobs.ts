@@ -78,6 +78,11 @@ export function createJobSlot(dataDir: string, now: () => Date = () => new Date(
       writeNotice(noticePath, state);
     },
 
+    /** A deleted generation must not linger as the latest result (curate-gallery AC-12). */
+    forgetGeneration(generationId: string): void {
+      if (state?.status === "succeeded" && state.generationId === generationId) state = null;
+    },
+
     dismiss(): void {
       ensureIdle();
       clearNotice();

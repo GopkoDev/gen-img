@@ -68,7 +68,7 @@
         "src/server/app.ts"
       ],
       "file": "docs/features/curate-gallery/tasks/t5-service-curation-delete.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",
