@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { renderWithQuery, summary } from "@/test-utils";
@@ -80,5 +80,70 @@ describe("Gallery (SCR-02)", () => {
     expect(screen.getByText("+2")).toBeInTheDocument();
     expect(screen.getAllByLabelText("Has a comment")).toHaveLength(1);
     expect(screen.getByText("solo")).toBeInTheDocument();
+  });
+
+  describe("badge strip over the preview", () => {
+    const strip = () => screen.getByRole("group", { name: "Cost, duration and size" });
+
+    it("shows cost, duration and size, and no count for a single image", async () => {
+      generations.mockResolvedValue({
+        items: [
+          summary(1, {
+            costMicros: 40000,
+            durationMs: 12_400,
+            thumbnail: { ...summary(1).thumbnail, width: 1024, height: 1024 },
+          }),
+        ],
+        nextCursor: null,
+      });
+      renderWithQuery(<Gallery />);
+      await screen.findByRole("img");
+      const s = within(strip());
+      expect(s.getByText("$0.04")).toBeInTheDocument();
+      expect(s.getByText("12.4 s")).toBeInTheDocument();
+      expect(s.getByText("1024\u00d71024")).toBeInTheDocument();
+      expect(s.queryByText(/images/)).not.toBeInTheDocument();
+    });
+
+    it("shows the count when several images came back and the partial form when fewer", async () => {
+      generations.mockResolvedValue({
+        items: [
+          summary(2, { imagesRequested: 4, imagesReceived: 4 }),
+          summary(1, { imagesRequested: 4, imagesReceived: 2 }),
+        ],
+        nextCursor: null,
+      });
+      renderWithQuery(<Gallery />);
+      await screen.findAllByRole("img");
+      expect(screen.getByText("4 images")).toBeInTheDocument();
+      expect(screen.getByText("2 of 4 images")).toBeInTheDocument();
+    });
+
+    it("says «cost pending» / «cost unavailable» in the strip, never in the footer", async () => {
+      generations.mockResolvedValue({
+        items: [
+          summary(2, { costMicros: null, costStatus: "pending" }),
+          summary(1, { costMicros: null, costStatus: "unavailable" }),
+        ],
+        nextCursor: null,
+      });
+      renderWithQuery(<Gallery />);
+      await screen.findAllByRole("img");
+      const pending = screen.getByText("cost pending");
+      expect(pending.closest("[role=group]")).toHaveAccessibleName("Cost, duration and size");
+      expect(screen.getAllByText("cost pending")).toHaveLength(1);
+      expect(screen.getByText("cost unavailable")).toBeInTheDocument();
+    });
+
+    it("keeps the strip when the preview image fails", async () => {
+      generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
+      renderWithQuery(<Gallery />);
+      fireEvent.error(await screen.findByRole("img"));
+      expect(screen.getByText("Image unavailable")).toBeInTheDocument();
+      const s = within(strip());
+      expect(s.getByText("$0.04")).toBeInTheDocument();
+      expect(s.getByText("1.2 s")).toBeInTheDocument();
+      expect(s.getByText("4\u00d73")).toBeInTheDocument();
+    });
   });
 });

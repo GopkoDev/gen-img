@@ -41,7 +41,7 @@
         "src/web/features/gallery/Gallery.test.tsx"
       ],
       "file": "docs/features/gallery-grid/tasks/t3-card-badges.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

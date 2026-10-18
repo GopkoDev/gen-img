@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { excerpt, formatRelative } from "@/lib/format";
 import { Link, replace } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
+import { CardBadges } from "./CardBadges";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
 const PENDING_REFETCH_MS = 10_000;
@@ -20,7 +21,7 @@ function Tile({ g }: { g: GenerationSummary }) {
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
     >
       <Card className="gap-3 overflow-hidden py-0 transition-colors hover:bg-accent">
-        <div className="flex aspect-square items-center justify-center bg-muted">
+        <div className="relative flex aspect-square items-center justify-center bg-muted">
           {broken ? (
             <span className="text-muted-foreground text-sm">Image unavailable</span>
           ) : (
@@ -32,6 +33,7 @@ function Tile({ g }: { g: GenerationSummary }) {
               onError={() => setBroken(true)}
             />
           )}
+          <CardBadges g={g} />
         </div>
         <div className="flex flex-col gap-2 px-3 pb-3">
           <p className="line-clamp-2 text-sm">{g.prompt}</p>
@@ -53,7 +55,6 @@ function Tile({ g }: { g: GenerationSummary }) {
               <Badge variant="secondary" className="max-w-full truncate">
                 {g.provider} · {g.model}
               </Badge>
-              {g.costStatus === "pending" && <Badge variant="outline">cost pending</Badge>}
               {g.inputsCount > 0 && (
                 <Badge variant="outline">
                   <ImageIcon aria-hidden />
