@@ -47,7 +47,7 @@ unknowns are lookups or prototypes, listed under [Open decisions](#open-decision
 
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
-| D1 | Does OpenRouter `POST /api/v1/images` return a generation id? Docs say no (fact-check 2026-10-18); confirm on the first real call — the raw response is stored as received. | prototype | human | — |
+| D1 | ~~Does OpenRouter `POST /api/v1/images` return a generation id?~~ Resolved 2026-10-18 by the owner's first real generations: no — the answer carries only `data`, `usage` (incl. `cost`, `cost_details`), `created`. | prototype | human | — |
 | D2 | ~~Which design canon does the UI follow?~~ Resolved 2026-10-18 → [`design-system.md`](./design-system.md) (code mode, desktop-first). | task | human | — |
 | D3 | How is cost obtained for Vercel BYOK requests, where `GET /v1/generation?id=` excludes the request cost? | prototype | human | 4 |
 | D4 | Does Vercel `/v1/images/generations` accept or forward `seed`? The AI SDK `generateImage` has a top-level `seed` ([ai-sdk.dev](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image)), but the gateway REST docs never mention it. | prototype | human | 4 |
