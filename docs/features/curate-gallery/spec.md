@@ -19,7 +19,7 @@ There is no external trigger: generation through both providers is shipped (road
 
 Committed approach: on a generation's detail view the Owner can write one free-text comment, attach a small set of tags, and delete the generation after an explicit confirmation. Comments and tags are shown in the gallery and detail view; deletion removes the generation's record together with every file of it (output images and input copies), all-or-nothing, so nothing of a deleted generation stays reachable or half-present. Search and filtering by tag stay out of v1 (idea-brief §5); tags are shown, not queried.
 
-- Traceability: medium-depth ideation reused the brief (direction already owner-accepted, idea-brief §7); competitive research N/A — internal single-user tool. The failure-mode pass (accidental deletion, crash mid-delete, deleting a generation whose cost is still being looked up or that the generate panel shows as the latest result, last-write-wins comment edits, oversized or unsafe text) shaped AC-07…AC-14 and §6.1. No independent critic subagent could run in this session; the critic pass was done in-thread and is recorded in the review file.
+- Traceability: medium-depth ideation reused the brief (direction already owner-accepted, idea-brief §7); competitive research N/A — internal single-user tool. The failure-mode pass (accidental deletion, crash mid-delete, deleting a generation whose cost is still being looked up or that the generate panel shows as the latest result, last-write-wins comment edits, oversized or unsafe text) shaped AC-07…AC-14 and §6.1. No independent critic subagent could run in this session; the critic pass was done in-thread and is recorded in the review file. Clarify (2026-10-18) ran its ambiguity sweep in-thread too (no subagent available): 7 forks resolved — comment whitespace/line breaks, explicit Save + last-save-wins, tags saved per action and kept in insertion order, deletion only from the detail view with a dialog naming the prompt, character counting, other tabs after a deletion.
 
 ## 2. Goals
 
@@ -79,13 +79,13 @@ Committed approach: on a generation's detail view the Owner can write one free-t
 
 **Given** the Owner is on a generation's detail view
 **When** the Owner writes a comment and saves it
-**Then** the comment is shown on the detail view and is still there after a reload; saving an edited text replaces it, and saving an empty text removes it
+**Then** the comment is shown on the detail view exactly as written (line breaks kept) and is still there after a reload; saving an edited text replaces it, and saving an empty or whitespace-only text removes it. The comment is saved only by an explicit Save (Cancel drops the edit); if it was changed in another tab meanwhile, the last save wins
 
 ### AC-02 (US-02) — happy path
 
 **Given** the Owner is on a generation's detail view
 **When** the Owner adds a tag and later removes it
-**Then** the tag appears on the detail view and on the generation's gallery tile right away, and after removal disappears from both; the change survives a reload
+**Then** each add or remove is saved at once (no separate Save step); the tag appears on the detail view and on the generation's gallery tile, and after removal disappears from both; tags keep the order they were added in, and the change survives a reload
 
 ### AC-03 (US-03) — happy path
 
@@ -95,9 +95,9 @@ Committed approach: on a generation's detail view the Owner can write one free-t
 
 ### AC-04 (US-04) — happy path
 
-**Given** the Owner is on a generation's detail view
-**When** the Owner chooses delete and confirms in the confirmation dialog
-**Then** the generation disappears from the gallery, its images (outputs and input copies) can no longer be opened, the Owner lands back on the gallery with a short «deleted» notice, and its files no longer take space on the machine
+**Given** the Owner is on a generation's detail view (the only place deletion is offered)
+**When** the Owner chooses delete and confirms in the confirmation dialog, which names the generation by its prompt excerpt and says that its images will be removed for good
+**Then** the generation disappears from the gallery, its images (outputs and input copies) can no longer be opened, the Owner lands back on the gallery with a short «deleted» notice, and its files no longer take space on the machine; other open gen-img tabs drop it from their gallery the next time they are focused, and its detail view there says it no longer exists (AC-14)
 
 ### AC-05 (US-04) — happy path
 
@@ -108,7 +108,7 @@ Committed approach: on a generation's detail view the Owner can write one free-t
 ### AC-06 (US-01) — error
 
 **Given** the Owner is editing a comment
-**When** the Owner tries to save a comment longer than 2 000 characters
+**When** the Owner tries to save a comment longer than 2 000 characters (counted as the characters the Owner sees, not bytes)
 **Then** the system does not save it and tells the Owner the comment must be at most 2 000 characters, keeping the typed text
 
 ### AC-07 (US-02) — error
