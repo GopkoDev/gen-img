@@ -2,7 +2,7 @@
 status: approved
 feature_size: "S"
 tool: "code"
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 ---
 
 # Screens — app-shell
@@ -20,30 +20,31 @@ Layout: at `md` and up — SCR-04's bar on the left (`w-56`, full height, right 
 
 ## Screens
 
-### SCR-04 — App frame + navigation bar
+### SCR-04 — App frame (kit block `sidebar-08`, inset)
 
 | State | Trigger / condition | Components (from the inventory) | Source-ref |
 |---|---|---|---|
-| default | any page | brand «Ukiyo» (link to `/`); `<nav aria-label="Sections">` with one link per section: lucide icon + label; server status Badge at the bottom | wireframe K |
-| current | the shown page belongs to a section (detail → Gallery) | that entry has `aria-current="page"` + `bg-accent` / `font-medium` | wireframe K |
-| no current | not-found page | no entry marked | — |
-| generation running | current job `running` (AC-06) | Generate entry shows a spinning `Loader2` after the label + visually hidden «generation running» | wireframe K |
-| failure waiting | current job `failed` (notice not dismissed) | Generate entry shows a small destructive dot + visually hidden «generation failed — see Generate» | wireframe K |
-| server unreachable | health fails | status Badge destructive «server unreachable» (unchanged texts) | — |
-| narrow | below `md` (AC-10) | same entries in a top row; labels kept; status Badge at the row's end | wireframe L |
+| default | any page, ≥ `md` | `SidebarProvider` › `AppSidebar` (variant inset): header = brand «Ukiyo» (lg menu button, link to `/`); content = `SidebarMenu` with one `SidebarMenuButton` per section (lucide icon + label), inside `<nav aria-label="Sections">`; footer = `ModeToggle` + server status Badge. `SidebarInset`: header row `SidebarTrigger` · vertical `Separator` · `Breadcrumb` (section, › «Generation» on a detail page), then the page | wireframe K |
+| current | the shown page belongs to a section (detail → Gallery) | that entry `isActive` (sidebar accent) + `aria-current="page"` | wireframe K |
+| no current | not-found page | no entry marked; breadcrumb «Page not found» | — |
+| generation running | current job `running` (AC-06) | Generate entry: spinning `Loader2` after the label + visually hidden «generation running» | wireframe K |
+| failure waiting | current job `failed` (notice not dismissed) | Generate entry: destructive dot + visually hidden «generation failed — see Generate» | wireframe K |
+| collapsed | trigger or `Ctrl/⌘+B` (AC-16) | icon rail; labels as tooltips; indicator still visible on the icon row; footer shows the toggle icon only | wireframe L |
+| narrow | below `md` (AC-10) | sidebar hidden; header trigger opens it as a `Sheet`; choosing an entry closes it | wireframe L |
+| server unreachable | health fails | footer Badge destructive «server unreachable» | — |
+| theme | Light / Dark / System via `ModeToggle` (AC-11) | `DropdownMenu` with three items; icon Sun/Moon | wireframe K |
 
 ```text
-K — md and up                                  L — below md
-+------------+----------------------------+    +---------------------------------+
-| Ukiyo      |                            |    | Ukiyo [✦ Generate][▦ Gallery] ok|
-|            |   (content area: the       |    +---------------------------------+
-| ✦ Generate |    current page)           |    | (content area)                  |
-|   ⟳        |                            |    |                                 |
-|[▦ Gallery] |  <- current: accent bg     |
-|            |                            |
-|            |                            |
-| server ok  |                            |
-+------------+----------------------------+
+K — md and up, expanded                              L — collapsed (rail) / narrow (sheet)
++-------------+-------------------------------------+  +---+--------------------------+
+| [U] Ukiyo   | [≡] | Generate                      |  | U | [≡] | Gallery            |
+|             +-------------------------------------+  | ✦⟳| (page)                   |
+| ✦ Generate ⟳| (page)                              |  |[▦]|                          |
+|[▦ Gallery  ]|                                     |  |   |                          |
+|             |                                     |  | ☾ |  narrow: [≡] opens the   |
+| ☾ Theme     |                                     |  +---+  sidebar as a sheet      |
+| server ok   |                                     |
++-------------+-------------------------------------+
 ```
 
 ### SCR-05 — Page not found
@@ -62,15 +63,38 @@ M
 +------------------------------+
 ```
 
+### SCR-06 — Recent generations (on the Generate page)
+
+| State | Trigger / condition | Components (from the inventory) | Source-ref |
+|---|---|---|---|
+| default | ≥ 1 generation (AC-13) | Card «Recent» with a grid of up to 10 square thumbnails (`thumbnail.url`, lazy, `alt` = prompt excerpt), newest first; each a `Link` to `/generations/:id` | wireframe N |
+| loading | first request in flight | muted «Loading…» | — |
+| empty | 0 generations | muted «No generations yet.» (the form next to it is the call to action) | — |
+| error | request fails (AC-15) | destructive-tinted panel «Couldn't load recent generations» + Button «Retry» (outline, sm) | — |
+| image missing | file 404 | muted «Image unavailable» square | — |
+
+Layout: ≥ `lg` two columns `grid-cols-[minmax(0,36rem)_minmax(0,1fr)]` — SCR-01 card left, SCR-06 right; below `lg` stacked (SCR-06 under the form). Thumbnails: `grid-cols-5` (two rows of five) at `xl`, `grid-cols-4` otherwise.
+
+```text
+N
++-----------------------------+  +---------------------------+
+| Generate (SCR-01)           |  | Recent                    |
+| ...                         |  | [img][img][img][img][img] |
+|                             |  | [img][img][img][img][img] |
++-----------------------------+  +---------------------------+
+```
+
 ### SCR-01 / SCR-02 / SCR-03 — placement changes only
 
 | Screen | Change | AC |
 |---|---|---|
-| SCR-01 | whole Generate page; stays mounted (hidden) while another page shows; prompt focused on arrival via «Write a prompt» | AC-05, AC-07 |
+| SCR-01 | left column of the Generate page (SCR-06 to its right); stays mounted (hidden) while another page shows; prompt focused on arrival via «Write a prompt» | AC-05, AC-07 |
 | SCR-02 | whole Gallery page with heading «Gallery»; empty-state «Write a prompt» goes to Generate; «Generation deleted.» notice on arrival after a delete | AC-07, AC-08 |
 | SCR-03 | «← Gallery» goes to `/gallery`; Gallery entry current | AC-02 |
 
 ## New components
 
-- **NavBar** (`src/web/components/NavBar.tsx`) — composes lucide icons, Badge and `Link`; states above. Registered in `design-system.md` at implement.
+- **AppSidebar** (`src/web/components/app-sidebar.tsx`) — the `sidebar-08` block trimmed to our sections; replaces the earlier hand-made NavBar.
+- **ModeToggle** + **ThemeProvider** — kit components (dark mode, Vite).
+- **RecentGenerations** (`src/web/features/generate/RecentGenerations.tsx`) — composes Card, Button, `Link`.
 - **NotFound** (`src/web/components/NotFound.tsx`) — composes Button.
