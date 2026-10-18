@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: gen-img — rerun-and-reuse
+  version: 0.5.0
+  description: >
+    Re-run a saved generation and reuse its output images as inputs, with one-level lineage (spec §1).
+    Delta over the shipped contracts (text-to-image-openrouter, image-inputs-openrouter, vercel-ai-gateway,
+    curate-gallery): the start-generation request gains `source` and an ordered `inputs` list that may name
+    stored images (ADR-0017); Generation gains `source` and `derived` (ADR-0018). No new paths. Every route
+    passes the request guard (ADR-0007) → 403 FORBIDDEN for foreign pages. Errors use
+    `{ error: { code, message, details? } }` with the repo's UPPER_SNAKE codes (src/server/lib/errors.ts).
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard replaces it
+paths:
+  /generations:
+    post:
+      operationId: startGeneration
+      summary: Start a generation; inputs may be stored-image references and/or uploads, in order (AC-01…AC-03, AC-05, AC-08, AC-09, AC-12…AC-14)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartGenerationRequest" }
+            examples:
+              rerun:
+                value:
+                  provider: openrouter
+                  model: qwen/qwen-image-2.1-turbo
+                  prompt: A red square on a white table
+                  params: { n: 1, seed: 42 }
+                  source: { id: 01J9ZK3Q7H8M2N4P6R8T0V2X4Z, relation: rerun }
+                  inputs:
+                    - stored: { generationId: 01J9ZK3Q7H8M2N4P6R8T0V2X4Z, kind: input, position: 1 }
+              reuse:
+                value:
+                  provider: vercel
+                  model: google/gemini-3.1-flash-image
+                  prompt: Make it blue
+                  params: { n: 1 }
+                  source: { id: 01J9ZK3Q7H8M2N4P6R8T0V2X4Z, relation: reuse, output: 2 }
+                  inputs:
+                    - stored: { generationId: 01J9ZK3Q7H8M2N4P6R8T0V2X4Z, kind: output, position: 2 }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [request]
+              properties:
+                request: { type: string, description: "StartGenerationRequest as JSON text; `inputs` may mix `{ stored }` and `{ upload: n }` (n = 1-based index of the `inputs` file parts)" }
+                inputs: { type: array, items: { type: string, format: binary } }
+      responses:
+        "202":
+          description: Job accepted and running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400":
+          description: >
+            VALIDATION_ERROR — `details.fields.source` («The source generation no longer exists»),
+            `details.fields["inputs.N"]` («Not an image stored by gen-img» for every unknown generation / position / kind;
+            or the size/format reason), `details.fields.inputs` (upload slots not used exactly once, too many inputs),
+            plus the existing model checks (unsupported params, input count).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: { code: VALIDATION_ERROR, message: Some fields need fixing, details: { fields: { source: The source generation no longer exists } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: GENERATION_IN_PROGRESS or PROVIDER_NOT_CONFIGURED (unchanged)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /generations/{id}:
+    get:
+      operationId: getGeneration
+      summary: Generation detail incl. lineage — its source (or «deleted») and up to 50 newest derived generations with the total (AC-02, AC-04, AC-07, AC-15)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Generation detail (fields from earlier contracts + `source` + `derived`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenerationLineage" }
+              example:
+                source: { id: 01J9ZK3Q7H8M2N4P6R8T0V2X4Z, relation: reuse, output: 2, exists: false }
+                derived: { items: [{ id: 01J9ZM0000000000000000000A, relation: rerun, output: null, createdAt: "2026-10-18T12:00:00.000Z" }], total: 1 }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+components:
+  responses:
+    Forbidden:
+      description: FORBIDDEN — request guard refusal (AC-12)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    Relation:
+      type: string
+      enum: [rerun, reuse]
+    SourceRef:
+      type: object
+      description: "The draft's source; `output` is required for reuse and absent for rerun"
+      required: [id, relation]
+      properties:
+        id: { type: string, pattern: "^[0-9A-Z]{1,26}$" }
+        relation: { $ref: "#/components/schemas/Relation" }
+        output: { type: integer, minimum: 1 }
+    StoredImageRef:
+      type: object
+      required: [stored]
+      properties:
+        stored:
+          type: object
+          required: [generationId, kind, position]
+          properties:
+            generationId: { type: string, pattern: "^[0-9A-Z]{1,26}$" }
+            kind: { type: string, enum: [input, output] }
+            position: { type: integer, minimum: 1 }
+    UploadSlot:
+      type: object
+      required: [upload]
+      properties:
+        upload: { type: integer, minimum: 1, description: "1-based index of the multipart `inputs` file part" }
+    StartGenerationRequest:
+      type: object
+      required: [provider, model, prompt, params]
+      properties:
+        provider: { type: string, enum: [openrouter, vercel] }
+        model: { type: string, minLength: 1 }
+        prompt: { type: string, minLength: 1, maxLength: 10000 }
+        params:
+          type: object
+          required: [n]
+          properties:
+            aspectRatio: { type: string }
+            seed: { type: integer }
+            n: { type: integer, minimum: 1, maximum: 4 }
+        source: { $ref: "#/components/schemas/SourceRef" }
+        inputs:
+          type: array
+          maxItems: 8
+          description: "Ordered inputs; absent → uploads in order (unchanged clients)"
+          items:
+            oneOf:
+              - { $ref: "#/components/schemas/StoredImageRef" }
+              - { $ref: "#/components/schemas/UploadSlot" }
+    JobResponse:
+      type: object
+      required: [job]
+      properties:
+        job: { type: object, additionalProperties: true }
+    LineageSource:
+      type: [object, "null"]
+      required: [id, relation, output, exists]
+      properties:
+        id: { type: string }
+        relation: { $ref: "#/components/schemas/Relation" }
+        output: { type: [integer, "null"] }
+        exists: { type: boolean, description: "false → show «source deleted», no link" }
+    DerivedItem:
+      type: object
+      required: [id, relation, output, createdAt]
+      properties:
+        id: { type: string }
+        relation: { $ref: "#/components/schemas/Relation" }
+        output: { type: [integer, "null"] }
+        createdAt: { type: string, format: date-time }
+    GenerationLineage:
+      type: object
+      description: "Lineage fields added to Generation (other fields per earlier contracts)"
+      required: [source, derived]
+      properties:
+        source: { $ref: "#/components/schemas/LineageSource" }
+        derived:
+          type: object
+          required: [items, total]
+          properties:
+            items: { type: array, maxItems: 50, items: { $ref: "#/components/schemas/DerivedItem" } }
+            total: { type: integer, minimum: 0 }
