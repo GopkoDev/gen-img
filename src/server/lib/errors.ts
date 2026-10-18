@@ -1,7 +1,15 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-export type ErrorCode = "VALIDATION_ERROR" | "NOT_FOUND" | "PROVIDER_ERROR" | "INTERNAL_ERROR";
+export type ErrorCode =
+  | "VALIDATION_ERROR"
+  | "NOT_FOUND"
+  | "PROVIDER_ERROR"
+  | "INTERNAL_ERROR"
+  | "GENERATION_IN_PROGRESS"
+  | "PROVIDER_NOT_CONFIGURED"
+  | "STORAGE_ERROR"
+  | "FORBIDDEN";
 
 export class AppError extends Error {
   constructor(

@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/jobs.ts", "src/server/modules/gener
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T7 — Run generations as a single-slot job and save results atomically

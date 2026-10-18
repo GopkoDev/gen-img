@@ -22,6 +22,7 @@ export function createFileStore(dataDir: string) {
   const root = resolve(dataDir);
   const stagingDir = (id: string) => join(root, STAGING, id);
   const finalDir = (id: string) => join(root, GENERATIONS, id);
+  mkdirSync(join(root, STAGING), { recursive: true });
 
   return {
     /** Writes the images to staging; returns their final paths relative to the data dir, in order. */

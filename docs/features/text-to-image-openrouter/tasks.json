@@ -99,7 +99,7 @@
         "src/server/lib/errors.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t7-generation-jobs-service.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",
