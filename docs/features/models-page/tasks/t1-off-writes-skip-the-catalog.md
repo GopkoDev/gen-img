@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/models/routes.ts", "src/server/modules/models/r
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

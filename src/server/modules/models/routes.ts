@@ -31,6 +31,9 @@ export function registerModelsRoutes(app: Hono, deps: ModelsRouteDeps) {
 
     const provider = deps.providers.get(providerId);
     if (!provider) throw new AppError("NOT_FOUND", `Unknown provider: ${providerId}`, 404);
+    // Turning flags off never needs the provider or its catalog (ADR-0029); only a write that
+    // turns a flag on is checked against what the provider offers.
+    if (favorite !== true && hidden !== true) return c.json(deps.repo.set(provider.id, model, { favorite, hidden }));
     if (!provider.configured)
       throw new AppError("PROVIDER_NOT_CONFIGURED", `${provider.name} is not configured`, 409, {
         provider: provider.id,

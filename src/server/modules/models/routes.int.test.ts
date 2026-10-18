@@ -168,6 +168,87 @@ describe("model preferences routes", () => {
     expect(await list("openrouter")).toMatchObject([{ model: "gone/old-model", favorite: true }]);
   });
 
+  describe("off-writes skip the provider and catalog (AC-08, AC-12, ADR-0029)", () => {
+    it("forgets a retired model id with 200 and removes the row", async () => {
+      setup();
+      seedModelPreference(t.db, { provider: "openrouter", model: "gone/old-model", favorite: true, hidden: true });
+      const res = await patch({ provider: "openrouter", model: "gone/old-model", favorite: false, hidden: false });
+      expect(res.status).toBe(200);
+      expect(ModelPreference.parse(await res.json())).toMatchObject({
+        favorite: false,
+        hidden: false,
+        updatedAt: null,
+      });
+      expect(rowCount()).toBe(0);
+    });
+
+    it("un-hides while the catalog fails with 200", async () => {
+      setup(fakeFetch(() => "network-error"));
+      seedModelPreference(t.db, { provider: "openrouter", model: OR_MODEL, hidden: true });
+      const res = await patch({ provider: "openrouter", model: OR_MODEL, hidden: false });
+      expect(res.status).toBe(200);
+      expect(rowCount()).toBe(0);
+    });
+
+    it("un-favorites with the provider unconfigured with 200", async () => {
+      t = createTestApp({}, { fetch: catalogFetch() });
+      seedModelPreference(t.db, { provider: "openrouter", model: OR_MODEL, favorite: true });
+      const res = await patch({ provider: "openrouter", model: OR_MODEL, favorite: false });
+      expect(res.status).toBe(200);
+      expect(rowCount()).toBe(0);
+    });
+
+    it("answers 200 with both flags off and updatedAt null for a never-stored id", async () => {
+      setup();
+      const res = await patch({ provider: "openrouter", model: "never/stored", favorite: false });
+      expect(res.status).toBe(200);
+      expect(ModelPreference.parse(await res.json())).toEqual({
+        provider: "openrouter",
+        model: "never/stored",
+        favorite: false,
+        hidden: false,
+        updatedAt: null,
+      });
+    });
+
+    it("does not call the catalog for an off-write", async () => {
+      const fetch = setup();
+      await patch({ provider: "openrouter", model: OR_MODEL, favorite: false });
+      expect(fetch.calls ?? []).toHaveLength(0);
+    });
+
+    it("still checks the catalog when any named flag turns on", async () => {
+      setup();
+      const mixed = await patch({ provider: "openrouter", model: "no/such-model", favorite: false, hidden: true });
+      expect(mixed.status).toBe(404);
+      t.cleanup();
+      setup(fakeFetch(() => "network-error"));
+      expect((await patch({ provider: "openrouter", model: OR_MODEL, hidden: true })).status).toBe(502);
+      t.cleanup();
+      t = createTestApp({}, { fetch: catalogFetch() });
+      expect((await patch({ provider: "openrouter", model: OR_MODEL, favorite: true })).status).toBe(409);
+      expect(rowCount()).toBe(0);
+    });
+
+    it("refuses an unknown provider on an off-write with 404", async () => {
+      setup();
+      const res = await patch({ provider: "nope", model: OR_MODEL, favorite: false });
+      expect(res.status).toBe(404);
+      expect(ErrorResponse.parse(await res.json()).error.code).toBe("NOT_FOUND");
+    });
+
+    it("refuses a foreign Origin on an off-write with 403 and keeps the row", async () => {
+      setup();
+      seedModelPreference(t.db, { provider: "openrouter", model: OR_MODEL, favorite: true });
+      const res = await patch(
+        { provider: "openrouter", model: OR_MODEL, favorite: false },
+        { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+      );
+      expect(res.status).toBe(403);
+      expect(rowCount()).toBe(1);
+    });
+  });
+
   it("keeps preferences after the app restarts over the same data dir (AC-03)", async () => {
     setup();
     await patch({ provider: "openrouter", model: OR_MODEL, favorite: true });

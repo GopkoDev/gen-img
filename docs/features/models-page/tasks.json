@@ -14,7 +14,7 @@
         "src/server/modules/models/nfr.int.test.ts"
       ],
       "file": "docs/features/models-page/tasks/t1-off-writes-skip-the-catalog.md",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "T2",

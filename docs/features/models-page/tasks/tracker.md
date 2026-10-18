@@ -7,7 +7,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | Accept preference writes that only turn flags off without checking the provider | ports | dmytro.hopko | S | — | in_progress | RED |
+| T1 | Accept preference writes that only turn flags off without checking the provider | ports | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Share preference reads and a per-flag optimistic mutation between the picker and the Models page | app | dmytro.hopko | M | — | in_progress | RED |
 | T3 | Describe a model's supported parameters for the table | domain | dmytro.hopko | S | — | done | COMMIT |
 | T4 | Build the Models page section | ui | dmytro.hopko | L | T1, T2, T3 | todo | — |
