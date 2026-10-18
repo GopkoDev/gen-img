@@ -153,7 +153,158 @@ sequenceDiagram
     end
 ```
 
-Further flows (comment, tags, other tabs, boot after a crash) are added by `sequences`.
+### Save a comment (US-01)
+
+```mermaid
+sequenceDiagram
+    actor User as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    User->>UI: edits the comment, presses Save
+    alt longer than 2 000 characters
+        UI-->>User: limit message, text kept
+    else valid
+        UI->>Svc: set comment (text)
+        alt generation gone
+            Svc-->>UI: not found
+            UI-->>User: no longer exists + back to gallery
+        else exists
+            Svc->>DB: upsert comment, or delete it when text is blank
+            Note over Svc,DB: persists generation_comments (one row per generation)
+            Svc-->>UI: saved comment
+            UI-->>User: comment shown as plain text
+        end
+    end
+```
+
+Save validates the length in the form and again on the server; a blank text removes the comment; a deleted generation answers «no longer exists». Last save wins across tabs (AC-01, AC-06, AC-14, AC-15).
+
+### Add or remove a tag (US-02, US-03)
+
+```mermaid
+sequenceDiagram
+    actor User as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    User->>UI: types a tag, presses Enter (or removes one)
+    UI->>Svc: add tag (text) / remove tag (normalized)
+    Svc->>Svc: normalize (trim, collapse spaces, lower-case), check characters and length
+    alt invalid text
+        Svc-->>UI: field error
+    else generation gone
+        Svc-->>UI: not found
+    else add
+        Svc->>DB: in one transaction: count tags; insert if new and fewer than 10
+        Note over Svc,DB: persists generation_tags (generation, tag, position)
+        alt already 10 tags
+            Svc-->>UI: at most 10 tags
+        else duplicate
+            Svc-->>UI: unchanged tag list
+        else inserted
+            Svc-->>UI: tag list in insertion order
+        end
+    else remove
+        Svc->>DB: delete the tag row (no-op if absent)
+        Svc-->>UI: tag list
+    end
+    UI-->>User: updated tags (detail + gallery tile)
+```
+
+Each change is its own request, normalized on the server, deduplicated by the key, bounded to 10 inside the insert transaction (AC-02, AC-03, AC-07, AC-08).
+
+### Delete with work in flight (US-05)
+
+```mermaid
+sequenceDiagram
+    participant Svc as <service>
+    participant Jobs as <service> job slot
+    participant Cost as <service> cost lookup
+    participant DB as <data-store>
+    Note over Svc,DB: a generation G is running in the slot; saved generation X has a pending cost
+    Svc->>DB: delete X atomically (Critical flow 1)
+    Svc->>Cost: forget X (cancel its scheduled lookup)
+    Svc->>Jobs: forget X if it is the latest succeeded result
+    Note over Jobs: G keeps running; it is not in the DB yet, so it cannot be deleted
+    Jobs->>DB: G saves normally later (its own transaction)
+```
+
+Deleting X cancels X's price lookup (a late lookup would also be a no-op — only pending rows are updated) and clears X as the panel's latest result; the running generation is untouched (AC-10, AC-11, AC-12).
+
+### Other tabs after a deletion (US-04)
+
+```mermaid
+sequenceDiagram
+    actor User as <user>
+    participant UI as <ui> other tab
+    participant Svc as <service>
+    User->>UI: focuses a tab that still shows X
+    UI->>Svc: refetch gallery page / detail of X / current job
+    alt detail of X
+        Svc-->>UI: not found
+        UI-->>User: no longer exists + back to gallery
+    else gallery
+        Svc-->>UI: page without X
+    end
+```
+
+Other tabs catch up on focus — no push (AC-04, AC-14).
+
+### Boot after an interrupted deletion (US-04)
+
+```mermaid
+sequenceDiagram
+    participant Svc as <service>
+    participant DB as <data-store>
+    participant Files as <data-store> image store
+    Note over Svc,Files: crash after commit, before the purge
+    Svc->>Files: delete everything under staging (incl. «id.deleted» dirs)
+    Svc->>DB: which generation ids exist?
+    Svc->>Files: delete generation dirs without a record
+    Note over Svc,Files: every remaining generation is complete
+```
+
+Before commit a crash rolls the transaction back (generation intact); after commit the trash dir is in staging and the existing boot sweep removes it (AC-09).
+
+### Foreign page refused (US-06)
+
+```mermaid
+sequenceDiagram
+    participant Foreign as <client>
+    participant Svc as <service>
+    Foreign->>Svc: set comment / add tag / delete
+    Svc-->>Foreign: refused by the request guard
+    Note over Svc: nothing changed or deleted
+```
+
+The existing guard refuses before any route runs (AC-13).
+
+### AC coverage (runtime view)
+
+| US / AC | Shown by |
+|---|---|
+| US-01 | Save a comment |
+| US-02 | Add or remove a tag |
+| US-03 | Add or remove a tag (tile + detail update); gallery read path from step 2 |
+| US-04 | Critical flow 1; Other tabs; Boot after an interrupted deletion |
+| US-05 | Delete with work in flight |
+| US-06 | Foreign page refused |
+| AC-01 | Save a comment → exists |
+| AC-02 | Add or remove a tag → inserted / remove |
+| AC-03 | Add or remove a tag → updated tags; non-runtime rendering of «first 3 + «+N»» and comment marker |
+| AC-04 | Critical flow 1 → moved; Other tabs |
+| AC-05 | Non-runtime: Cancel closes the dialog without any request |
+| AC-06 | Save a comment → longer than 2 000 characters |
+| AC-07 | Add or remove a tag → invalid text |
+| AC-08 | Add or remove a tag → already 10 / duplicate |
+| AC-09 | Critical flow 1 → move fails; Boot after an interrupted deletion |
+| AC-10 | Delete with work in flight → forget X |
+| AC-11 | Delete with work in flight → G keeps running |
+| AC-12 | Delete with work in flight → forget latest result |
+| AC-13 | Foreign page refused |
+| AC-14 | Critical flow 1 → no such generation; Save a comment → generation gone; Other tabs |
+| AC-15 | Non-runtime: rendering as text (React escaping), verified by web tests |
 
 ## 7. Deployment view
 
