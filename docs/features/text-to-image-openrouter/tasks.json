@@ -68,7 +68,7 @@
       "dod": "integration tests on a temp data dir: staged files invisible until commit; commit is a sync rename; discard removes staging + moved dir; sweep removes .staging/* and dirs not in the known-id set; read rejects any path not passed as recorded",
       "files_hint": ["src/server/modules/storage/file-store.ts", "src/server/modules/storage/file-store.int.test.ts"],
       "file": "docs/features/text-to-image-openrouter/tasks/t5-file-store.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",
