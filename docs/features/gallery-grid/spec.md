@@ -144,3 +144,23 @@ Committed approach: keep the newest-first gallery paged by generation (each page
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | strip with cost / duration / size / count; prompt, tags, model, time below; no duplicate cost status | unit (wording) + integration (durationMs) + component | T1, T2, T3 |
+| AC-02 | pending / unavailable wording, never $0; pending turns into the amount without reload | unit + component (fake timers) | T2, T3, T5 |
+| AC-03 | size = first output (the preview) | unit + component | T2, T3 |
+| AC-04 | auto-load near the end; Load more; «That's everything» | component (intersection double) | T4 |
+| AC-05 | failed page → inline + Try again, no auto-retry; failed refresh keeps cards with a note | component | T4 |
+| AC-06 | every generation once, newest first across a page boundary after generate/delete | component | T4 |
+| AC-07 | recent strip still the ten latest; pending refresh makes no strip request | component | T5 |
+| AC-08 | return from detail: same pages + scroll, no further page; refresh only after a change | component | T4 |
+| AC-09 | foreign page refused | integration | T1 |
+| AC-10 | «Image unavailable» keeps the badges | component | T3 |
+
+- **NFR:** any page ≤ 300 ms p95 server time (1 000 generations × 10 tags + comment) — `nfr` incl. a continued page (T1); ≤ 1 request per page — component (T4); pending refresh asks only pending generations — request-counting component test (T5); badge contrast ≥ 4.5:1 both themes — unit (T2) + manual check at ship.
+- **Test data:** `seedGeneration` for integration/nfr; web api mocks per existing gallery tests; `tests/helpers/intersection.ts`.
