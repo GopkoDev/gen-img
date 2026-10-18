@@ -99,6 +99,16 @@ export function GeneratePanel() {
   const [n, setN] = useState("1");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [dismissError, setDismissError] = useState<string | null>(null);
+
+  // Re-render every second while a generation runs, so «Started N s ago» counts up between polls.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
 
   const model: ImageModel | undefined = models.data?.models.find((x) => x.id === modelId);
   useEffect(() => {
@@ -129,7 +139,12 @@ export function GeneratePanel() {
   });
   const dismiss = useMutation({
     mutationFn: () => api.dismissJob(),
+    onMutate: () => setDismissError(null),
     onSuccess: () => qc.setQueryData(JOB_QUERY_KEY, { job: null }),
+    onError: (err) => {
+      setDismissError(err instanceof Error ? err.message : String(err));
+      qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
+    },
   });
 
   function selectModel(id: string) {
@@ -203,7 +218,10 @@ export function GeneratePanel() {
             <SelectContent>
               {models.data?.models.map((x) => (
                 <SelectItem key={x.id} value={x.id}>
-                  {x.name}
+                  <span className="flex flex-col items-start">
+                    <span>{x.name}</span>
+                    <span className="text-muted-foreground text-xs">{x.id}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -275,6 +293,11 @@ export function GeneratePanel() {
             <p>{job.error?.message}</p>
           </Notice>
         )}
+        {dismissError && (
+          <Notice title="Couldn't dismiss the notice">
+            <p>{dismissError}</p>
+          </Notice>
+        )}
         {requestError && <Notice title="Couldn't start the generation">{requestError}</Notice>}
 
         <Button type="submit" disabled={disabled}>
@@ -288,7 +311,7 @@ export function GeneratePanel() {
         </Button>
         {running && job && (
           <p className="text-muted-foreground text-sm">
-            Started {Math.max(0, Math.round((Date.now() - Date.parse(job.startedAt)) / 1000))} s ago
+            Started {Math.max(0, Math.round((now - Date.parse(job.startedAt)) / 1000))} s ago
           </p>
         )}
         {job?.status === "succeeded" && job.generationId && <LatestResult generationId={job.generationId} />}

@@ -40,7 +40,7 @@ function configured(models: ImageModel[] = [QWEN, MUSE]) {
 async function pickModel(name: string) {
   const trigger = await screen.findByRole("combobox", { name: "Model" });
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
-  fireEvent.click(await screen.findByRole("option", { name }));
+  fireEvent.click(await screen.findByRole("option", { name: new RegExp(name) }));
 }
 
 describe("GeneratePanel (SCR-01)", () => {
@@ -75,6 +75,13 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(screen.getByLabelText("Seed")).toBeInTheDocument();
     expect(screen.getByLabelText("Images")).toHaveAttribute("max", "4");
 
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "Model" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    expect(await screen.findByRole("option", { name: /Qwen Image/ })).toHaveTextContent("qwen/qwen-image"); // name and id (AC-03)
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await pickModel("Muse Image");
     expect(screen.queryByRole("combobox", { name: "Aspect ratio" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Seed")).not.toBeInTheDocument();
@@ -117,11 +124,27 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(screen.getByLabelText("Prompt")).toBeDisabled();
   });
 
-  it("shows a generation already running in another tab", async () => {
+  it("shows a generation already running in another tab, with a ticking elapsed time", async () => {
     configured();
-    m.currentJob.mockResolvedValue({ job: job({}) });
+    m.currentJob.mockResolvedValue({ job: job({ startedAt: new Date(Date.now() - 5_000).toISOString() }) });
     renderWithQuery(<GeneratePanel />);
     expect(await screen.findByRole("button", { name: /Generating/ })).toBeDisabled();
+    expect(screen.getByText("Started 5 s ago")).toBeInTheDocument();
+    expect(await screen.findByText("Started 6 s ago", {}, { timeout: 2500 })).toBeInTheDocument();
+  });
+
+  it("explains when a notice can't be dismissed", async () => {
+    configured();
+    m.currentJob.mockResolvedValue({
+      job: job({ status: "failed", error: { code: "PROVIDER_ERROR", message: "Nope" } }),
+    });
+    m.dismissJob.mockImplementation(async () => {
+      throw new ApiError(409, "GENERATION_IN_PROGRESS", "A generation is already in progress — wait until it finishes");
+    });
+    renderWithQuery(<GeneratePanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+    expect(await screen.findByText("Couldn't dismiss the notice")).toBeInTheDocument();
+    expect(screen.getByText("A generation is already in progress — wait until it finishes")).toBeInTheDocument();
   });
 
   it("shows the provider's reason, keeps the prompt, and dismisses the notice", async () => {
