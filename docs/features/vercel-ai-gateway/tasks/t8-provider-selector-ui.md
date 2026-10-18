@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/GeneratePanel.tsx", "src/web/features/ge
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Add the provider selector to the generate panel

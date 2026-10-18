@@ -121,7 +121,7 @@
         "src/web/features/generate/ProviderSelect.test.tsx"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t8-provider-selector-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",

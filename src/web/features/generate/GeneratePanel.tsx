@@ -18,10 +18,21 @@ import {
   MAX_INPUT_IMAGES,
   StartGenerationRequest,
 } from "../../../shared/generations";
-import type { ImageModel } from "../../../shared/providers";
+import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { type Attachment, InputImages } from "./InputImages";
 
-const PROVIDER = "openrouter" as const;
+/** The env var that configures each provider's key — shown when a provider isn't configured. */
+const KEY_VARS: Record<ProviderId, string> = { openrouter: "OPENROUTER_API_KEY", vercel: "AI_GATEWAY_API_KEY" };
+const PROVIDER_STORAGE = "gen-img:provider";
+
+function rememberedProvider(): ProviderId | null {
+  try {
+    const v = sessionStorage.getItem(PROVIDER_STORAGE);
+    return v === "openrouter" || v === "vercel" ? v : null;
+  } catch {
+    return null;
+  }
+}
 const JOB_QUERY_KEY = ["generation-job"] as const;
 const DEFAULT_ASPECT = "__default__";
 
@@ -86,10 +97,14 @@ function LatestResult({ generationId }: { generationId: string }) {
 export function GeneratePanel() {
   const qc = useQueryClient();
   const providers = useQuery({ queryKey: ["providers"], queryFn: api.providers });
-  const provider = providers.data?.providers.find((p) => p.id === PROVIDER);
+  // The Owner's choice (remembered for the browser session), else the first configured provider (OpenRouter first).
+  const [chosen, setChosen] = useState<ProviderId | null>(rememberedProvider);
+  const list = providers.data?.providers ?? [];
+  const providerId: ProviderId = chosen ?? list.find((p) => p.configured)?.id ?? "openrouter";
+  const provider = list.find((p) => p.id === providerId);
   const models = useQuery({
-    queryKey: ["models", PROVIDER],
-    queryFn: () => api.models(PROVIDER),
+    queryKey: ["models", providerId],
+    queryFn: () => api.models(providerId),
     enabled: provider?.configured === true,
   });
   const jobQ = useQuery({
@@ -198,6 +213,15 @@ export function GeneratePanel() {
     },
   });
 
+  function selectProvider(id: string) {
+    if (id !== "openrouter" && id !== "vercel") return;
+    setChosen(id);
+    try {
+      sessionStorage.setItem(PROVIDER_STORAGE, id);
+    } catch {}
+    selectModel(""); // the first model of the new list is preselected; prompt and attachments are kept
+  }
+
   function selectModel(id: string) {
     setModelId(id);
     setAspectRatio(DEFAULT_ASPECT);
@@ -211,7 +235,7 @@ export function GeneratePanel() {
     e.preventDefault();
     setRequestError(null);
     const body = {
-      provider: PROVIDER,
+      provider: providerId,
       model: modelId,
       prompt,
       params: {
@@ -235,9 +259,9 @@ export function GeneratePanel() {
   else if (!provider?.configured)
     body = (
       <div className="flex flex-col gap-2 text-sm">
-        <p className="font-medium">OpenRouter is not configured.</p>
+        <p className="font-medium">{provider?.name ?? "This provider"} is not configured.</p>
         <p className="text-muted-foreground">
-          Add <code>OPENROUTER_API_KEY</code> to <code>.env.local</code> and restart gen-img. Your gallery is still
+          Add <code>{KEY_VARS[providerId]}</code> to <code>.env.local</code> and restart gen-img. Your gallery is still
           available.
         </p>
       </div>
@@ -265,7 +289,6 @@ export function GeneratePanel() {
     const invalid = (k: string) => (errors[k] ? { "aria-invalid": true, "aria-describedby": `${k}-error` } : {});
     body = (
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-        <p className="text-muted-foreground text-sm">Provider: {provider.name}</p>
         <Field id="model" label="Model" error={errors.model}>
           <Select value={modelId} onValueChange={selectModel} disabled={disabled}>
             <SelectTrigger id="model" className="w-full" {...invalid("model")}>
@@ -401,7 +424,25 @@ export function GeneratePanel() {
       <CardHeader>
         <CardTitle>Generate</CardTitle>
       </CardHeader>
-      <CardContent>{body}</CardContent>
+      <CardContent className="flex flex-col gap-4">
+        {list.length > 0 && (
+          <Field id="provider" label="Provider">
+            <Select value={providerId} onValueChange={selectProvider} disabled={running || start.isPending}>
+              <SelectTrigger id="provider" className="w-full">
+                <SelectValue>{provider?.name}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {list.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.configured ? p.name : `${p.name} — not configured`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+        {body}
+      </CardContent>
     </Card>
   );
 }
