@@ -21,6 +21,35 @@ export const RequestedParams = z.object({
 });
 export type RequestedParams = z.infer<typeof RequestedParams>;
 
+const GenerationIdRef = z.string().regex(/^[0-9A-Z]{1,26}$/, { error: "Not a generation id" });
+
+/** Lineage of a draft: re-run of a generation, or reuse of one of its outputs (ADR-0018). */
+export const SourceRef = z
+  .object({
+    id: GenerationIdRef,
+    relation: z.enum(["rerun", "reuse"]),
+    output: z.number().int().min(1).optional(),
+  })
+  .refine((s) => (s.relation === "reuse") === (s.output !== undefined), {
+    error: "Choose which output to reuse",
+    path: ["output"],
+  });
+export type SourceRef = z.infer<typeof SourceRef>;
+
+/** An image gen-img already stores, named by generation + kind + position — never by path (ADR-0017). */
+export const StoredImageRef = z.object({
+  stored: z.object({
+    generationId: GenerationIdRef,
+    kind: z.enum(["input", "output"]),
+    position: z.number().int().min(1),
+  }),
+});
+export type StoredImageRef = z.infer<typeof StoredImageRef>;
+/** The n-th (1-based) uploaded file part. */
+export const UploadSlot = z.object({ upload: z.number().int().min(1) });
+export const InputSlot = z.union([StoredImageRef, UploadSlot]);
+export type InputSlot = z.infer<typeof InputSlot>;
+
 export const StartGenerationRequest = z.object({
   provider: ProviderId,
   model: z.string({ error: "Choose a model" }).min(1, { error: "Choose a model" }),
@@ -29,10 +58,47 @@ export const StartGenerationRequest = z.object({
     .max(10_000, { error: "Prompt must be at most 10 000 characters" })
     .refine((p) => p.trim().length > 0, { error: "Prompt must not be empty" }),
   params: RequestedParams,
+  source: SourceRef.optional(),
+  /** Ordered inputs; absent → uploaded files in order (clients before re-run/reuse). */
+  inputs: z
+    .array(InputSlot)
+    .max(MAX_INPUT_IMAGES, { error: `At most ${MAX_INPUT_IMAGES} input images per generation` })
+    .optional(),
 });
 export type StartGenerationRequest = z.infer<typeof StartGenerationRequest>;
 
 export type FieldErrors = Record<string, string>;
+
+/**
+ * Model switch on a draft (SAD §4 choice 4): keep what the new model supports, drop and name the rest,
+ * lower the image count to its maximum. The server's `checkAgainstModel` stays the final guard.
+ */
+export function carryParams(
+  params: RequestedParams,
+  model: ImageModel,
+): { params: RequestedParams; removed: string[] } {
+  const removed: string[] = [];
+  const out: RequestedParams = { n: params.n };
+  if (params.seed !== undefined) {
+    const seed = model.params.seed;
+    const fits =
+      seed &&
+      (seed.min === undefined || params.seed >= seed.min) &&
+      (seed.max === undefined || params.seed <= seed.max);
+    if (fits) out.seed = params.seed;
+    else removed.push("seed");
+  }
+  if (params.aspectRatio !== undefined) {
+    if (model.params.aspectRatio?.values.includes(params.aspectRatio)) out.aspectRatio = params.aspectRatio;
+    else removed.push("aspect ratio");
+  }
+  const maxN = model.params.n?.max ?? 1;
+  if (params.n > maxN) {
+    out.n = maxN;
+    removed.push(`images lowered to ${maxN}`);
+  }
+  return { params: out, removed };
+}
 
 /** Checks requested parameters against what the chosen model lists as supported. Empty result = ok. */
 export function checkAgainstModel(params: RequestedParams, model: ImageModel, inputCount = 0): FieldErrors {
@@ -126,6 +192,29 @@ export type GenerationSummary = z.infer<typeof GenerationSummary>;
 
 export const GenerationPage = z.object({ items: z.array(GenerationSummary), nextCursor: z.string().nullable() });
 export type GenerationPage = z.infer<typeof GenerationPage>;
+
+export const Relation = z.enum(["rerun", "reuse"]);
+export type Relation = z.infer<typeof Relation>;
+/** The generation this one was derived from; `exists: false` → shown as «source deleted» (ADR-0018). */
+export const LineageSource = z.object({
+  id: z.string(),
+  relation: Relation,
+  output: z.number().int().nullable(),
+  exists: z.boolean(),
+});
+export type LineageSource = z.infer<typeof LineageSource>;
+export const DerivedItem = z.object({
+  id: z.string(),
+  relation: Relation,
+  output: z.number().int().nullable(),
+  createdAt: z.string(),
+});
+export type DerivedItem = z.infer<typeof DerivedItem>;
+export const MAX_DERIVED_LISTED = 50;
+export const DerivedList = z.object({
+  items: z.array(DerivedItem).max(MAX_DERIVED_LISTED),
+  total: z.number().int().min(0),
+});
 
 export const Generation = z.object({
   id: z.string(),

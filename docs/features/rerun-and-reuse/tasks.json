@@ -25,7 +25,7 @@
       "dod": "unit tests: StartGenerationRequest accepts source + ordered inputs (stored refs, upload slots) and rejects reuse without output / rerun with output / >8 inputs; carryParams keeps supported params, removes and names the rest, clamps n",
       "files_hint": ["src/shared/generations.ts", "src/shared/rerun.test.ts"],
       "file": "docs/features/rerun-and-reuse/tasks/t2-shared-rerun-schemas.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

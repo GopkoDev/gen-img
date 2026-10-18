@@ -8,7 +8,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
 | T1 | Promote the lineage migration | migration | dmytro.hopko | S | — | done | COMMIT |
-| T2 | Extend the shared start and detail schemas and add the parameter carry-over rule | domain | dmytro.hopko | S | — | todo | — |
+| T2 | Extend the shared start and detail schemas and add the parameter carry-over rule | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Store lineage and look up stored images and derived generations in the repo | infra | dmytro.hopko | M | T1, T2 | todo | — |
 | T4 | Resolve stored-image references and record lineage when starting a generation | app | dmytro.hopko | M | T3 | todo | — |
 | T5 | Expose stored-image inputs and lineage through the routes | ports | dmytro.hopko | S | T4 | todo | — |

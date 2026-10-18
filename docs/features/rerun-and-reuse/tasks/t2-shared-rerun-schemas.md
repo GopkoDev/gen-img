@@ -9,8 +9,8 @@ files_hint: ["src/shared/generations.ts", "src/shared/rerun.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Extend the shared start and detail schemas and add the parameter carry-over rule
