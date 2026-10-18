@@ -9,7 +9,7 @@ const TEN_MINUTES = 10 * 60 * 1000; // the server caches prices for as long (ADR
 function usePrice(
   provider: ProviderId,
   model: string,
-  opts: { enabled?: boolean; retry?: false; retryOnMount?: false } = {},
+  opts: { enabled?: boolean; retry?: false; retryOnMount?: boolean } = {},
 ) {
   return useQuery({
     queryKey: ["price", provider, model],
@@ -29,9 +29,10 @@ export function useShortPrice(
   provider: ProviderId,
   model: string,
   enabled: boolean,
+  { retryOnMount = false }: { retryOnMount?: boolean } = {},
 ): { text: string; perToken: boolean } | null {
-  // A failed lookup is tried once per opening: a remounted row must not retry it (AC-02).
-  const q = usePrice(provider, model, { enabled, retry: false, retryOnMount: false });
+  // A failed lookup is tried once per opening: a remounted row must not retry it (AC-02) unless the caller opts in.
+  const q = usePrice(provider, model, { enabled, retry: false, retryOnMount });
   if (q.isError)
     return {
       text: q.error instanceof ApiError && q.error.status === 404 ? "price unknown" : "price unknown — couldn't load",

@@ -9,8 +9,8 @@ files_hint: ["src/web/features/models/preferences.ts", "src/web/features/models/
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

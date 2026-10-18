@@ -25,11 +25,11 @@ import {
 } from "../../../shared/generations";
 import { arrangeModels, pickModel } from "../../../shared/model-groups";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
+import { useModelPreferences } from "../models/preferences";
 import { type Attachment, InputImages } from "./InputImages";
 import { JOB_QUERY_KEY } from "./job";
 import { ModelPicker } from "./ModelPicker";
 import { EstimateLine, PriceLine } from "./PricePreview";
-import { useModelPreferences } from "./useModelPreferences";
 
 /** The env var that configures each provider's key — shown when a provider isn't configured. */
 const KEY_VARS: Record<ProviderId, string> = { openrouter: "OPENROUTER_API_KEY", vercel: "AI_GATEWAY_API_KEY" };
