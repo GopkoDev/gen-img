@@ -9,6 +9,8 @@ import { createJobSlot } from "./modules/generations/jobs";
 import { createGenerationsRepo } from "./modules/generations/repo";
 import { registerGenerationsRoutes } from "./modules/generations/routes";
 import { createGenerationsService } from "./modules/generations/service";
+import { createModelsRepo } from "./modules/models/repo";
+import { registerModelsRoutes } from "./modules/models/routes";
 import { createModelCatalog } from "./modules/providers/catalog";
 import { createPriceCatalog } from "./modules/providers/prices";
 import { createProviderRegistry } from "./modules/providers/registry";
@@ -51,6 +53,8 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     catalog,
     prices: createPriceCatalog(providers, catalog, deps.now, deps.priceTimeoutMs),
   });
+
+  registerModelsRoutes(api, { repo: createModelsRepo(deps.db), providers, catalog });
 
   const files = createFileStore(deps.config.dataDir);
   const repo = createGenerationsRepo(deps.db);

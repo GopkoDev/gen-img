@@ -9,6 +9,7 @@ import {
   type StartGenerationRequest,
 } from "../../shared/generations";
 import { HealthResponse } from "../../shared/health";
+import { ModelPreference, PreferencesResponse, type SetPreferenceRequest } from "../../shared/models";
 import { CostHistory, PriceResponse } from "../../shared/pricing";
 import { ModelsResponse, ProvidersResponse } from "../../shared/providers";
 
@@ -63,6 +64,10 @@ export const api = {
     for (const f of files) form.append("inputs", f, f.name);
     return request(JobResponse, "/generations", { method: "POST", body: form });
   },
+  modelPreferences: (provider: string) =>
+    request(PreferencesResponse, `/model-preferences?provider=${encodeURIComponent(provider)}`),
+  setModelPreference: (body: SetPreferenceRequest) =>
+    request(ModelPreference, "/model-preferences", json("PATCH", body)),
   currentJob: () => request(CurrentJobResponse, "/generation-job"),
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
   generations: (cursor?: string, limit?: number) => {

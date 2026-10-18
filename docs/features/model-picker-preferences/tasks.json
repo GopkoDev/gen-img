@@ -32,7 +32,7 @@
         "tests/helpers/models.ts"
       ],
       "file": "docs/features/model-picker-preferences/tasks/t2-preferences-repo-and-routes.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
@@ -59,7 +59,7 @@
       "dod": "unit tests: groups in provider order, hidden excluded (even favorites), hidden-but-selected first in others, retired preferences ignored, pickModel prefers favorites and never returns a hidden model, none when nothing suitable, null prefs → plain list",
       "files_hint": ["src/shared/model-groups.ts", "src/shared/model-groups.test.ts"],
       "file": "docs/features/model-picker-preferences/tasks/t4-arrange-and-pick-models.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T5",
