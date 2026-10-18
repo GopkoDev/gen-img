@@ -1,0 +1,78 @@
+{
+  "slug": "_scaffold",
+  "source": "docs/architecture-map.md (mode: greenfield-bootstrap, reflects 96e6530)",
+  "notes": "CI task intentionally omitted — owner decision 2026-10-18 (no CI). The local gate is `pnpm typecheck && pnpm lint && pnpm test`.",
+  "smoke_test": "pnpm install && pnpm build && pnpm typecheck && pnpm lint && pnpm test (incl. the boot smoke test: GET /api/health → 200) && pnpm db:migrate && pnpm db:rollback && pnpm db:migrate",
+  "tasks": [
+    {
+      "id": "S1",
+      "title": "Create the project structure, toolchain and entry points (server + web shell)",
+      "layer": "scaffold",
+      "deps": [],
+      "acs": [],
+      "dod": "pnpm install && pnpm build && pnpm typecheck && pnpm lint all succeed on Node 26; `pnpm start` boots and serves GET /api/health → 200 {\"status\":\"ok\"} plus the built SPA on 127.0.0.1:8787; `pnpm dev` runs tsx watch + Vite with /api proxy.",
+      "files_hint": [
+        "package.json",
+        ".nvmrc",
+        "tsconfig.json",
+        "biome.json",
+        "vite.config.ts",
+        "index.html",
+        ".gitignore",
+        ".env.example",
+        "src/server/index.ts",
+        "src/server/app.ts",
+        "src/server/lib/errors.ts",
+        "src/server/lib/ids.ts",
+        "src/server/lib/config.ts",
+        "src/server/modules/system/routes.ts",
+        "src/shared/health.ts",
+        "src/web/main.tsx",
+        "src/web/App.tsx",
+        "src/web/index.css",
+        "src/web/lib/api.ts",
+        "src/web/components/ui/"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Wire the Vitest harness + the boot smoke test",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "pnpm test runs green: unit project (*.test.ts, incl. one ULID/AppError unit test), integration project (*.int.test.ts) where createApp(deps) with a temp data dir answers GET /api/health → 200 and an unknown route → 404 in the unified error envelope, and a jsdom web test renders App.",
+      "files_hint": [
+        "vitest.config.ts",
+        "src/server/app.int.test.ts",
+        "src/server/lib/ids.test.ts",
+        "src/web/App.test.tsx",
+        "tests/fixtures/.gitkeep",
+        "tests/helpers/test-app.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Set up SQLite + the paired up/down SQL migration runner + an initial empty migration",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "pnpm db:migrate applies migrations/0001_init.up.sql and records it in schema_migrations; pnpm db:rollback reverts it via 0001_init.down.sql; re-running migrate is idempotent; the server applies pending migrations on boot against GEN_IMG_DATA_DIR (default ./data, gitignored); an integration test covers apply → rollback → apply.",
+      "files_hint": [
+        "scripts/migrate.ts",
+        "migrations/0001_init.up.sql",
+        "migrations/0001_init.down.sql",
+        "src/server/db/client.ts",
+        "src/server/db/migrate.int.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Write CLAUDE.md from the foundation conventions",
+      "layer": "scaffold",
+      "deps": ["S1", "S2", "S3"],
+      "acs": [],
+      "dod": "CLAUDE.md states the stack, the commands (dev/build/start/test/typecheck/lint/db:*), module layout, error/ID/persistence/migration/test/config conventions and the 127.0.0.1-only + server-only-keys rules, matching docs/architecture-map.md; README.md has a 5-line quickstart.",
+      "files_hint": ["CLAUDE.md", "README.md"]
+    }
+  ]
+}
