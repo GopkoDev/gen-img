@@ -11,3 +11,10 @@ if (!Element.prototype.hasPointerCapture) {
   Element.prototype.setPointerCapture = () => {};
 }
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};
+
+// Attachment thumbnails use object URLs, which jsdom doesn't implement.
+if (typeof URL.createObjectURL !== "function") {
+  let n = 0;
+  URL.createObjectURL = () => `blob:test/${++n}`;
+  URL.revokeObjectURL = () => {};
+}

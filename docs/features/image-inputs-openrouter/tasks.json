@@ -93,7 +93,7 @@
       "dod": "web tests (mocked api): area hidden for text-only models and shows the range otherwise; refused files explained, others kept; over-limit after a model switch marks extras and disables Generate; below minimum blocks; startGeneration called with files in order; failure keeps attachments",
       "files_hint": ["src/web/features/generate/", "src/web/lib/api.ts"],
       "file": "docs/features/image-inputs-openrouter/tasks/t6-generate-panel-inputs.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

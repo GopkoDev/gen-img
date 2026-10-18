@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/", "src/web/lib/api.ts"]
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Add the input-images area to the generate panel (SCR-01)

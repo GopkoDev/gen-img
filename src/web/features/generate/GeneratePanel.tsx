@@ -9,8 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
 import { Link } from "@/lib/router";
-import { checkAgainstModel, type FieldErrors, type Job, StartGenerationRequest } from "../../../shared/generations";
+import {
+  checkAgainstModel,
+  checkInputFile,
+  type FieldErrors,
+  type Job,
+  MAX_INPUT_IMAGES,
+  StartGenerationRequest,
+} from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
+import { type Attachment, InputImages } from "./InputImages";
 
 const PROVIDER = "openrouter" as const;
 const JOB_QUERY_KEY = ["generation-job"] as const;
@@ -100,6 +108,39 @@ export function GeneratePanel() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [requestError, setRequestError] = useState<string | null>(null);
   const [dismissError, setDismissError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [refused, setRefused] = useState<string[]>([]);
+
+  // Thumbnails use object URLs; release the remaining ones when the panel goes away.
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  useEffect(
+    () => () => {
+      for (const a of attachmentsRef.current) URL.revokeObjectURL(a.url);
+    },
+    [],
+  );
+
+  async function addFiles(files: File[]) {
+    const accepted: Attachment[] = [];
+    const reasons: string[] = [];
+    for (const file of files) {
+      const checked = checkInputFile(new Uint8Array(await file.arrayBuffer()), file.name);
+      if (checked.ok) accepted.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
+      else reasons.push(checked.message);
+    }
+    setRefused(reasons);
+    setAttachments((prev) => [...prev, ...accepted]);
+    setErrors(({ inputs: _drop, ...rest }) => rest);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => {
+      const gone = prev.find((a) => a.id === id);
+      if (gone) URL.revokeObjectURL(gone.url);
+      return prev.filter((a) => a.id !== id);
+    });
+  }
 
   // A dismiss error is about the notice it failed on — drop it once the job changes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on the job identity, not read from it
@@ -128,7 +169,8 @@ export function GeneratePanel() {
   }, [job?.status, qc]);
 
   const start = useMutation({
-    mutationFn: (body: StartGenerationRequest) => api.startGeneration(body),
+    mutationFn: ({ body, files }: { body: StartGenerationRequest; files: File[] }) =>
+      files.length ? api.startGeneration(body, files) : api.startGeneration(body),
     onSuccess: (res) => {
       qc.setQueryData(JOB_QUERY_KEY, { job: res.job });
       qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
@@ -175,10 +217,10 @@ export function GeneratePanel() {
     const parsed = StartGenerationRequest.safeParse(body);
     const fields: FieldErrors = {};
     if (!parsed.success) for (const i of parsed.error.issues) fields[i.path.join(".")] ??= i.message;
-    else if (model) Object.assign(fields, checkAgainstModel(parsed.data.params, model));
+    else if (model) Object.assign(fields, checkAgainstModel(parsed.data.params, model, attachments.length));
     setErrors(fields);
     if (Object.keys(fields).length > 0 || !parsed.success) return;
-    start.mutate(parsed.data);
+    start.mutate({ body: parsed.data, files: attachments.map((a) => a.file) });
   }
 
   let body: ReactNode;
@@ -209,6 +251,10 @@ export function GeneratePanel() {
     );
   else {
     const disabled = running || start.isPending || models.isPending;
+    const inputRange = model?.params.inputs
+      ? { min: model.params.inputs.min, max: Math.min(model.params.inputs.max, MAX_INPUT_IMAGES) }
+      : undefined;
+    const overLimit = attachments.length > (inputRange?.max ?? 0);
     const maxN = model?.params.n?.max ?? 1;
     const invalid = (k: string) => (errors[k] ? { "aria-invalid": true, "aria-describedby": `${k}-error` } : {});
     body = (
@@ -244,6 +290,24 @@ export function GeneratePanel() {
             {...invalid("prompt")}
           />
         </Field>
+        {(inputRange || attachments.length > 0) && (
+          <InputImages
+            attachments={attachments}
+            range={inputRange}
+            refused={refused}
+            error={
+              errors.inputs ??
+              (Object.entries(errors)
+                .filter(([k]) => k.startsWith("inputs."))
+                .map(([, v]) => v)
+                .join("; ") ||
+                undefined)
+            }
+            disabled={disabled}
+            onAdd={addFiles}
+            onRemove={removeAttachment}
+          />
+        )}
         {model?.params.aspectRatio && (
           <Field id="params.aspectRatio" label="Aspect ratio" error={errors["params.aspectRatio"]}>
             <Select value={aspectRatio} onValueChange={setAspectRatio} disabled={disabled}>
@@ -307,7 +371,7 @@ export function GeneratePanel() {
         )}
         {requestError && <Notice title="Couldn't start the generation">{requestError}</Notice>}
 
-        <Button type="submit" disabled={disabled}>
+        <Button type="submit" disabled={disabled || overLimit}>
           {running || start.isPending ? (
             <>
               <Loader2 className="animate-spin" /> Generating…

@@ -46,7 +46,14 @@ export const api = {
   health: () => request(HealthResponse, "/health"),
   providers: () => request(ProvidersResponse, "/providers"),
   models: (providerId: string) => request(ModelsResponse, `/providers/${encodeURIComponent(providerId)}/models`),
-  startGeneration: (body: StartGenerationRequest) => request(JobResponse, "/generations", json("POST", body)),
+  /** JSON for text-only; multipart (`request` JSON part + `inputs` files, in order) when images are attached (ADR-0010). */
+  startGeneration: (body: StartGenerationRequest, files: File[] = []) => {
+    if (files.length === 0) return request(JobResponse, "/generations", json("POST", body));
+    const form = new FormData();
+    form.append("request", JSON.stringify(body));
+    for (const f of files) form.append("inputs", f, f.name);
+    return request(JobResponse, "/generations", { method: "POST", body: form });
+  },
   currentJob: () => request(CurrentJobResponse, "/generation-job"),
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
   generations: (cursor?: string) =>
