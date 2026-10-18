@@ -149,7 +149,156 @@ sequenceDiagram
     end
 ```
 
-**Critical flow 2: lineage on the detail view** — the detail read adds the source (if any: resolved or «deleted») and up to 50 newest derived generations with the total. Full flows in `sequences`.
+**Critical flow 2: lineage on the detail view** — see «Lineage on the detail view» below.
+
+### Re-run: open the pre-filled panel (US-01, US-02)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    Note over Owner,UI: SCR-03 detail of a generation
+    Owner->>UI: chooses Re-run
+    UI->>UI: go to the home page with the draft source in the address
+    UI->>Svc: get the source generation
+    alt source no longer exists
+        Svc-->>UI: not found
+        UI-->>Owner: «source no longer exists» notice, draft kept
+    else source found
+        Svc-->>UI: provider, model, prompt, params, input images
+        UI->>UI: replace the draft, show «Re-run of …», remove the source from the address
+        UI->>Svc: get models of the source's provider
+        alt provider not configured or model no longer offered
+            UI-->>Owner: «original model not available», prompt + params + images kept
+        else model offered
+            UI-->>Owner: everything filled in, «results can differ»
+        end
+        opt Owner switches model or provider
+            UI->>UI: keep supported params, remove and name the rest, lower image count, mark extra images
+        end
+    end
+```
+
+Re-run moves to the home page with the source in the address. If the source is gone, the panel says so and keeps its draft. Otherwise the draft is replaced with the source's provider, model, prompt, parameters and stored input images, the panel says «Re-run of …» and that results can differ, and the address is cleaned. If the source's provider isn't configured or its model is no longer offered, the panel keeps everything and says so. Switching model or provider keeps only what the new model supports and names what was removed.
+
+### Use as input: attach one output (US-03)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    Note over Owner,UI: SCR-03, an output image
+    Owner->>UI: chooses Use as input
+    alt image larger than 10 MB or not a supported picture
+        UI-->>Owner: reason shown on the detail view, nothing attached
+    else usable
+        UI->>UI: go home with source + output position in the address
+        UI->>Svc: get the source generation
+        UI->>UI: replace the draft: that output attached, prompt empty
+        UI->>Svc: get models of the current provider
+        alt current model takes input images
+            UI-->>Owner: model kept
+        else another model of this provider does
+            UI-->>Owner: first such model selected and named
+        else none does
+            UI-->>Owner: «no model of this provider takes input images» — switch provider
+        end
+    end
+```
+
+«Use as input» is refused on the detail view when the output can't be an input (size or format). Otherwise the panel opens with only that output attached and an empty prompt, keeping the current model if it takes input images, else picking the first one that does, else telling the Owner to switch provider.
+
+### Generate from stored images (US-01, US-03) — server side
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    participant Files as <data-store>
+    participant Prov as <external-system>
+    Owner->>UI: Generate
+    UI->>Svc: start (source, ordered inputs: stored refs and upload slots)
+    alt a generation is running
+        Svc-->>UI: in progress, nothing sent
+    else foreign page
+        Svc-->>UI: refused by the request guard
+    else source given but missing
+        Svc-->>UI: field error «source no longer exists»
+    else a stored ref is not a recorded image
+        Svc-->>UI: field error «not an image stored by gen-img» (same text for every miss)
+    else ok
+        Svc->>DB: reads generation_inputs / generation_images row per ref
+        Svc->>Files: reads recorded bytes
+        alt bytes unusable (size / format) or file gone
+            Svc-->>UI: field error on that input
+        else usable
+            Svc->>Svc: check against the model, take the slot
+            Svc-->>UI: job running
+            Svc->>Prov: generate
+            Prov-->>Svc: result
+            Svc->>Files: stage outputs + own input copies
+            Note over Svc,DB: persists generation (+ source_id, source_relation, source_output), images, inputs — one transaction, staged dir moved last
+        end
+    end
+```
+
+The server refuses while another generation runs, refuses foreign pages, and refuses a missing source or a reference that isn't a recorded image with one generic message. It reads each referenced image from its recorded row and file, checks it like an upload, checks the model, takes the slot and generates. The new generation is saved with its own input copies and the lineage columns in one transaction, staged files moved last (ADR-0006).
+
+### Lineage on the detail view (US-04, US-05)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    Owner->>UI: opens a generation
+    UI->>Svc: get generation
+    Svc->>DB: reads the generation (with source columns)
+    alt has a source
+        Svc->>DB: does the source still exist?
+        Note over Svc,DB: exists → link; missing → «source deleted»
+    end
+    Svc->>DB: reads up to 50 newest generations derived from it + total
+    Note over Svc,DB: reads generations by source_id (indexed)
+    Svc-->>UI: detail + source + derived list
+    UI-->>Owner: lineage section (one level each way)
+    opt Owner deletes this generation
+        UI->>Svc: delete (usual confirmation)
+        Note over Svc,DB: derived rows untouched; their source now reads as deleted
+    end
+```
+
+The detail read adds the source (a link, or «source deleted» when it no longer exists) and the 50 newest derived generations with the total. Deleting a generation goes through the usual confirmation; derived generations are untouched and afterwards show «source deleted».
+
+### AC coverage (runtime view)
+
+| US / AC | Shown by |
+|---|---|
+| US-01 | Re-run: open the pre-filled panel; Generate from stored images |
+| US-02 | Re-run: open the pre-filled panel (switch branch) |
+| US-03 | Use as input; Generate from stored images |
+| US-04 | Lineage on the detail view |
+| US-05 | Lineage on the detail view (delete branch) |
+| AC-01 | Re-run → model offered |
+| AC-02 | Generate from stored images → persists source; Lineage |
+| AC-03 | Use as input → usable; Generate from stored images |
+| AC-04 | Lineage → derived list |
+| AC-05 | Re-run → switch branch; server model check in Generate |
+| AC-06 | Re-run → «results can differ» |
+| AC-07 | Lineage → delete branch / «source deleted» |
+| AC-08 | Re-run → source no longer exists; Generate → source missing |
+| AC-09 | Use as input → refused; Generate → bytes unusable |
+| AC-10 | Re-run → model not available |
+| AC-11 | Use as input → none does |
+| AC-12 | Generate → foreign page |
+| AC-13 | Generate → not a recorded image |
+| AC-14 | Generate → a generation is running |
+| AC-15 | Lineage → one level each way |
 
 ## 7. Deployment view
 
