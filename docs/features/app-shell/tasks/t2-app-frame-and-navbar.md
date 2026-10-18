@@ -9,8 +9,8 @@ files_hint: ["src/web/App.tsx", "src/web/App.test.tsx", "src/web/components/NavB
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Render the app frame, the navigation bar and the not-found page (SCR-04, SCR-05)

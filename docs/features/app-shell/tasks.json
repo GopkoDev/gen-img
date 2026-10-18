@@ -31,7 +31,7 @@
         "src/web/components/NotFound.tsx"
       ],
       "file": "docs/features/app-shell/tasks/t2-app-frame-and-navbar.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
