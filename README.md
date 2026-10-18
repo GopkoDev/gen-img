@@ -1,6 +1,8 @@
 # gen-img
 
-<!-- cover image: docs/assets/cover.png -->
+<p align="center">
+  <img src="docs/assets/cover.webp" alt="A great wave made of thousands of small framed images curls over a lone figure in a boat holding a glowing speech-bubble lantern — ukiyo-e woodblock style" width="100%">
+</p>
 
 Local image-generation workbench for OpenRouter and Vercel AI Gateway, with a gallery that keeps every generation on your machine.
 
