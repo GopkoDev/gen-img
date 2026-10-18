@@ -104,7 +104,7 @@
       "dod": "web tests: tile shows \u00abN inputs\u00bb only when inputsCount > 0; detail shows an Inputs card in attach order with original names and dimensions, none for text-only",
       "files_hint": ["src/web/features/gallery/"],
       "file": "docs/features/image-inputs-openrouter/tasks/t7-gallery-detail-inputs.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",

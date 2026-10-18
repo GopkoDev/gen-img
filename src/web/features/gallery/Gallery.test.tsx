@@ -43,6 +43,13 @@ describe("Gallery (SCR-02)", () => {
     expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 
+  it("hints how many input images a generation used", async () => {
+    generations.mockResolvedValue({ items: [summary(2, { inputsCount: 2 }), summary(1)], nextCursor: null });
+    renderWithQuery(<Gallery />);
+    expect(await screen.findByText("2 inputs")).toBeInTheDocument();
+    expect(screen.getAllByText(/inputs?$/)).toHaveLength(1);
+  });
+
   it("shows a placeholder when a thumbnail can't load", async () => {
     generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
     renderWithQuery(<Gallery />);

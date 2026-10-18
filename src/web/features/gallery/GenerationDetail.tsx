@@ -37,9 +37,41 @@ function Raw({ title, value }: { title: string; value: unknown }) {
   );
 }
 
+function Inputs({ g }: { g: Generation }) {
+  if (g.inputs.length === 0) return null;
+  return (
+    <section aria-labelledby="inputs-title" className="flex flex-col gap-2">
+      <h2 id="inputs-title" className="font-semibold text-sm">
+        Inputs
+      </h2>
+      <div className="flex gap-3 overflow-x-auto">
+        {g.inputs.map((img) => (
+          <a
+            key={img.position}
+            href={img.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex shrink-0 flex-col gap-1"
+          >
+            <img
+              src={img.url}
+              alt={`Input ${img.position}${img.originalName ? `: ${img.originalName}` : ""}`}
+              className="h-32 rounded-md border object-contain"
+            />
+            <span className="text-muted-foreground text-xs">
+              {img.originalName ?? `input ${img.position}`} · {img.width}×{img.height}
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Detail({ g }: { g: Generation }) {
   return (
     <div className="flex flex-col gap-6">
+      <Inputs g={g} />
       <div className="flex gap-4 overflow-x-auto">
         {g.images.map((img) => (
           <a key={img.position} href={img.url} target="_blank" rel="noreferrer" className="shrink-0">

@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T7 — Show the inputs hint on tiles and the inputs section on the detail page

@@ -62,6 +62,35 @@ describe("GenerationDetail (SCR-03)", () => {
     expect(screen.getByRole("link", { name: /Gallery/ })).toHaveAttribute("href", "/");
   });
 
+  it("shows the input images in attach order with their names", async () => {
+    const input = (position: number, originalName: string | null) => ({
+      position,
+      url: `/api/files/generations/01X/input-${position}.png`,
+      mediaType: "image/png" as const,
+      width: 640,
+      height: 480,
+      byteSize: 10,
+      originalName,
+    });
+    generation.mockResolvedValue(gen({ inputs: [input(1, "cat.png"), input(2, null)] }));
+    renderWithQuery(<GenerationDetail id="01X" />);
+    const section = await screen.findByRole("region", { name: "Inputs" });
+    const imgs = within(section).getAllByRole("img");
+    expect(imgs.map((i) => i.getAttribute("src"))).toEqual([
+      "/api/files/generations/01X/input-1.png",
+      "/api/files/generations/01X/input-2.png",
+    ]);
+    expect(within(section).getByText("cat.png · 640×480")).toBeInTheDocument();
+    expect(within(section).getByText("input 2 · 640×480")).toBeInTheDocument();
+  });
+
+  it("has no inputs section for a text-only generation", async () => {
+    generation.mockResolvedValue(gen());
+    renderWithQuery(<GenerationDetail id="01X" />);
+    await screen.findAllByRole("img");
+    expect(screen.queryByRole("region", { name: "Inputs" })).not.toBeInTheDocument();
+  });
+
   it("never shows an unknown cost as zero", async () => {
     generation.mockResolvedValue(gen({ costMicros: null, costStatus: "unavailable" }));
     renderWithQuery(<GenerationDetail id="01X" />);
