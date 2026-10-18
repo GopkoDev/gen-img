@@ -39,16 +39,19 @@ describe("model price route", () => {
     for (const c of priceCalls(fetch)) expect(new Headers(c.init.headers).get("authorization")).toBeNull();
   });
 
-  it("reports a failed lookup without caching it", async () => {
+  it("reports a failed lookup, remembers it for 60 s (ADR-0027), then retries", async () => {
     let fail = true;
+    let clock = 1_000_000;
     const fetch = openrouter(() =>
       fail ? "network-error" : { body: fixture("openrouter/endpoints/qwen_qwen-image-2.1-turbo.json") },
     );
-    t = createTestApp({ openRouterApiKey: KEY }, { fetch });
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch, now: () => clock });
     const res = await t.app.request(`/api/providers/openrouter/price?model=${encodeURIComponent(QWEN)}`);
     expect(res.status).toBe(502);
     expect(ErrorResponse.parse(await res.json()).error.code).toBe("PROVIDER_ERROR");
     fail = false;
+    expect((await t.app.request(`/api/providers/openrouter/price?model=${encodeURIComponent(QWEN)}`)).status).toBe(502);
+    clock += 61_000;
     expect((await t.app.request(`/api/providers/openrouter/price?model=${encodeURIComponent(QWEN)}`)).status).toBe(200);
   });
 

@@ -9,9 +9,9 @@
 |---|---|---|---|---|---|---|---|
 | T1 | Promote the model_preferences migration | migration | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Read and set model preferences through a models module | ports | dmytro.hopko | M | T1 | done | COMMIT |
-| T3 | Share in-flight price lookups, cap them at 4 and cache failures for a minute | infra | dmytro.hopko | M | — | todo | — |
+| T3 | Share in-flight price lookups, cap them at 4 and cache failures for a minute | infra | dmytro.hopko | M | — | done | COMMIT |
 | T4 | Arrange models into favorites and others and pick models for automatic choices | domain | dmytro.hopko | S | — | done | COMMIT |
-| T5 | Build the ModelPicker popover with prices and favorite toggles | ui | dmytro.hopko | L | T2, T4 | todo | — |
+| T5 | Build the ModelPicker popover with prices and favorite toggles | ui | dmytro.hopko | L | T2, T4 | in_progress | GREEN |
 | T6 | Use ModelPicker and pickModel in the generate panel | ui | dmytro.hopko | M | T5 | todo | — |
 | T7 | Prove the preference timings in the nfr project | tests | dmytro.hopko | S | T2 | todo | — |
 

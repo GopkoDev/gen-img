@@ -48,7 +48,7 @@
         "src/server/modules/providers/prices.test.ts"
       ],
       "file": "docs/features/model-picker-preferences/tasks/t3-price-lookup-limits.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",
@@ -76,7 +76,7 @@
         "docs/design-system.md"
       ],
       "file": "docs/features/model-picker-preferences/tasks/t5-model-picker-component.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T6",
