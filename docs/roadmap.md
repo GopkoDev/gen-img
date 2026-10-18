@@ -22,7 +22,7 @@ The single owner, on one machine, generates images from text and/or input images
 | 1 | Project skeleton — modules, test harness, SQLite + migration runner, conventions doc (`/sdd:scaffold`) | architecture-map.md §Module inventory | S | idea |
 | 2 | Text→image via OpenRouter, saved locally and browsable — generate form, `ImageProvider` port + OpenRouter adapter, image files + full metadata (prompt, model, params, cost with status, created at, duration, raw request/response), gallery + detail view | idea-brief.md §7 Recommendation | M | shipped → [`features/text-to-image-openrouter`](./features/text-to-image-openrouter/spec.md) |
 | 3 | Image inputs via OpenRouter — img→img and img+text→img: attach input images, store their copies, show them on the generation's detail view | idea-brief.md §2 Problem | S | shipped → [`features/image-inputs-openrouter`](./features/image-inputs-openrouter/spec.md) |
-| 4 | Vercel AI Gateway — image-only models (`/v1/images/generations`, `/v1/images/edits`) and multimodal LLMs (chat `modalities`), with async cost lookup (`pending → known / unavailable`) | idea-brief.md §6 Risks | M | building → [`features/vercel-ai-gateway`](./features/vercel-ai-gateway/spec.md) |
+| 4 | Vercel AI Gateway — image-only models (`/v1/images/generations`, `/v1/images/edits`) and multimodal LLMs (chat `modalities`), with async cost lookup (`pending → known / unavailable`) | idea-brief.md §6 Risks | M | shipped → [`features/vercel-ai-gateway`](./features/vercel-ai-gateway/spec.md) |
 | 5 | Curate the gallery — add a comment, tag, delete a generation | idea-brief.md §7 Recommendation | S | idea |
 | 6 | Re-run & reuse — re-run with the same inputs (same or another model) via a pre-filled form, and use an output as the next input in one click with parent→child lineage | idea-brief.md §7 Recommendation | S | idea |
 | 7 | Model price preview — show each model's price in the model picker and a pre-run estimate («≈ $0.04 for 2 images»); exact for per-image pricing, approximate for per-token. Source: public `GET /api/v1/images/models/{author}/{slug}/endpoints` → `pricing[]` (`billable`, `unit`, `cost_usd`, `variant`), no key needed (checked 2026-10-18) | owner request 2026-10-18 | S | idea |
@@ -49,9 +49,9 @@ unknowns are lookups or prototypes, listed under [Open decisions](#open-decision
 |---|---|:---:|:---:|:---:|
 | D1 | ~~Does OpenRouter `POST /api/v1/images` return a generation id?~~ Resolved 2026-10-18 by the owner's first real generations: no — the answer carries only `data`, `usage` (incl. `cost`, `cost_details`), `created`. | prototype | human | — |
 | D2 | ~~Which design canon does the UI follow?~~ Resolved 2026-10-18 → [`design-system.md`](./design-system.md) (code mode, desktop-first). | task | human | — |
-| D3 | How is cost obtained for Vercel BYOK requests, where `GET /v1/generation?id=` excludes the request cost? | prototype | human | 4 |
-| D4 | Does Vercel `/v1/images/generations` accept or forward `seed`? The AI SDK `generateImage` has a top-level `seed` ([ai-sdk.dev](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image)), but the gateway REST docs never mention it. | prototype | human | 4 |
-| D5 | Does Vercel's chat `modalities` path accept input images? Its docs only show editing through `/v1/images/edits` (`images: [{image_url}]`, Gemini image models included) ([vercel.com](https://vercel.com/docs/ai-gateway/modalities/image-generation/openai)). Should img→img go through the edits endpoint only? | prototype | human | 4 |
+| D3 | How is cost obtained for Vercel BYOK requests, where `GET /v1/generation?id=` excludes the request cost? | prototype | human | first real Vercel call |
+| D4 | Does Vercel `/v1/images/generations` accept or forward `seed`? The AI SDK `generateImage` has a top-level `seed` ([ai-sdk.dev](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image)), but the gateway REST docs never mention it. | prototype | human | first real Vercel call |
+| D5 | Does Vercel's chat `modalities` path accept input images? Its docs only show editing through `/v1/images/edits` (`images: [{image_url}]`, Gemini image models included) ([vercel.com](https://vercel.com/docs/ai-gateway/modalities/image-generation/openai)). Should img→img go through the edits endpoint only? | prototype | human | first real Vercel call |
 
 ## Decisions so far
 
@@ -91,3 +91,5 @@ flowchart LR
 |---|---|---|
 | 2 · Text→image via OpenRouter | 2026-10-18 | [changelog](./features/text-to-image-openrouter/CHANGELOG.md) · branch `feature/text-to-image-openrouter` (PR pending — no remote yet) |
 | 3 · Image inputs via OpenRouter | 2026-10-18 | [changelog](./features/image-inputs-openrouter/CHANGELOG.md) · branch `feature/image-inputs-openrouter` (PR pending — no remote) |
+
+| 4 · Vercel AI Gateway | 2026-10-18 | [changelog](./features/vercel-ai-gateway/CHANGELOG.md) · branch `feature/vercel-ai-gateway` (PR pending — no remote; independent review pending) |
