@@ -1,0 +1,121 @@
+{
+  "slug": "image-inputs-openrouter",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the generation_inputs migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-01", "AC-06"],
+      "dod": "migration 0004_create_generation_inputs applies and reverts cleanly; CHECKs and the unique path index hold",
+      "files_hint": [
+        "docs/features/image-inputs-openrouter/migrations/01_create_generation_inputs.up.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/image-inputs-openrouter/tasks/t1-promote-generation-inputs-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Validate input images and model input ranges in shared code",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-03", "AC-04", "AC-05"],
+      "dod": "unit tests: checkAgainstModel flags too few / too many inputs and inputs on a text-only model; checkInputFile refuses non-images and > 10 MiB with per-file messages",
+      "files_hint": [
+        "src/shared/generations.ts",
+        "src/shared/providers.ts",
+        "src/shared/image-sniff.ts",
+        "src/server/modules/providers/image-sniff.ts",
+        "src/server/modules/generations/domain.test.ts"
+      ],
+      "file": "docs/features/image-inputs-openrouter/tasks/t2-shared-input-validation.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Send input images through the OpenRouter adapter",
+      "layer": "infra",
+      "deps": ["T2"],
+      "acs": ["AC-02", "AC-07", "AC-11"],
+      "dod": "adapter unit tests on fixtures: catalog maps input_references to params.inputs (max capped at 8, absent \u2192 none); generate sends input_references data URLs in order; stored raw request holds {$input: N} placeholders, never data; zero inputs \u2192 body identical to step 2",
+      "files_hint": [
+        "src/server/modules/providers/port.ts",
+        "src/server/modules/providers/openrouter.ts",
+        "src/server/modules/providers/openrouter.test.ts",
+        "tests/fixtures/openrouter/models.json"
+      ],
+      "file": "docs/features/image-inputs-openrouter/tasks/t3-openrouter-inputs.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Stage and record input copies with the generation",
+      "layer": "infra",
+      "deps": ["T1"],
+      "acs": ["AC-01", "AC-06", "AC-07", "AC-10"],
+      "dod": "integration tests: stage writes input-N.* beside output-N.*; insertAtomic writes inputs in the same transaction (rolls back with it); get returns inputs in order; listPage returns inputsCount; recordedImage finds input paths",
+      "files_hint": [
+        "src/server/modules/storage/file-store.ts",
+        "src/server/modules/storage/file-store.int.test.ts",
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/repo.int.test.ts",
+        "tests/helpers/generations.ts"
+      ],
+      "file": "docs/features/image-inputs-openrouter/tasks/t4-store-input-copies.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Accept multipart starts with input images and expose inputs in the API",
+      "layer": "ports",
+      "deps": ["T3", "T4"],
+      "acs": ["AC-01", "AC-03", "AC-04", "AC-05", "AC-06", "AC-09", "AC-11"],
+      "dod": "integration tests via app.request(): multipart with 2 PNGs \u2192 saved with input copies, detail lists inputs, raw request links {$file}; per-file and count errors \u2192 400 with inputs.N / inputs, provider not called; storage failure leaves no input copies; JSON text-only unchanged; body over the limit \u2192 400",
+      "files_hint": [
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/service.ts",
+        "src/server/modules/generations/domain.ts",
+        "src/shared/generations.ts",
+        "src/server/modules/generations/routes.int.test.ts",
+        "src/server/modules/generations/service.int.test.ts"
+      ],
+      "file": "docs/features/image-inputs-openrouter/tasks/t5-multipart-start-and-dto.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Add the input-images area to the generate panel (SCR-01)",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-02", "AC-03", "AC-04", "AC-05", "AC-08", "AC-09"],
+      "dod": "web tests (mocked api): area hidden for text-only models and shows the range otherwise; refused files explained, others kept; over-limit after a model switch marks extras and disables Generate; below minimum blocks; startGeneration called with files in order; failure keeps attachments",
+      "files_hint": ["src/web/features/generate/", "src/web/lib/api.ts"],
+      "file": "docs/features/image-inputs-openrouter/tasks/t6-generate-panel-inputs.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Show the inputs hint on tiles and the inputs section on the detail page",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-01", "AC-10"],
+      "dod": "web tests: tile shows \u00abN inputs\u00bb only when inputsCount > 0; detail shows an Inputs card in attach order with original names and dimensions, none for text-only",
+      "files_hint": ["src/web/features/gallery/"],
+      "file": "docs/features/image-inputs-openrouter/tasks/t7-gallery-detail-inputs.md",
+      "status": "todo"
+    },
+    {
+      "id": "T8",
+      "title": "Verify the input-image NFRs",
+      "layer": "tests",
+      "deps": ["T5"],
+      "acs": ["AC-06", "AC-07"],
+      "dod": "NFR tests pass: local overhead \u2264 1 000 ms p95 for 4 \u00d7 10 MB inputs + 4 \u00d7 5 MB outputs (stubbed provider); detail with inputs \u2264 150 ms p95; stored raw request holds 0 bytes of input data; unrecorded input path \u2192 404",
+      "files_hint": ["src/server/nfr-inputs.int.test.ts"],
+      "file": "docs/features/image-inputs-openrouter/tasks/t8-inputs-nfr-tests.md",
+      "status": "todo"
+    }
+  ]
+}
