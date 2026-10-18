@@ -13,10 +13,10 @@ let seq = 0;
 export function seedGeneration(
   db: Db,
   dataDir: string,
-  overrides: Partial<NewGeneration> & { images?: number; inputs?: number } = {},
+  overrides: Partial<NewGeneration> & { images?: number; inputs?: number; tags?: string[]; comment?: string } = {},
 ) {
   seq += 1;
-  const { images = 1, inputs = 0, ...rest } = overrides;
+  const { images = 1, inputs = 0, tags = [], comment, ...rest } = overrides;
   const id = rest.id ?? `01SEED${String(seq).padStart(20, "0")}`;
   const gen: NewGeneration = {
     id,
@@ -60,6 +60,16 @@ export function seedGeneration(
       originalName: i === 0 ? "cat.png" : null,
     };
   });
-  createGenerationsRepo(db).insertAtomic(gen, rows, () => {}, inputRows);
-  return { ...gen, images: rows, inputs: inputRows };
+  const repo = createGenerationsRepo(db);
+  repo.insertAtomic(gen, rows, () => {}, inputRows);
+  for (const tag of tags) repo.addTag(id, tag);
+  const updatedAt = "2026-10-18T12:00:00.000Z";
+  if (comment !== undefined) repo.setComment(id, comment, updatedAt);
+  return {
+    ...gen,
+    images: rows,
+    inputs: inputRows,
+    tags,
+    comment: comment === undefined ? null : { body: comment, updatedAt },
+  };
 }

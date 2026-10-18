@@ -40,7 +40,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/curate-gallery/tasks/t3-repo-curation-and-delete.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

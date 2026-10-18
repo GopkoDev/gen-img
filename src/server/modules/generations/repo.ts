@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_TAGS } from "../../../shared/curation";
 import { RequestedParams } from "../../../shared/generations";
 import type { Db } from "../../db/client";
 
@@ -86,7 +87,13 @@ const GenerationRow = z
 type StoredGeneration = z.infer<typeof GenerationRow>;
 /** A generation to insert; `costRef` is only set when the price will be looked up later (ADR-0013). */
 export type NewGeneration = Omit<StoredGeneration, "costRef"> & { costRef?: string | null };
-export type GenerationRecord = StoredGeneration & { images: ImageRecord[]; inputs: InputRecord[] };
+export type CommentRecord = { body: string; updatedAt: string };
+export type GenerationRecord = StoredGeneration & {
+  images: ImageRecord[];
+  inputs: InputRecord[];
+  comment: CommentRecord | null;
+  tags: string[];
+};
 
 /** A generation whose price is still to be looked up; `answeredAt` (epoch ms) starts its 10-minute deadline. */
 export type PendingCost = { id: string; provider: string; costRef: string | null; answeredAt: number };
@@ -116,7 +123,16 @@ const SummaryRow = z
     imagesReceived: r.images_received,
     inputsCount: r.inputs_count,
   }));
-export type GenerationSummaryRecord = z.infer<typeof SummaryRow> & { thumbnail: ImageRecord };
+export type GenerationSummaryRecord = z.infer<typeof SummaryRow> & {
+  thumbnail: ImageRecord;
+  tags: string[];
+  hasComment: boolean;
+};
+
+const CommentRow = z
+  .object({ body: z.string(), updated_at: z.string() })
+  .transform((r) => ({ body: r.body, updatedAt: r.updated_at }));
+const TagRow = z.object({ generation_id: z.string(), tag: z.string() });
 
 export function createGenerationsRepo(db: Db) {
   const insertGen = db.prepare(
@@ -168,6 +184,64 @@ export function createGenerationsRepo(db: Db) {
     "UPDATE generations SET cost_status = @status, cost_micros = @micros WHERE id = @id AND cost_status = 'pending'",
   );
 
+  const genExists = db.prepare("SELECT 1 FROM generations WHERE id = ?").pluck();
+  const selectComment = db.prepare("SELECT body, updated_at FROM generation_comments WHERE generation_id = ?");
+  const upsertComment = db.prepare(
+    `INSERT INTO generation_comments (generation_id, body, updated_at) VALUES (@id, @body, @updatedAt)
+     ON CONFLICT (generation_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+  );
+  const deleteComment = db.prepare("DELETE FROM generation_comments WHERE generation_id = ?");
+  const selectTags = db.prepare("SELECT tag FROM generation_tags WHERE generation_id = ? ORDER BY position").pluck();
+  const tagExists = db.prepare("SELECT 1 FROM generation_tags WHERE generation_id = ? AND tag = ?").pluck();
+  const countTags = db.prepare("SELECT count(*) FROM generation_tags WHERE generation_id = ?").pluck();
+  const insertTag = db.prepare(
+    `INSERT INTO generation_tags (generation_id, tag, position)
+     VALUES (@id, @tag, (SELECT coalesce(max(position), 0) + 1 FROM generation_tags WHERE generation_id = @id))`,
+  );
+  const deleteTag = db.prepare("DELETE FROM generation_tags WHERE generation_id = ? AND tag = ?");
+  const deleteGen = db.prepare("DELETE FROM generations WHERE id = ?");
+
+  /** Tags for many generations in one query, each list in insertion order. */
+  function tagsOf(ids: string[]): Map<string, string[]> {
+    const out = new Map<string, string[]>(ids.map((id) => [id, []]));
+    if (!ids.length) return out;
+    const rows = db
+      .prepare(
+        `SELECT generation_id, tag FROM generation_tags WHERE generation_id IN (${ids.map(() => "?").join(",")})
+         ORDER BY generation_id, position`,
+      )
+      .all(...ids);
+    for (const raw of rows) {
+      const row = TagRow.parse(raw);
+      out.get(row.generation_id)?.push(row.tag);
+    }
+    return out;
+  }
+
+  function commented(ids: string[]): Set<string> {
+    if (!ids.length) return new Set();
+    const rows = db
+      .prepare(`SELECT generation_id FROM generation_comments WHERE generation_id IN (${ids.map(() => "?").join(",")})`)
+      .pluck()
+      .all(...ids) as string[];
+    return new Set(rows);
+  }
+
+  const addTagTx = db.transaction((id: string, tag: string) => {
+    if (!genExists.get(id)) return { status: "missing" as const };
+    if (tagExists.get(id, tag)) return { status: "duplicate" as const, tags: selectTags.all(id) as string[] };
+    if ((countTags.get(id) as number) >= MAX_TAGS)
+      return { status: "limit" as const, tags: selectTags.all(id) as string[] };
+    insertTag.run({ id, tag });
+    return { status: "added" as const, tags: selectTags.all(id) as string[] };
+  });
+
+  const deleteTx = db.transaction((id: string, moveFiles: () => void) => {
+    if (deleteGen.run(id).changes === 0) return false; // children cascade (images, inputs, comment, tags)
+    moveFiles(); // last step: if it throws, the deletion rolls back (ADR-0014)
+    return true;
+  });
+
   const insertAll = db.transaction(
     (gen: NewGeneration, images: ImageRecord[], inputs: InputRecord[], commitFiles: () => void) => {
       insertGen.run({
@@ -197,16 +271,24 @@ export function createGenerationsRepo(db: Db) {
         ...GenerationRow.parse(row),
         images: selectImages.all(id).map((r) => ImageRow.parse(r)),
         inputs: selectInputs.all(id).map((r) => InputRow.parse(r)),
+        comment: CommentRow.nullable().parse(selectComment.get(id) ?? null),
+        tags: selectTags.all(id) as string[],
       };
     },
 
     /** Newest first; `cursor` is the last id of the previous page. */
     listPage({ cursor, limit }: { cursor?: string; limit: number }) {
       const rows = cursor ? selectPageAfter.all(cursor, limit + 1) : selectPage.all(limit + 1);
-      const page = rows.slice(0, limit).map((r) => {
-        const summary = SummaryRow.parse(r);
-        return { ...summary, thumbnail: ImageRow.parse(selectFirstImage.get(summary.id)) };
-      });
+      const summaries = rows.slice(0, limit).map((r) => SummaryRow.parse(r));
+      const ids = summaries.map((s) => s.id);
+      const tags = tagsOf(ids);
+      const withComment = commented(ids);
+      const page = summaries.map((summary) => ({
+        ...summary,
+        thumbnail: ImageRow.parse(selectFirstImage.get(summary.id)),
+        tags: tags.get(summary.id) ?? [],
+        hasComment: withComment.has(summary.id),
+      }));
       const nextCursor = rows.length > limit ? (page.at(-1)?.id ?? null) : null;
       return { items: page satisfies GenerationSummaryRecord[], nextCursor };
     },
@@ -215,6 +297,37 @@ export function createGenerationsRepo(db: Db) {
     recordedImage(path: string): { mediaType: string } | undefined {
       const row = selectRecorded.get(path, path) as { media_type: string } | undefined;
       return row ? { mediaType: row.media_type } : undefined;
+    },
+
+    /** Replaces the comment (`null` removes it). */
+    setComment(
+      id: string,
+      body: string | null,
+      updatedAt: string,
+    ): { status: "ok"; comment: CommentRecord | null } | { status: "missing" } {
+      if (!genExists.get(id)) return { status: "missing" };
+      if (body === null) {
+        deleteComment.run(id);
+        return { status: "ok", comment: null };
+      }
+      upsertComment.run({ id, body, updatedAt });
+      return { status: "ok", comment: { body, updatedAt } };
+    },
+
+    /** Adds one normalized tag: dedup by key, at most `MAX_TAGS`, all inside one transaction (ADR-0015). */
+    addTag(id: string, tag: string) {
+      return addTagTx(id, tag);
+    },
+
+    removeTag(id: string, tag: string): { status: "ok"; tags: string[] } | { status: "missing" } {
+      if (!genExists.get(id)) return { status: "missing" };
+      deleteTag.run(id, tag);
+      return { status: "ok", tags: selectTags.all(id) as string[] };
+    },
+
+    /** Deletes a generation and its children; `moveFiles` runs as the transaction's last step. `false` = no such id. */
+    deleteAtomic(id: string, moveFiles: () => void): boolean {
+      return deleteTx(id, moveFiles);
     },
 
     allIds(): string[] {

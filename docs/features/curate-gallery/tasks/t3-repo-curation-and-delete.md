@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/repo.ts", "src/server/modules/gener
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Add comment, tag and atomic-delete queries to the generations repo
