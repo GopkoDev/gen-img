@@ -1,0 +1,184 @@
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError, api } from "@/lib/api";
+import { renderWithQuery } from "@/test-utils";
+import type { Job } from "../../../shared/generations";
+import type { ImageModel } from "../../../shared/providers";
+import { GeneratePanel } from "./GeneratePanel";
+
+vi.mock("@/lib/api", async (orig) => ({
+  ...(await orig<typeof import("@/lib/api")>()),
+  api: {
+    providers: vi.fn(),
+    models: vi.fn(),
+    currentJob: vi.fn(),
+    startGeneration: vi.fn(),
+    dismissJob: vi.fn(),
+    generation: vi.fn(),
+  },
+}));
+const m = vi.mocked(api);
+
+const QWEN: ImageModel = {
+  id: "qwen/qwen-image",
+  name: "Qwen Image",
+  params: { aspectRatio: { values: ["1:1", "16:9"] }, n: { max: 4 }, seed: {} },
+};
+const MUSE: ImageModel = { id: "meta/muse-image", name: "Muse Image", params: {} };
+const job = (over: Partial<Job>): Job => ({
+  id: "J1",
+  status: "running",
+  startedAt: new Date().toISOString(),
+  ...over,
+});
+
+function configured(models: ImageModel[] = [QWEN, MUSE]) {
+  m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] });
+  m.models.mockResolvedValue({ models, fetchedAt: new Date().toISOString() });
+}
+
+async function pickModel(name: string) {
+  const trigger = await screen.findByRole("combobox", { name: "Model" });
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  fireEvent.click(await screen.findByRole("option", { name }));
+}
+
+describe("GeneratePanel (SCR-01)", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    m.currentJob.mockResolvedValue({ job: null });
+  });
+
+  it("explains how to configure a missing key and offers no form", async () => {
+    m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: false }] });
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText("OpenRouter is not configured.")).toBeInTheDocument();
+    expect(screen.getByText(/OPENROUTER_API_KEY/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Prompt")).not.toBeInTheDocument();
+    expect(m.models).not.toHaveBeenCalled();
+  });
+
+  it("says when the model list is unavailable and retries", async () => {
+    configured();
+    m.models.mockRejectedValueOnce(new ApiError(502, "PROVIDER_ERROR", "Could not reach OpenRouter"));
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText("Model list unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Could not reach OpenRouter")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("combobox", { name: "Model" })).toBeInTheDocument();
+  });
+
+  it("offers only the parameters the chosen model supports", async () => {
+    configured();
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByRole("combobox", { name: "Aspect ratio" })).toBeInTheDocument(); // first model preselected
+    expect(screen.getByLabelText("Seed")).toBeInTheDocument();
+    expect(screen.getByLabelText("Images")).toHaveAttribute("max", "4");
+
+    await pickModel("Muse Image");
+    expect(screen.queryByRole("combobox", { name: "Aspect ratio" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Seed")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Images")).toHaveAttribute("max", "1");
+  });
+
+  it("flags invalid fields without sending anything", async () => {
+    configured();
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByRole("combobox", { name: "Model" });
+    fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Images"), { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    expect(await screen.findByText("Prompt must not be empty")).toBeInTheDocument();
+    expect(screen.getByText("Number of images must be between 1 and 4")).toBeInTheDocument();
+    expect(screen.getByLabelText("Prompt")).toHaveAttribute("aria-invalid", "true");
+    expect(m.startGeneration).not.toHaveBeenCalled();
+  });
+
+  it("starts a generation and locks the form while it runs", async () => {
+    configured();
+    m.startGeneration.mockResolvedValue({ job: job({}) });
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByRole("combobox", { name: "Model" });
+    fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "A red square" } });
+    fireEvent.change(screen.getByLabelText("Seed"), { target: { value: "42" } });
+    m.currentJob.mockResolvedValue({ job: job({}) });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+
+    await waitFor(() =>
+      expect(m.startGeneration).toHaveBeenCalledWith({
+        provider: "openrouter",
+        model: "qwen/qwen-image",
+        prompt: "A red square",
+        params: { n: 1, seed: 42 },
+      }),
+    );
+    const button = await screen.findByRole("button", { name: /Generating/ });
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText("Prompt")).toBeDisabled();
+  });
+
+  it("shows a generation already running in another tab", async () => {
+    configured();
+    m.currentJob.mockResolvedValue({ job: job({}) });
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByRole("button", { name: /Generating/ })).toBeDisabled();
+  });
+
+  it("shows the provider's reason, keeps the prompt, and dismisses the notice", async () => {
+    configured();
+    m.startGeneration.mockResolvedValue({ job: job({}) });
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByRole("combobox", { name: "Model" });
+    fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "Keep me" } });
+    m.currentJob.mockResolvedValue({
+      job: job({
+        status: "failed",
+        error: { code: "PROVIDER_ERROR", message: "Your account has insufficient credits." },
+      }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+
+    expect(await screen.findByText("Generation failed", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText("Your account has insufficient credits.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Prompt")).toHaveValue("Keep me");
+
+    m.dismissJob.mockResolvedValue(null);
+    m.currentJob.mockResolvedValue({ job: null });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Dismiss" })));
+    await waitFor(() => expect(screen.queryByText("Generation failed")).not.toBeInTheDocument());
+    expect(m.dismissJob).toHaveBeenCalled();
+  });
+
+  it("shows the latest result with a link to it once saved", async () => {
+    configured();
+    m.currentJob.mockResolvedValue({ job: job({ status: "succeeded", generationId: "01GEN" }) });
+    m.generation.mockResolvedValue({
+      id: "01GEN",
+      provider: "openrouter",
+      model: "qwen/qwen-image",
+      prompt: "A red square",
+      requestedParams: { n: 1 },
+      acceptedParams: null,
+      imagesRequested: 1,
+      images: [
+        {
+          position: 1,
+          url: "/api/files/generations/01GEN/output-1.png",
+          mediaType: "image/png",
+          width: 4,
+          height: 3,
+          byteSize: 9,
+        },
+      ],
+      costMicros: 40000,
+      costStatus: "known",
+      createdAt: new Date().toISOString(),
+      durationMs: 900,
+      rawRequest: {},
+      rawResponse: {},
+    });
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText("Saved to gallery")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Open/ })).toHaveAttribute("href", "/generations/01GEN");
+  });
+});

@@ -176,7 +176,7 @@
       "dod": "web tests (mocked api): not-configured state; models loading/error+retry; only supported params shown; client validation messages; generating locks the form; failure panel with provider reason + dismiss keeps prompt; success shows latest result; running job from another tab shows \u00abin progress\u00bb",
       "files_hint": ["src/web/features/generate/", "src/web/features/generate/GeneratePanel.test.tsx"],
       "file": "docs/features/text-to-image-openrouter/tasks/t12-generate-panel-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T13",

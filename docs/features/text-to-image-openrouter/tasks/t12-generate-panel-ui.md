@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/", "src/web/features/generate/GeneratePa
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T12 — Build the generate panel (SCR-01) in all its states

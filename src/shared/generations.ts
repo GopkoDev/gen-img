@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProviderId } from "./providers";
+import { type ImageModel, ProviderId } from "./providers";
 
 export const MAX_IMAGES = 4;
 
@@ -24,6 +24,31 @@ export const StartGenerationRequest = z.object({
   params: RequestedParams,
 });
 export type StartGenerationRequest = z.infer<typeof StartGenerationRequest>;
+
+export type FieldErrors = Record<string, string>;
+
+/** Checks requested parameters against what the chosen model lists as supported. Empty result = ok. */
+export function checkAgainstModel(params: RequestedParams, model: ImageModel): FieldErrors {
+  const fields: FieldErrors = {};
+  const maxN = model.params.n?.max ?? 1;
+  if (params.n > maxN)
+    fields["params.n"] = `This model makes at most ${maxN} image${maxN === 1 ? "" : "s"} per request`;
+
+  if (params.aspectRatio !== undefined) {
+    const values = model.params.aspectRatio?.values;
+    if (!values) fields["params.aspectRatio"] = "This model does not accept an aspect ratio";
+    else if (!values.includes(params.aspectRatio))
+      fields["params.aspectRatio"] = `Aspect ratio must be one of ${values.join(", ")}`;
+  }
+
+  if (params.seed !== undefined) {
+    const seed = model.params.seed;
+    if (!seed) fields["params.seed"] = "This model does not accept a seed";
+    else if ((seed.min !== undefined && params.seed < seed.min) || (seed.max !== undefined && params.seed > seed.max))
+      fields["params.seed"] = `Seed must be between ${seed.min ?? "any"} and ${seed.max ?? "any"}`;
+  }
+  return fields;
+}
 
 export const CostStatus = z.enum(["known", "pending", "unavailable"]);
 export type CostStatus = z.infer<typeof CostStatus>;
