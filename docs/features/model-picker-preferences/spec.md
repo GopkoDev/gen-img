@@ -185,3 +185,27 @@ Committed approach: every entry of the model picker shows that model's published
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | every entry shows its short price in step 7's wording; «…» while loading; choosing works before prices; prices asked only while open | component | T5 |
+| AC-02 | unknown / failed price → «price unknown» («couldn't load»), never $0; failed lookup not retried in one opening; server failure cache 60 s | component + unit | T3, T5 |
+| AC-03 | ★ by pointer and keyboard toggles without selecting; list stays open; stored across reload/restart | component + integration | T2, T5, T7 |
+| AC-04 | «Favorites» then «All models» in provider order; plain list without favorites | unit + component | T4, T5 |
+| AC-05 | failed save → ★ reverts + message, form unchanged | component | T5 |
+| AC-06 | unknown model / provider refused, nothing stored | integration | T2 |
+| AC-07 | per-provider rows; toggling twice ends where it started; PK + CHECK | integration (migration + routes) | T1, T2 |
+| AC-08 | retired models not listed, preference kept and returned | unit + integration | T2, T4 |
+| AC-09 | hidden left out, even favorites | unit + component | T4, T5 |
+| AC-10 | hidden selected/re-run model stays selected, first in «All models», marked | unit + component | T4, T5, T6 |
+| AC-11 | every automatic choice via pickModel: first favorite, never hidden, none-suitable notice | unit + component | T4, T6 |
+| AC-12 | foreign page refused for read and write | integration | T2 |
+| AC-13 | unreadable preferences → plain list incl. hidden + notice, generating allowed | component | T5 |
+| AC-14 | change elsewhere shows on the next opening without reload | component | T5, T6 |
+
+- **NFR:** price cache (≤ 1 request per model per 10 min, ≤ 4 in flight, failure retry ≤ 1/min, injected clock) — unit (T3); no authorization header on price lookups — existing adapter tests (T3); preferences list ≤ 100 ms p95 / save ≤ 50 ms p95 — serial `nfr` project (T7); restart survival — integration reopening the data dir (T2).
+- **Test data:** `seedModelPreference` (`tests/helpers/models.ts`); provider catalogs from the existing fixtures under `tests/fixtures/`; a controllable fake provider for concurrency tests.
