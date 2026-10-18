@@ -125,4 +125,4 @@ flowchart LR
 | 5 · Curate the gallery | 2026-10-18 | [changelog](./features/curate-gallery/CHANGELOG.md) · merged into `main` (fast-forward from `feature/curate-gallery`), independent review passed |
 | 6 · Re-run & reuse | 2026-10-18 | [changelog](./features/rerun-and-reuse/CHANGELOG.md) · merged into `main` (fast-forward from `feature/rerun-and-reuse`), independent review passed |
 | 7 · Model price preview | 2026-10-18 | [changelog](./features/model-price-preview/CHANGELOG.md) · merged into `main` (fast-forward from `feature/model-price-preview`), independent review passed |
-| 8 · App shell | 2026-10-18 | [changelog](./features/app-shell/CHANGELOG.md) · on `feature/app-shell`, independent review passed (findings fixed); amended 2026-10-19 (sidebar-08 shell, theme, recent strip) — awaiting merge |
+| 8 · App shell | 2026-10-18 | [changelog](./features/app-shell/CHANGELOG.md) · on `feature/app-shell`, independent review passed (findings fixed); amended 2026-10-19 (sidebar-08 shell, theme, recent strip) — [PR #1](https://github.com/GopkoDev/ukiyo/pull/1), awaiting merge |
