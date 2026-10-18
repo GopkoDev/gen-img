@@ -2,7 +2,7 @@
 status: Draft
 owner: "dmytro.hopko"
 reviewers: ["Tech Lead"]
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 feature_size: "S"
 ---
 
@@ -17,13 +17,14 @@ Today Ukiyo has one home page that holds both the generate panel and the gallery
 
 There is no external trigger; the Owner asked for it as the first V1.1 step so later steps plug into a stable frame.
 
-Committed approach: a left navigation bar lists Ukiyo's sections — today Generate and Gallery — and each section is its own page with its own address. The detail page of a generation belongs to the Gallery section. Moving between sections never loses what the Owner was doing: a half-written prompt is still there when they come back, and a generation in progress stays visible from every section. A new section is added by declaring it once; it then appears in the navigation bar and gets its own address.
+Committed approach: a left navigation bar (an inset sidebar that can collapse to icons) lists Ukiyo's sections — today Generate and Gallery — and each section is its own page with its own address. The detail page of a generation belongs to the Gallery section. Moving between sections never loses what the Owner was doing: a half-written prompt is still there when they come back, and a generation in progress stays visible from every section. A new section is added by declaring it once; it then appears in the navigation bar and gets its own address. The app follows the system's light or dark appearance unless the Owner picks one in the sidebar. Next to the generate form, the Generate page shows the Owner's ten latest generations, so the last results are one click away without leaving Generate.
 
 - **Assumptions ledger (interview depth: easy — answers delegated by the Owner):**
   - Sections that don't exist yet (Folders, Models) are **not** shown in the navigation bar, not even disabled — the bar lists only what works; each later step adds its own entry.
   - Generate is the start page (the app's root address), because generating is the most frequent action; the Gallery gets its own address.
   - The navigation bar is always visible on desktop widths; on narrow windows it becomes a compact bar at the top instead of a hidden menu (desktop-first posture, no phone layout goal).
   - Addresses that the earlier steps use for re-run, reuse and the «deleted» notice keep their meaning.
+- **Amendment 2026-10-19 (owner decisions, before merge):** (1) the shell is the stock inset-sidebar block of the project's component kit — collapsible to an icon rail, a slide-in panel on narrow windows (replaces the compact top bar), no demo user/teams/projects; (2) theme follows the system with a light / dark / system toggle in the sidebar, remembered in the browser; (3) a recent strip with the 10 latest generations to the right of the generate card. Changed: §1 ¶3, §3, AC-09, AC-10, §6; added US-04, US-05, AC-11…AC-16. Edits-log: the amended AC were walked by the feature agent with the owner's decisions as answers; nothing moved to §8.
 
 ## 2. Goals
 
@@ -36,7 +37,9 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 
 - The Models and Folders sections themselves (roadmap steps 10 and 15).
 - Changing what the generate panel, the gallery or the detail page show — they move into sections as they are (the gallery grid is step 11, the detail modal step 12).
-- A phone layout, a collapsible or resizable navigation bar, keyboard shortcuts for sections.
+- A phone layout, a resizable navigation bar, keyboard shortcuts for individual sections (the kit's collapse shortcut stays).
+- More than the ten latest generations next to the form, or paging there — the gallery is the place for that.
+- Custom colour themes beyond light and dark.
 - Remembering the draft across a page reload or a closed tab — only moving between sections inside the open app keeps it.
 
 ## 4. User stories
@@ -58,6 +61,18 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 **As an** Owner
 **I want** my draft and a running generation to stay as they are when I switch sections, and the actions that start from a generation (re-run, use as input, write a prompt) to bring me to Generate
 **So that** looking at the gallery never costs me the prompt I was writing or hides what is in progress
+
+### US-04: Choose a theme
+
+**As an** Owner
+**I want** Ukiyo to follow my system's light or dark appearance, and to pick light or dark myself when I prefer
+**So that** the app is comfortable to look at for long sessions and matches my desktop
+
+### US-05: See my latest generations next to the form
+
+**As an** Owner
+**I want** my ten latest generations next to the generate form, each opening its detail page
+**So that** I can compare and revisit recent results without leaving Generate
 
 ## 5. Acceptance criteria
 
@@ -109,17 +124,53 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 **When** the deletion succeeds
 **Then** Ukiyo lands on the Gallery section with the short «Generation deleted.» notice, as before
 
-### AC-09 (US-02) — authorization
+### AC-09 (US-02, US-05) — authorization
 
 **Given** Ukiyo is running
-**When** a page of another site in the Owner's browser asks Ukiyo for a section's address
+**When** a page of another site in the Owner's browser asks Ukiyo for a section's address or for the latest generations
 **Then** the new addresses add no way in: Ukiyo's data stays refused to other sites exactly as before (the app's pages carry no data of their own)
 
 ### AC-10 (US-01) — happy path
 
 **Given** a window narrower than a tablet
 **When** any page is shown
-**Then** the sections stay reachable in one click from a compact bar at the top of the page, and no page needs horizontal scrolling because of the navigation
+**Then** a menu button at the top of the page opens the sections as a slide-in panel, choosing one closes the panel and shows that section, and no page needs horizontal scrolling because of the navigation
+
+### AC-11 (US-04) — happy path
+
+**Given** the Owner has never chosen a theme
+**When** Ukiyo is shown
+**Then** it uses the system's light or dark appearance and follows it when the system changes; a theme control in the sidebar offers Light, Dark and System, the chosen one applies at once to every page and is remembered after a reload, without a flash of the other theme while loading
+
+### AC-12 (US-04) — error
+
+**Given** the browser refuses to remember the Owner's choice (storage blocked or broken)
+**When** Ukiyo loads or the Owner picks a theme
+**Then** Ukiyo still works: it shows the system appearance on load, the pick applies for the open page, and nothing fails or shows an error
+
+### AC-13 (US-05) — happy path
+
+**Given** the Owner has saved generations
+**When** the Generate page is shown
+**Then** to the right of the generate form a panel lists the ten latest generations, newest first, one thumbnail each (its first output image), and a click on a thumbnail opens that generation's detail page; with fewer than ten it shows all of them, and there is no «load more»
+
+### AC-14 (US-05) — cross-context
+
+**Given** the recent panel is shown
+**When** a generation finishes, or a generation is deleted
+**Then** the panel shows the new ten latest without a reload — the new generation first, the deleted one gone — and never more than ten
+
+### AC-15 (US-05) — error
+
+**Given** the latest generations can't be loaded, are loading, or don't exist yet
+**When** the Generate page is shown
+**Then** the panel says so in the app's usual way — a «Loading…» line, «Couldn't load recent generations» with Retry, or «No generations yet.» — and the generate form keeps working
+
+### AC-16 (US-01) — happy path
+
+**Given** a desktop-wide window
+**When** the Owner collapses the sidebar (its button or the keyboard shortcut)
+**Then** it shrinks to an icon rail where each section still opens in one click and names itself on hover, and the current section stays marked; expanding brings the labels back
 
 ## 6. Non-functional requirements
 
@@ -129,6 +180,8 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 | Draft survival | 100 % of draft fields (prompt, model, parameters, attachments) intact after Generate → Gallery → Generate | component test |
 | Adding a section | one declaration in one place adds the entry, its address and its page; no edit to the navigation bar itself | unit test over the section list + review |
 | Server load | switching sections makes no new request for a page already visited, and the running-generation indicator adds no requests of its own (one poller only) | component test counts job requests |
+| Recent panel | one request for at most 10 generations per change (finish, delete, curation); no polling of its own | component test counts list requests |
+| Theme | the stored theme applies before the first paint (no flash); switching re-renders no data | inline-script unit test + manual check at ship |
 
 ## 6.1 Security / privacy
 
