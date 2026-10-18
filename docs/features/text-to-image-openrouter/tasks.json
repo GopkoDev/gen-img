@@ -83,7 +83,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t6-generations-repo.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

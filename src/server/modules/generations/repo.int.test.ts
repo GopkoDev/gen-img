@@ -1,0 +1,76 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { seedGeneration } from "../../../../tests/helpers/generations";
+import { createTestApp } from "../../../../tests/helpers/test-app";
+import { createGenerationsRepo } from "./repo";
+
+describe("generations repo", () => {
+  let t: ReturnType<typeof createTestApp>;
+  beforeEach(() => {
+    t = createTestApp();
+  });
+  afterEach(() => t.cleanup());
+
+  it("round-trips every field of a generation and its images", () => {
+    const seeded = seedGeneration(t.db, t.dataDir, {
+      images: 2,
+      imagesRequested: 4,
+      costMicros: null,
+      costStatus: "unavailable",
+      requestedParams: { n: 4, aspectRatio: "16:9", seed: 7 },
+    });
+    const repo = createGenerationsRepo(t.db);
+    expect(repo.get(seeded.id)).toEqual({
+      ...seeded,
+      images: seeded.images,
+    });
+    expect(repo.get("missing")).toBeUndefined();
+  });
+
+  it("pages newest first with a cursor and reports images requested vs received", () => {
+    const ids = Array.from(
+      { length: 30 },
+      (_, i) => seedGeneration(t.db, t.dataDir, { id: `01PAGE${String(i).padStart(20, "0")}` }).id,
+    );
+    const repo = createGenerationsRepo(t.db);
+
+    const first = repo.listPage({ limit: 24 });
+    expect(first.items.map((g) => g.id)).toEqual([...ids].reverse().slice(0, 24));
+    expect(first.nextCursor).toBe(ids[6]);
+    expect(first.items[0]).toMatchObject({
+      provider: "openrouter",
+      imagesRequested: 1,
+      imagesReceived: 1,
+      thumbnail: { position: 1 },
+    });
+
+    const second = repo.listPage({ cursor: first.nextCursor ?? undefined, limit: 24 });
+    expect(second.items.map((g) => g.id)).toEqual([...ids].reverse().slice(24));
+    expect(second.nextCursor).toBeNull();
+
+    expect(createGenerationsRepo(t.db).listPage({ limit: 24, cursor: ids[0] })).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
+
+  it("rolls the rows back when committing the files throws", () => {
+    const repo = createGenerationsRepo(t.db);
+    const seeded = seedGeneration(t.db, t.dataDir);
+    const gen = { ...seeded, id: "01ROLLBACK0000000000000000" };
+    expect(() =>
+      repo.insertAtomic(gen, seeded.images, () => {
+        throw new Error("rename failed");
+      }),
+    ).toThrow("rename failed");
+    expect(repo.get(gen.id)).toBeUndefined();
+    expect(t.db.prepare("SELECT count(*) FROM generation_images WHERE generation_id = ?").pluck().get(gen.id)).toBe(0);
+  });
+
+  it("knows which file paths are recorded and lists all ids", () => {
+    const seeded = seedGeneration(t.db, t.dataDir);
+    const repo = createGenerationsRepo(t.db);
+    expect(repo.recordedImage(seeded.images[0]?.path ?? "")).toEqual({ mediaType: "image/png" });
+    expect(repo.recordedImage("generations/x/output-1.png")).toBeUndefined();
+    expect(repo.allIds()).toEqual([seeded.id]);
+  });
+});

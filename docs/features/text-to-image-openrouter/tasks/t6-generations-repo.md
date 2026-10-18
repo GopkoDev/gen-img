@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/repo.ts", "src/server/modules/gener
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Write the generations repo: atomic insert, gallery page, detail, recorded path lookup
