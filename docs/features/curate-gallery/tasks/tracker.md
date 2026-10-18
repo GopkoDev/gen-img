@@ -15,7 +15,7 @@
 | T6 | Expose the curation and delete routes and add tags/comment to the DTOs | ports | dmytro.hopko | M | T5 | done | COMMIT |
 | T7 | Build the Notes card: comment editor and tag editor (SCR-02) | ui | dmytro.hopko | M | T6 | done | COMMIT |
 | T8 | Build the delete confirmation and its after-effects (SCR-03, SCR-01 notice, SCR-04) | ui | dmytro.hopko | M | T6 | done | COMMIT |
-| T9 | Show tags and a comment marker on gallery tiles (SCR-01) | ui | dmytro.hopko | S | T6 | todo | — |
+| T9 | Show tags and a comment marker on gallery tiles (SCR-01) | ui | dmytro.hopko | S | T6 | done | COMMIT |
 | T10 | Verify the curation and deletion NFRs | tests | dmytro.hopko | S | T6 | todo | — |
 
 **Total:** 10 tasks, ~5 person-days.

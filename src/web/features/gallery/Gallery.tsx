@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ImageIcon, Loader2 } from "lucide-react";
+import { ImageIcon, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,19 @@ function Tile({ g }: { g: GenerationSummary }) {
         </div>
         <div className="flex flex-col gap-2 px-3 pb-3">
           <p className="line-clamp-2 text-sm">{g.prompt}</p>
+          {(g.tags.length > 0 || g.hasComment) && (
+            <div className="flex flex-wrap items-center gap-1">
+              {g.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag} variant="outline" className="max-w-full truncate">
+                  {tag}
+                </Badge>
+              ))}
+              {g.tags.length > 3 && <Badge variant="outline">+{g.tags.length - 3}</Badge>}
+              {g.hasComment && (
+                <MessageSquare aria-label="Has a comment" role="img" className="size-4 text-muted-foreground" />
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex min-w-0 flex-wrap gap-1">
               <Badge variant="secondary" className="max-w-full truncate">

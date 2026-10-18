@@ -64,4 +64,21 @@ describe("Gallery (SCR-02)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("A test prompt number 1")).toBeInTheDocument();
   });
+
+  it("shows the first 3 tags with «+N» and a comment marker, as plain text", async () => {
+    generations.mockResolvedValue({
+      items: [
+        summary(1, { tags: ["<b>x</b>", "two", "three", "four", "five"], hasComment: true }),
+        summary(2, { tags: ["solo"], hasComment: false }),
+      ],
+      nextCursor: null,
+    });
+    renderWithQuery(<Gallery />);
+    expect(await screen.findByText("<b>x</b>")).toBeInTheDocument(); // text, not markup
+    expect(screen.getByText("three")).toBeInTheDocument();
+    expect(screen.queryByText("four")).not.toBeInTheDocument();
+    expect(screen.getByText("+2")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Has a comment")).toHaveLength(1);
+    expect(screen.getByText("solo")).toBeInTheDocument();
+  });
 });

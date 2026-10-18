@@ -128,7 +128,7 @@
       "dod": "web tests: first 3 tags + \u00ab+N\u00bb; comment marker with aria-label only when hasComment; tag text with markup rendered as text",
       "files_hint": ["src/web/features/gallery/Gallery.tsx", "src/web/features/gallery/Gallery.test.tsx"],
       "file": "docs/features/curate-gallery/tasks/t9-gallery-tile-curation-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T10",
