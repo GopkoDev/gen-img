@@ -40,9 +40,11 @@ export function createTestApp(overrides: Partial<Config> = {}, deps: Omit<Partia
     dataDir,
     /** Builds a fresh app over the same DB + data dir, like a server restart. */
     restart() {
+      handle.app.stopBackground();
       handle.app = createApp({ config, db, ...deps, timers });
     },
     cleanup() {
+      handle.app.stopBackground();
       for (const h of live) clearTimeout(h);
       live.clear();
       db.close();

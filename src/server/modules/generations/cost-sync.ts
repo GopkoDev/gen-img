@@ -78,6 +78,9 @@ export function createCostSync(deps: CostSyncDeps) {
       at += d;
       return Math.min(at, deadline);
     });
+    // The backoff alone ends at ~5¼ min; the last lookup waits for the deadline so a price reported
+    // up to 10 minutes after the answer is still caught (spec AC-05).
+    times[times.length - 1] = deadline;
     const t = now();
     const future = times.filter((x) => x > t);
     return future.length < times.length ? [t, ...future] : future;

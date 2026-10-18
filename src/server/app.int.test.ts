@@ -22,6 +22,11 @@ describe("app boot smoke test", () => {
     expect(ErrorResponse.parse(await res.json()).error.code).toBe("FORBIDDEN");
   });
 
+  it("stops background work when asked (shutdown, restart)", () => {
+    expect(typeof t.app.stopBackground).toBe("function");
+    expect(() => t.app.stopBackground()).not.toThrow();
+  });
+
   it("unknown /api route → 404 in the unified error envelope", async () => {
     const res = await t.app.request("/api/does-not-exist");
     expect(res.status).toBe(404);

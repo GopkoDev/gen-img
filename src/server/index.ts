@@ -12,6 +12,15 @@ if (applied.length) console.log(`migrations applied: ${applied.map((m) => `${m.v
 const webDir = process.env.NODE_ENV === "production" && existsSync("dist/web") ? "dist/web" : undefined;
 const app = createApp({ config, db }, { webDir });
 
-serve({ fetch: app.fetch, hostname: HOST, port: config.port }, (info) => {
+const server = serve({ fetch: app.fetch, hostname: HOST, port: config.port }, (info) => {
   console.log(`gen-img listening on http://${HOST}:${info.port}${webDir ? "" : " (API only)"}`);
 });
+
+for (const signal of ["SIGINT", "SIGTERM"] as const)
+  process.once(signal, () => {
+    app.stopBackground(); // no cost lookups against a closing DB
+    server.close(() => {
+      db.close();
+      process.exit(0);
+    });
+  });

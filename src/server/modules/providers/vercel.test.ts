@@ -79,7 +79,12 @@ describe("Vercel adapter — generate", () => {
       signal(),
     );
     const { body } = sent(fetch, "/images/edits");
-    expect(body).toMatchObject({ model: "google/gemini-3.1-flash-image", prompt: "Make it blue", n: 1 });
+    expect(body).toMatchObject({
+      model: "google/gemini-3.1-flash-image",
+      prompt: "Make it blue",
+      n: 1,
+      response_format: "b64_json", // like /images/generations — never URLs we would have to fetch
+    });
     expect(body.images[0].image_url).toMatch(/^data:image\/png;base64,iVBOR/);
     expect(result.rawRequest).toEqual({
       method: "POST",
@@ -88,6 +93,7 @@ describe("Vercel adapter — generate", () => {
         model: "google/gemini-3.1-flash-image",
         prompt: "Make it blue",
         n: 1,
+        response_format: "b64_json",
         images: [{ image_url: { $input: 1 } }],
       },
     });

@@ -162,7 +162,7 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
 
       // Route per ADR-0012: attached images → edits (D5 default), else the model kind decides.
       if (inputs.length) {
-        const base = { model: input.model, prompt: input.prompt, n: input.params.n };
+        const base = { model: input.model, prompt: input.prompt, n: input.params.n, response_format: "b64_json" };
         const body = {
           ...base,
           images: inputs.map((img) => ({

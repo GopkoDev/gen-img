@@ -80,6 +80,13 @@ describe("cost resolver", () => {
     expect(a.calls).toHaveLength(8);
     expect(a.resolved.get("G1")).toBeNull();
 
+    expect(a.calls.at(-1)).toBe(`${COST_DEADLINE_MS}:gen_1`); // the last lookup waits for the 10-minute deadline (AC-05)
+
+    const late = setup([...Array(7).fill({ status: "not-yet" }), { status: "known", costUsd: 0.02 }]);
+    late.sync.track(entry({ id: "G9" }));
+    await vi.advanceTimersByTimeAsync(COST_DEADLINE_MS);
+    expect(late.resolved.get("G9")).toBe(20_000); // a price reported just before the deadline is kept
+
     const b = setup([{ status: "unavailable" }]);
     b.sync.track(entry({ id: "G2" }));
     await vi.advanceTimersByTimeAsync(5_000);

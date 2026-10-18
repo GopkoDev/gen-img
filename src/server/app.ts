@@ -74,5 +74,6 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     app.use("/*", serveStatic({ root }));
     app.get("*", serveStatic({ root, path: "index.html" }));
   }
-  return app;
+  /** Cancels background work (pending-cost lookups) — on shutdown and before a test restart. */
+  return Object.assign(app, { stopBackground: () => costSync.stop() });
 }
