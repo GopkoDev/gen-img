@@ -92,7 +92,7 @@ Committed approach: add Vercel AI Gateway as a second provider the Owner can pic
 
 **Given** the Owner opens the model picker with Vercel AI Gateway selected
 **When** the list loads
-**Then** it lists only the gateway models that can produce images (by name and model id), and switching provider switches the list; for each model the form offers the number of images and input images only where the model is known to accept them, and never a seed or aspect ratio control
+**Then** it lists only the gateway models that can produce images — image-only models and multimodal language models the gateway's catalog marks as image-generating — by name and model id, and switching provider switches the list; the form offers up to 4 images per request for image-only models and exactly 1 for multimodal language models, input images only for models the catalog lists as taking image input (at most 8), and never a seed or aspect ratio control
 
 ### AC-04 (US-03) — happy path
 
@@ -104,13 +104,13 @@ Committed approach: add Vercel AI Gateway as a second provider the Owner can pic
 
 **Given** a Vercel generation succeeded but its answer did not state a price
 **When** it is saved and the Owner opens it in the gallery or detail view
-**Then** it appears immediately with cost status «pending» — never as zero — and, without the Owner reloading, changes to the final amount (status «known») once the provider reports it, or to «unavailable» if the provider still has not reported it 10 minutes after the generation
+**Then** it appears immediately with cost status «pending» — never as zero — and, without the Owner reloading, changes to the final amount (status «known») once the provider reports it, or to «unavailable» if the provider still has not reported it 10 minutes after the provider's answer arrived
 
 ### AC-06 (US-04) — domain invariant
 
 **Given** gen-img stops while some generations still have a pending cost
 **When** it starts again
-**Then** pending costs younger than 10 minutes keep being looked up, older ones get one last lookup and then become «unavailable»; no generation stays «pending» forever
+**Then** pending costs whose answer arrived less than 10 minutes ago keep being looked up, older ones get one last lookup and then become «unavailable»; no generation stays «pending» forever
 
 ### AC-07 (US-04) — error
 
@@ -197,7 +197,8 @@ Committed approach: add Vercel AI Gateway as a second provider the Owner can pic
 
 ## 8. Open questions
 
-- [ ] D3 — How is the cost obtained for requests made with the Owner's own provider keys through the gateway, where the gateway's own price excludes the request cost? Default now: use the gateway's reported market price for such requests when it is non-zero, else «unavailable». — owner: dmytro.hopko, due: first real Vercel call
+- [ ] D3 — How is the cost obtained for requests made with the Owner's own provider keys through the gateway, where the gateway's own price excludes the request cost? Default now: for such requests use the price the gateway reports the Owner's own provider would have charged, when it is non-zero, else «unavailable». — owner: dmytro.hopko, due: first real Vercel call
+- [x] ~~Is a cost ever «pending» for OpenRouter?~~ Resolved (clarify 2026-10-18): no — OpenRouter states the price in its answer or it is «unavailable», unchanged (AC-15). — owner: dmytro.hopko, due: —
 - [ ] D4 — Does the gateway honour a seed for image models? Default now: no seed control for Vercel models (§3), the seed is never sent. — owner: dmytro.hopko, due: first real Vercel call
 - [ ] D5 — How do input images reach multimodal language models? Default now: every Vercel generation with input images goes through the gateway's documented image-editing path (which lists multimodal image models too); without inputs, multimodal language models use the chat path. — owner: dmytro.hopko, due: first real Vercel call
 - [ ] D6 — Does the image-only answer carry a reference usable for the later price lookup? Default now: read it where documented or observed; if absent, the cost is «unavailable» (never pending forever). — owner: dmytro.hopko, due: first real Vercel call
