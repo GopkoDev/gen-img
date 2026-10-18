@@ -10,6 +10,7 @@ import { Link } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
+const PENDING_REFETCH_MS = 10_000;
 
 function Tile({ g }: { g: GenerationSummary }) {
   const [broken, setBroken] = useState(false);
@@ -39,6 +40,7 @@ function Tile({ g }: { g: GenerationSummary }) {
               <Badge variant="secondary" className="max-w-full truncate">
                 {g.provider} · {g.model}
               </Badge>
+              {g.costStatus === "pending" && <Badge variant="outline">cost pending</Badge>}
               {g.inputsCount > 0 && (
                 <Badge variant="outline">
                   <ImageIcon aria-hidden />
@@ -60,6 +62,9 @@ export function Gallery() {
     queryKey: GALLERY_QUERY_KEY,
     queryFn: ({ pageParam }) => api.generations(pageParam),
     initialPageParam: undefined as string | undefined,
+    // Re-read while any loaded tile still waits for its price (spec §6, sad §8).
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((p) => p.items.some((g) => g.costStatus === "pending")) ? PENDING_REFETCH_MS : false,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 

@@ -9,7 +9,10 @@ import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
 import { Link } from "@/lib/router";
 import type { Generation, RequestedParams } from "../../../shared/generations";
 
-const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter" };
+const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter", vercel: "Vercel AI Gateway" };
+
+/** A pending cost is re-read this often until it resolves (spec §6, sad §8). */
+const PENDING_REFETCH_MS = 5_000;
 
 function describeRequested(p: RequestedParams): string {
   const parts: string[] = [];
@@ -101,6 +104,9 @@ function Detail({ g }: { g: Generation }) {
                 <span className="flex items-center gap-2">
                   {formatCost(g.costMicros, g.costStatus)}
                   <Badge variant={g.costStatus === "known" ? "secondary" : "outline"}>{g.costStatus}</Badge>
+                  {g.costStatus === "pending" && (
+                    <span className="text-muted-foreground text-xs">updates automatically</span>
+                  )}
                 </span>
               </Row>
             </dl>
@@ -137,7 +143,11 @@ function Detail({ g }: { g: Generation }) {
 
 /** SCR-03 — one generation with all its stored metadata. */
 export function GenerationDetail({ id }: { id: string }) {
-  const q = useQuery({ queryKey: ["generation", id], queryFn: () => api.generation(id) });
+  const q = useQuery({
+    queryKey: ["generation", id],
+    queryFn: () => api.generation(id),
+    refetchInterval: (query) => (query.state.data?.costStatus === "pending" ? PENDING_REFETCH_MS : false),
+  });
   const back = (
     <Button variant="link" asChild className="px-0">
       <Link to="/">
