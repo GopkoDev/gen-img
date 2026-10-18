@@ -1,0 +1,297 @@
+openapi: 3.1.0
+info:
+  title: gen-img — text-to-image-openrouter
+  version: 0.1.0
+  description: >
+    Local API of gen-img (127.0.0.1 only). Every /api route passes the request guard (ADR-0007):
+    a non-local Host, a foreign Origin or Sec-Fetch-Site cross-site/same-site is refused with 403 FORBIDDEN.
+    Errors use the one envelope { error: { code, message, details? } }.
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard (ADR-0007) replaces it
+paths:
+  /providers:
+    get:
+      operationId: listProviders
+      summary: Providers known to gen-img and whether their key is configured (AC-13)
+      responses:
+        "200":
+          description: Provider list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProvidersResponse" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /providers/{providerId}/models:
+    get:
+      operationId: listImageModels
+      summary: Image-output models of a provider with their supported optional parameters (AC-03, AC-14); cached ≤ 10 min
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { $ref: "#/components/schemas/ProviderId" } }
+      responses:
+        "200":
+          description: Model catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelsResponse" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/ProviderNotConfigured" }
+        "502": { $ref: "#/components/responses/ProviderError" }
+  /generations:
+    post:
+      operationId: startGeneration
+      summary: Start a generation job in the single slot (AC-01, AC-05, AC-17)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartGenerationRequest" }
+      responses:
+        "202":
+          description: Job accepted and running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: GENERATION_IN_PROGRESS (slot busy) or PROVIDER_NOT_CONFIGURED
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    get:
+      operationId: listGenerations
+      summary: Gallery page, newest first (AC-04, AC-15, AC-18)
+      parameters:
+        - { name: cursor, in: query, required: false, description: "id of the last item of the previous page", schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 24 } }
+      responses:
+        "200":
+          description: A page of generation summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenerationPage" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /generations/{id}:
+    get:
+      operationId: getGeneration
+      summary: Full generation detail (AC-02, AC-07, AC-09, AC-10, AC-16, AC-18)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Generation detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Generation" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /generation-job:
+    get:
+      operationId: getCurrentJob
+      summary: The running job, or the last finished job until the next start or a dismiss (AC-17)
+      responses:
+        "200":
+          description: Current job or null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    oneOf:
+                      - { $ref: "#/components/schemas/Job" }
+                      - { type: "null" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      operationId: dismissJob
+      summary: Dismiss the last finished job's notice (no-op when none; refused while running)
+      responses:
+        "204": { description: Dismissed }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: GENERATION_IN_PROGRESS — a running job can't be dismissed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /files/{path}:
+    get:
+      operationId: getFile
+      summary: Serve a stored generation image (AC-12); only paths recorded for a stored generation image, anything else 404
+      parameters:
+        - { name: path, in: path, required: true, description: "relative path, e.g. generations/<id>/output-1.png", schema: { type: string } }
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  responses:
+    ValidationError:
+      description: VALIDATION_ERROR — details.fields maps field → message (AC-05)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    Forbidden:
+      description: FORBIDDEN — request guard refusal (AC-19)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    NotFound:
+      description: NOT_FOUND
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    ProviderNotConfigured:
+      description: PROVIDER_NOT_CONFIGURED — details.provider (AC-13)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    ProviderError:
+      description: PROVIDER_ERROR — details.provider, details.upstreamStatus (AC-06, AC-14)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, NOT_FOUND, PROVIDER_ERROR, INTERNAL_ERROR, GENERATION_IN_PROGRESS, PROVIDER_NOT_CONFIGURED, STORAGE_ERROR, FORBIDDEN]
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    ProviderId:
+      type: string
+      enum: [openrouter]
+    ProvidersResponse:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            required: [id, name, configured]
+            properties:
+              id: { $ref: "#/components/schemas/ProviderId" }
+              name: { type: string, examples: [OpenRouter] }
+              configured: { type: boolean }
+    ImageModel:
+      type: object
+      required: [id, name, params]
+      properties:
+        id: { type: string, examples: [bytedance-seed/seedream-4.5] }
+        name: { type: string }
+        params:
+          type: object
+          description: Only the optional parameters the model supports; absent key = unsupported
+          properties:
+            aspectRatio:
+              type: object
+              required: [values]
+              properties: { values: { type: array, items: { type: string } } }
+            seed:
+              type: object
+              properties: { min: { type: integer }, max: { type: integer } }
+            n:
+              type: object
+              required: [max]
+              properties: { max: { type: integer, minimum: 1, maximum: 4 } }
+    ModelsResponse:
+      type: object
+      required: [models, fetchedAt]
+      properties:
+        models: { type: array, items: { $ref: "#/components/schemas/ImageModel" } }
+        fetchedAt: { type: string, format: date-time }
+    RequestedParams:
+      type: object
+      required: [n]
+      properties:
+        aspectRatio: { type: string }
+        seed: { type: integer }
+        n: { type: integer, minimum: 1, maximum: 4 }
+    StartGenerationRequest:
+      type: object
+      required: [provider, model, prompt, params]
+      properties:
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string, minLength: 1 }
+        prompt: { type: string, minLength: 1, maxLength: 10000, description: "must contain a non-whitespace character" }
+        params: { $ref: "#/components/schemas/RequestedParams" }
+    Job:
+      type: object
+      required: [id, status, startedAt]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [running, succeeded, failed] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        generationId: { type: string, description: "set when succeeded" }
+        error:
+          description: set when failed (provider reason, storage reason)
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    JobResponse:
+      type: object
+      required: [job]
+      properties:
+        job: { $ref: "#/components/schemas/Job" }
+    CostStatus:
+      type: string
+      enum: [known, pending, unavailable]
+    OutputImage:
+      type: object
+      required: [position, url, mediaType, width, height, byteSize]
+      properties:
+        position: { type: integer, minimum: 1 }
+        url: { type: string, description: "/api/files/<relative path>" }
+        mediaType: { type: string, enum: [image/png, image/jpeg, image/webp, image/gif] }
+        width: { type: integer }
+        height: { type: integer }
+        byteSize: { type: integer }
+    GenerationSummary:
+      type: object
+      required: [id, provider, model, prompt, createdAt, costMicros, costStatus, imagesRequested, imagesReceived, thumbnail]
+      properties:
+        id: { type: string }
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string }
+        prompt: { type: string }
+        createdAt: { type: string, format: date-time }
+        costMicros: { type: [integer, "null"] }
+        costStatus: { $ref: "#/components/schemas/CostStatus" }
+        imagesRequested: { type: integer }
+        imagesReceived: { type: integer }
+        thumbnail: { $ref: "#/components/schemas/OutputImage" }
+    GenerationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/GenerationSummary" } }
+        nextCursor: { type: [string, "null"] }
+    Generation:
+      type: object
+      required: [id, provider, model, prompt, requestedParams, acceptedParams, imagesRequested, images, costMicros, costStatus, createdAt, durationMs, rawRequest, rawResponse]
+      properties:
+        id: { type: string }
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string }
+        prompt: { type: string }
+        requestedParams: { $ref: "#/components/schemas/RequestedParams" }
+        acceptedParams: { type: [object, "null"], description: "null = not reported by the provider" }
+        imagesRequested: { type: integer }
+        images: { type: array, minItems: 1, items: { $ref: "#/components/schemas/OutputImage" } }
+        costMicros: { type: [integer, "null"] }
+        costStatus: { $ref: "#/components/schemas/CostStatus" }
+        createdAt: { type: string, format: date-time }
+        durationMs: { type: integer }
+        rawRequest: { type: object, description: "redacted — no credentials (ADR-0008)" }
+        rawResponse: { type: object, description: "image payloads replaced by { $file: path } (ADR-0008)" }
