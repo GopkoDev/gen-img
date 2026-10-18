@@ -30,6 +30,7 @@ describe("OpenRouter adapter — catalog", () => {
           },
           n: { max: 4 },
           seed: {},
+          inputs: { min: 0, max: 4 },
         },
       },
       {
@@ -92,10 +93,40 @@ describe("OpenRouter adapter — generate", () => {
     });
   });
 
+  it("sends input images as data URLs in attach order and keeps them out of the stored request", async () => {
+    const { p, fetch } = provider(() => ({ body: fixture("openrouter/images-success.json") }));
+    const a = new Uint8Array([1, 2, 3]);
+    const b = new Uint8Array([4, 5]);
+    const result = await p.generate(
+      {
+        ...input,
+        inputs: [
+          { bytes: a, mediaType: "image/png" },
+          { bytes: b, mediaType: "image/jpeg" },
+        ],
+      },
+      new AbortController().signal,
+    );
+    const sent = JSON.parse(String(fetch.calls[0]?.init.body));
+    expect(sent.input_references).toEqual([
+      { type: "image_url", image_url: { url: `data:image/png;base64,${Buffer.from(a).toString("base64")}` } },
+      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${Buffer.from(b).toString("base64")}` } },
+    ]);
+    expect(result.rawRequest).toMatchObject({
+      body: {
+        input_references: [
+          { type: "image_url", image_url: { url: { $input: 1 } } },
+          { type: "image_url", image_url: { url: { $input: 2 } } },
+        ],
+      },
+    });
+    expect(JSON.stringify(result.rawRequest)).not.toContain("base64,");
+  });
+
   it("omits optional parameters the Owner did not set", async () => {
     const { p, fetch } = provider(() => ({ body: fixture("openrouter/images-no-cost.json") }));
     const result = await p.generate({ model: "m", prompt: "x", params: { n: 1 } }, new AbortController().signal);
-    expect(JSON.parse(String(fetch.calls[0]?.init.body))).toEqual({ model: "m", prompt: "x", n: 1 });
+    expect(JSON.parse(String(fetch.calls[0]?.init.body))).toEqual({ model: "m", prompt: "x", n: 1 }); // no input field (AC-11)
     expect(result.costUsd).toBeNull();
   });
 

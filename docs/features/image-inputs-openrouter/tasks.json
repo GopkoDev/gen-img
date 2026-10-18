@@ -47,7 +47,7 @@
         "tests/fixtures/openrouter/models.json"
       ],
       "file": "docs/features/image-inputs-openrouter/tasks/t3-openrouter-inputs.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

@@ -2,7 +2,10 @@ import type { RequestedParams } from "../../../shared/generations";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import type { SniffedImage } from "./image-sniff";
 
-export type GenerateInput = { model: string; prompt: string; params: RequestedParams };
+/** An input image the Owner attached, already validated (usable picture, size limit). */
+export type InputImageData = { bytes: Uint8Array; mediaType: string };
+
+export type GenerateInput = { model: string; prompt: string; params: RequestedParams; inputs?: InputImageData[] };
 
 /** A decoded, validated («usable») output image. */
 export type ProviderImage = SniffedImage & { bytes: Uint8Array };

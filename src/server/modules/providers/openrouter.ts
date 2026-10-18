@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_IMAGES } from "../../../shared/generations";
+import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
 import {
@@ -43,6 +43,9 @@ function toModel(entry: z.infer<typeof CatalogEntry>): ImageModel {
   if (sp.aspect_ratio?.values?.length) params.aspectRatio = { values: sp.aspect_ratio.values };
   if (sp.n) params.n = { max: Math.max(1, Math.min(MAX_IMAGES, sp.n.max ?? 1)) };
   if (sp.seed) params.seed = sp.seed.type === "range" ? { min: sp.seed.min, max: sp.seed.max } : {};
+  const refs = sp.input_references;
+  if (refs && (refs.max ?? 0) >= 1)
+    params.inputs = { min: Math.max(0, refs.min ?? 0), max: Math.min(MAX_INPUT_IMAGES, refs.max ?? 0) };
   return { id: entry.id, name: entry.name ?? entry.id, params };
 }
 
@@ -81,13 +84,27 @@ export function createOpenRouterProvider(opts: { apiKey: string | undefined; fet
     async generate(input: GenerateInput, signal: AbortSignal): Promise<GenerationResult> {
       if (!opts.apiKey) throw fail(null, "OpenRouter is not configured");
       const url = `${BASE}/images`;
-      const body = {
+      const inputs = input.inputs ?? [];
+      const reference = (url: unknown) => ({ type: "image_url", image_url: { url } });
+      const base = {
         model: input.model,
         prompt: input.prompt,
         n: input.params.n,
         ...(input.params.aspectRatio !== undefined ? { aspect_ratio: input.params.aspectRatio } : {}),
         ...(input.params.seed !== undefined ? { seed: input.params.seed } : {}),
       };
+      const body = inputs.length
+        ? {
+            ...base,
+            input_references: inputs.map((img) =>
+              reference(`data:${img.mediaType};base64,${Buffer.from(img.bytes).toString("base64")}`),
+            ),
+          }
+        : base;
+      // The stored request keeps a placeholder per input; `generations` links it to the stored copy (ADR-0008).
+      const redactedBody = inputs.length
+        ? { ...base, input_references: inputs.map((_, i) => reference({ $input: i + 1 })) }
+        : base;
       const raw = await call(url, {
         method: "POST",
         headers: { authorization: `Bearer ${opts.apiKey}`, "content-type": "application/json" },
@@ -111,7 +128,7 @@ export function createOpenRouterProvider(opts: { apiKey: string | undefined; fet
         images,
         costUsd: typeof cost === "number" ? cost : null,
         acceptedParams: null, // the Image API reports no applied parameters (fact-check 2026-10-18)
-        rawRequest: { method: "POST", url, body },
+        rawRequest: { method: "POST", url, body: redactedBody },
         rawResponse: { ...parsed.data, data: redacted },
       };
     },
