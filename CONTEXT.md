@@ -19,6 +19,7 @@ updated_at: "2026-10-18"
 - Lineage — the link from a derived generation to its source generation (re-run of / made from output N of), shown on both sides. NOT ownership: deleting the source never deletes or blocks its derived generations.
 - Output image — an image file a provider returned for a generation, stored on the owner's machine. NOT an input image (an image the owner attaches to a prompt — roadmap step 3).
 - Owner — the single person who runs gen-img on their own machine and holds the provider API keys. The only human role; there are no accounts, admins or guests.
+- Price estimate — what gen-img expects a request to cost before it is sent, from the provider's published price (or, for per-token models, the Owner's own past known costs); always labelled as an estimate. NOT the generation's cost: the recorded cost after generating is the only source of truth, and the estimate is never stored.
 - Provider — an external image-generation service gen-img calls with the owner's key (OpenRouter, Vercel AI Gateway). NOT a model: one provider offers many image models.
 - Re-run — starting a new generation from an existing one with the same provider, model, prompt, parameters and input images pre-filled; the Owner may change anything before generating. NOT a promise of the same picture: re-running resends the same inputs, results can differ.
 - Reuse (use as input) — attaching one of a generation's output images as an input image of the next generation in one action, without saving and re-uploading the file. NOT a re-run: only that image is carried over.
