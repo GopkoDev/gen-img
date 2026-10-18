@@ -8,7 +8,7 @@ info:
     Host, a foreign Origin or a cross-site fetch is refused with 403 FORBIDDEN. Errors use the envelope
     { error: { code, message, details? } } of earlier features. The price endpoint of step 7 is unchanged in
     shape; its server-side limits change (ADR-0027): failures are cached for 60 s, lookups are shared while in
-    flight and capped at 4 per provider.
+    flight and capped at 4 in flight in total (one limit for all providers).
 servers:
   - url: http://127.0.0.1:8787/api
 security: []  # no auth by design (single owner); the request guard replaces it
