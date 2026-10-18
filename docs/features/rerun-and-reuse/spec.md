@@ -74,7 +74,7 @@ Committed approach: from a generation's detail view the Owner can **re-run** it 
 
 **Given** a saved generation whose provider is configured and whose model is still offered
 **When** the Owner chooses «Re-run» on its detail view
-**Then** the generate form opens with the same provider, model, prompt, parameters and input images (in the same order) already filled in, says it is a re-run of that generation, and the Owner can generate without changing anything
+**Then** the generate form opens with the same provider, model, prompt, parameters and input images (in the same order) already filled in — replacing whatever draft the form held — says it is a re-run of that generation, and the Owner can generate without changing anything; the Owner may drop that «re-run of» link before generating, and then the new generation has no source
 
 ### AC-02 (US-01, US-04) — happy path
 
@@ -86,7 +86,7 @@ Committed approach: from a generation's detail view the Owner can **re-run** it 
 
 **Given** a saved generation with one or more output images
 **When** the Owner chooses «Use as input» on one of its output images
-**Then** the generate form opens with exactly that image attached as the input image, an empty prompt, and the currently chosen model kept if it accepts input images (otherwise the first model of the current provider that does); once generated, the new generation's detail view says «Made from output N of» with a link to the source
+**Then** the generate form opens with exactly that image attached as the input image (replacing the previous draft's prompt, parameters and attachments), an empty prompt, and the currently chosen model kept if it accepts input images (otherwise the first model of the current provider that does); once generated, the new generation's detail view says «Made from output N of» with a link to the source
 
 ### AC-04 (US-04) — happy path
 
@@ -98,7 +98,7 @@ Committed approach: from a generation's detail view the Owner can **re-run** it 
 
 **Given** a re-run form pre-filled from a generation
 **When** the Owner switches to a model or provider that does not support some of the pre-filled parameters (seed, aspect ratio, number of images) or input images
-**Then** the system removes the unsupported parameters from the form and names each one to the Owner («not supported by this model: seed»), marks input images the new model cannot take, and never sends a parameter or image the chosen model does not support
+**Then** the system removes the unsupported parameters from the form and names each one to the Owner («not supported by this model: seed»), marks input images the new model cannot take, lowers the number of images to the new model's maximum and names that too, and never sends a parameter or image the chosen model does not support
 
 ### AC-06 (US-01) — domain invariant
 
@@ -116,7 +116,7 @@ Committed approach: from a generation's detail view the Owner can **re-run** it 
 
 **Given** the Owner opened a re-run or reuse form
 **When** the source generation was deleted (for example in another tab) before the Owner generates
-**Then** the system sends nothing to the provider, tells the Owner the source generation no longer exists, and keeps the prompt and settings in the form so the Owner can attach images by hand
+**Then** the system sends nothing to the provider, tells the Owner the source generation no longer exists, and keeps the prompt and settings in the form; the Owner can drop the link to the deleted source and attach images by hand. This holds even when nothing from the source's files is reused — a link is only recorded to a generation that exists when generating starts
 
 ### AC-09 (US-03) — error
 
