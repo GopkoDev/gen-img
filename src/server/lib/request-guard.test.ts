@@ -17,7 +17,7 @@ describe("requestGuard", () => {
     [{ host: "localhost:8787", origin: "http://localhost:8787", "sec-fetch-site": "same-origin" }],
     [{ host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173", "sec-fetch-site": "same-origin" }],
     [{ host: "127.0.0.1:8787", "sec-fetch-site": "none" }],
-  ])("lets gen-img's own pages and local tools through: %o", async (headers) => {
+  ])("lets Ukiyo's own pages and local tools through: %o", async (headers) => {
     expect((await get(headers)).status).toBe(200);
   });
 
@@ -33,7 +33,7 @@ describe("requestGuard", () => {
     const res = await get(headers);
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({
-      error: { code: "FORBIDDEN", message: "Request refused: gen-img only answers its own pages" },
+      error: { code: "FORBIDDEN", message: "Request refused: Ukiyo only answers its own pages" },
     });
   });
 });

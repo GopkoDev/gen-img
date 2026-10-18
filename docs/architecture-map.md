@@ -13,7 +13,7 @@ migration_tool: "custom sql runner (scripts/migrate.ts — pnpm db:migrate / pnp
 frontend: "react 19 + vite + tailwind v4 + shadcn/ui"
 ---
 
-# Architecture map — gen-img
+# Architecture map — Ukiyo
 
 > **Greenfield foundation** (`mode: greenfield-bootstrap`): this describes the **target baseline**
 > fixed by `survey` on 2026-10-18 — what `/sdd:scaffold` materializes and what every feature builds
@@ -56,11 +56,11 @@ Target baseline (greenfield) — what the scaffold + v1 features produce.
 
 ```mermaid
 C4Container
-    title Target containers - gen-img
+    title Target containers - Ukiyo
     Person(owner, "Owner", "Single local user")
     System_Ext(openrouter, "OpenRouter", "Image generation API")
     System_Ext(vercel, "Vercel AI Gateway", "Images API and chat modalities")
-    Container_Boundary(app, "gen-img on localhost") {
+    Container_Boundary(app, "Ukiyo on localhost") {
         Container(web, "Web UI", "React 19, Vite, Tailwind, shadcn/ui", "Generate form and gallery")
         Container(server, "API server", "Node 26, Hono", "Generations, providers, storage, migrations")
         ContainerDb(db, "Metadata DB", "SQLite file", "Generations, inputs, tags, comments, cost")

@@ -447,13 +447,13 @@ export function GeneratePanel() {
 
   let body: ReactNode;
   if (providers.isPending) body = <p className="text-muted-foreground text-sm">Loading…</p>;
-  else if (providers.isError) body = <Notice title="Couldn't reach the gen-img server" />;
+  else if (providers.isError) body = <Notice title="Couldn't reach the Ukiyo server" />;
   else if (!provider?.configured)
     body = (
       <div className="flex flex-col gap-2 text-sm">
         <p className="font-medium">{provider?.name ?? "This provider"} is not configured.</p>
         <p className="text-muted-foreground">
-          Add <code>{KEY_VARS[providerId]}</code> to <code>.env.local</code> and restart gen-img. Your gallery is still
+          Add <code>{KEY_VARS[providerId]}</code> to <code>.env.local</code> and restart Ukiyo. Your gallery is still
           available.
         </p>
       </div>

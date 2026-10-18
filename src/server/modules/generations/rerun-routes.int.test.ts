@@ -121,7 +121,7 @@ describe("re-run / reuse routes", () => {
       });
       expect(res.status).toBe(400);
       expect(ErrorResponse.parse(await res.json()).error.details).toEqual({
-        fields: { "inputs.1": "Not an image stored by gen-img" },
+        fields: { "inputs.1": "Not an image stored by Ukiyo" },
       });
     }
     const bad = await startJson(t, {

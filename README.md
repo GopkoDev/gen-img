@@ -1,4 +1,4 @@
-# gen-img
+# Ukiyo
 
 <p align="center">
   <img src="docs/assets/cover.webp" alt="A great wave made of thousands of small framed images curls over a lone figure in a boat holding a glowing speech-bubble lantern — ukiyo-e woodblock style" width="100%">
@@ -6,13 +6,15 @@
 
 Local image-generation workbench for OpenRouter and Vercel AI Gateway, with a gallery that keeps every generation on your machine.
 
+*Ukiyo* (浮世, "the floating world") gave its name to ukiyo-e — "pictures of the floating world". Here the pictures come from words, and none of them float away: every one is kept.
+
 ---
 
 ## Description (ASD-STE100)
 
 > This section is written in ASD-STE100 Simplified Technical English.
 
-gen-img is a web application for one person on one computer.
+Ukiyo is a web application for one person on one computer.
 
 The application makes images from a text prompt. It can also make images from a text prompt and one or more input images.
 
@@ -63,7 +65,7 @@ The server does not accept requests from web pages of other sites.
 
 ## Overview
 
-**gen-img** is a local-first web app: a Node server bound to `127.0.0.1` calls image providers with your keys, stores every generation (image files + full metadata in SQLite) and serves a React gallery. No accounts, no cloud, no sync — your prompts and images never leave your machine except as the request to the provider you chose.
+**Ukiyo** is a local-first web app: a Node server bound to `127.0.0.1` calls image providers with your keys, stores every generation (image files + full metadata in SQLite) and serves a React gallery. No accounts, no cloud, no sync — your prompts and images never leave your machine except as the request to the provider you chose.
 
 ### Features
 

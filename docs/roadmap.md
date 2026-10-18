@@ -3,7 +3,7 @@ status: living
 updated_at: "2026-10-18"
 ---
 
-# Roadmap — gen-img
+# Roadmap — Ukiyo
 
 > **A decomposition, not a promise.** The overall idea broken into incremental steps: what each
 > step is, where it comes from, how big it is — or that nobody has looked at it yet — and in which

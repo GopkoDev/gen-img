@@ -35,7 +35,7 @@ export type GenerationsServiceDeps = {
 
 const invalid = (fields: FieldErrors) => new AppError("VALIDATION_ERROR", "Some fields need fixing", 400, { fields });
 const gone = () => new AppError("NOT_FOUND", "Generation not found", 404);
-const NOT_STORED = "Not an image stored by gen-img"; // one answer for every miss — no existence leak (AC-13)
+const NOT_STORED = "Not an image stored by Ukiyo"; // one answer for every miss — no existence leak (AC-13)
 const SOURCE_GONE = "The source generation no longer exists";
 
 /** Swaps the adapter's `{ "$image": N }` / `{ "$input": N }` placeholders for references to the stored files (ADR-0008). */

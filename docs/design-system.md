@@ -6,7 +6,7 @@ pen_file: ""             # tool: pencil → the .pen library path (e.g. docs/des
 updated_at: "2026-10-18"
 ---
 
-# Design system — gen-img
+# Design system — Ukiyo
 
 > The project's **design canon**, produced once per repo by `design-system` and read by
 > `ux-flows` / `screens` / `implement` / `review`. Committed — the tool choice and the inventory

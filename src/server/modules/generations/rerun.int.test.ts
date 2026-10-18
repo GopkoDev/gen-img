@@ -132,7 +132,7 @@ describe("generations service — re-run and reuse from stored images", () => {
     const { svc, calls } = build();
     for (const ref of [stored(id(98), "output", 1), stored(src.id, "output", 2), stored(src.id, "input", 5)]) {
       await expect(svc.startGenerationChecked(body({ inputs: [ref] }))).rejects.toMatchObject({
-        details: { fields: { "inputs.1": "Not an image stored by gen-img" } },
+        details: { fields: { "inputs.1": "Not an image stored by Ukiyo" } },
       });
     }
     // a recorded image whose file vanished means its generation is being deleted (sad §11) — say so

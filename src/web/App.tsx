@@ -15,7 +15,7 @@ export function App() {
     <div className="min-h-screen bg-background">
       <header className="flex items-center justify-between border-b px-6 py-4">
         <h1 className="font-semibold text-lg">
-          <Link to="/">gen-img</Link>
+          <Link to="/">Ukiyo</Link>
         </h1>
         <Badge variant={health.isError ? "destructive" : "secondary"}>{label}</Badge>
       </header>

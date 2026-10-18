@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** An input image of the draft: a file the Owner attached, or an image gen-img already stores (ADR-0017). */
+/** An input image of the draft: a file the Owner attached, or an image Ukiyo already stores (ADR-0017). */
 export type Attachment = {
   id: string;
   url: string;

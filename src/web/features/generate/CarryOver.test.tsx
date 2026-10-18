@@ -94,7 +94,8 @@ describe("GeneratePanel — model switch keeps what fits (AC-05)", () => {
 
   it("removes and names unsupported parameters, lowers the image count, and never sends a removed value", async () => {
     setup([SEEDY, SMALL], "/?rerun=01SRC");
-    await waitFor(() => expect(screen.getByLabelText("Seed")).toHaveValue(42));
+    // the draft loads through providers → models → source; allow for a busy full-suite run
+    await waitFor(() => expect(screen.getByLabelText("Seed")).toHaveValue(42), { timeout: 5000 });
     await pickModel("Small");
     expect(
       await screen.findByText("Not supported by this model: aspect ratio. Images lowered to 1."),
@@ -110,7 +111,8 @@ describe("GeneratePanel — model switch keeps what fits (AC-05)", () => {
 
   it("names the seed too when the new model takes none", async () => {
     setup([SEEDY, TEXT], "/?rerun=01SRC");
-    await waitFor(() => expect(screen.getByLabelText("Seed")).toHaveValue(42));
+    // the draft loads through providers → models → source; allow for a busy full-suite run
+    await waitFor(() => expect(screen.getByLabelText("Seed")).toHaveValue(42), { timeout: 5000 });
     await pickModel("Text only");
     expect(
       await screen.findByText("Not supported by this model: seed, aspect ratio. Images lowered to 1."),

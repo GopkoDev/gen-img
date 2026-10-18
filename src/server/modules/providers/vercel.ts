@@ -36,7 +36,7 @@ const usd = (v: unknown): number | null => {
 };
 const SizePrice = z.looseObject({ size: z.string(), cost: z.unknown() });
 
-/** Vercel list pricing → ModelPrice (SAD §8). gen-img sends no size, so the default per-image price applies. */
+/** Vercel list pricing → ModelPrice (SAD §8). Ukiyo sends no size, so the default per-image price applies. */
 function toPrice(pricing: Record<string, unknown> | undefined): ModelPrice {
   if (!pricing) return { kind: "unknown" };
   const image = usd(pricing.image);
@@ -85,7 +85,7 @@ function kindOf(entry: z.infer<typeof CatalogEntry>): ModelKind | null {
 
 function toModel(entry: z.infer<typeof CatalogEntry>, kind: ModelKind): ImageModel {
   const params: ImageModel["params"] = {};
-  // Chat-path models make one image per request; image-only models up to gen-img's cap. Seed and aspect ratio
+  // Chat-path models make one image per request; image-only models up to Ukiyo's cap. Seed and aspect ratio
   // are not offered until a real call confirms the gateway honours them (spec §8 D4).
   if (kind === "images") params.n = { max: MAX_IMAGES };
   if (entry.modalities?.input?.includes("image")) params.inputs = { min: 0, max: MAX_INPUT_IMAGES };

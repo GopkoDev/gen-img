@@ -13,7 +13,7 @@ export function registryOf(providers: ImageProvider[]): ProviderRegistry {
   return { list: () => [...byId.values()], get: (id) => byId.get(id) };
 }
 
-/** The adapters gen-img ships with, keyed by provider id. `fetch` is injectable so tests stub provider HTTP. */
+/** The adapters Ukiyo ships with, keyed by provider id. `fetch` is injectable so tests stub provider HTTP. */
 export function createProviderRegistry(config: Config, fetchImpl: typeof fetch = fetch): ProviderRegistry {
   return registryOf([
     createOpenRouterProvider({ apiKey: config.openRouterApiKey, fetch: fetchImpl }),

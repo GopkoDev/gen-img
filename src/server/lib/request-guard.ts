@@ -11,7 +11,7 @@ function isLocal(hostPort: string, ports: number[]): boolean {
 }
 
 /**
- * Answers only gen-img's own pages (ADR-0007): a local Host on an allowed port (defeats DNS rebinding),
+ * Answers only Ukiyo's own pages (ADR-0007): a local Host on an allowed port (defeats DNS rebinding),
  * an own Origin when one is sent, and no cross-site Fetch Metadata. Everything else is refused.
  */
 export function requestGuard(ports: number[]): MiddlewareHandler {
@@ -27,7 +27,7 @@ export function requestGuard(ports: number[]): MiddlewareHandler {
     }
     if (ok && site !== undefined) ok = site === "same-origin" || site === "none";
 
-    if (!ok) throw new AppError("FORBIDDEN", "Request refused: gen-img only answers its own pages", 403);
+    if (!ok) throw new AppError("FORBIDDEN", "Request refused: Ukiyo only answers its own pages", 403);
     await next();
   };
 }

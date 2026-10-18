@@ -5,7 +5,7 @@ updated_at: "2026-10-18"
 depth: "medium"
 ---
 
-# Idea brief — gen-img
+# Idea brief — Ukiyo
 
 ## 1. Raw idea
 

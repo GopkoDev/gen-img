@@ -1,4 +1,4 @@
-# gen-img
+# Ukiyo
 
 Local-first web app for one user on one machine: a Node server on `127.0.0.1` generates images via
 OpenRouter and Vercel AI Gateway, stores every generation locally (image files + full metadata in

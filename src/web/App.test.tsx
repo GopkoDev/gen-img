@@ -21,7 +21,7 @@ describe("App shell", () => {
       vi.fn(async () => Response.json({ status: "ok" })),
     );
     renderApp();
-    expect(screen.getByRole("heading", { name: "gen-img" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ukiyo" })).toBeInTheDocument();
     expect(await screen.findByText("server ok")).toBeInTheDocument();
   });
 

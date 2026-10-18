@@ -13,7 +13,7 @@ const webDir = process.env.NODE_ENV === "production" && existsSync("dist/web") ?
 const app = createApp({ config, db }, { webDir });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port: config.port }, (info) => {
-  console.log(`gen-img listening on http://${HOST}:${info.port}${webDir ? "" : " (API only)"}`);
+  console.log(`Ukiyo listening on http://${HOST}:${info.port}${webDir ? "" : " (API only)"}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const)

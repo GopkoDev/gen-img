@@ -5,7 +5,7 @@ import { type ImageModel, ProviderId } from "./providers";
 
 export const MAX_IMAGES = 4;
 
-/** gen-img's cap on input images per generation, whatever the model lists (spec AC-02). */
+/** Ukiyo's cap on input images per generation, whatever the model lists (spec AC-02). */
 export const MAX_INPUT_IMAGES = 8;
 /** 10 MiB per input image (spec AC-03). */
 export const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -36,7 +36,7 @@ export const SourceRef = z
   });
 export type SourceRef = z.infer<typeof SourceRef>;
 
-/** An image gen-img already stores, named by generation + kind + position — never by path (ADR-0017). */
+/** An image Ukiyo already stores, named by generation + kind + position — never by path (ADR-0017). */
 export const StoredImageRef = z.object({
   stored: z.object({
     generationId: GenerationIdRef,
