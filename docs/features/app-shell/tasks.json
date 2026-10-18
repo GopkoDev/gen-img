@@ -6,11 +6,7 @@
       "title": "Parse addresses into pages and declare sections in one registry",
       "layer": "domain",
       "deps": [],
-      "acs": [
-        "AC-01",
-        "AC-03",
-        "AC-04"
-      ],
+      "acs": ["AC-01", "AC-03", "AC-04"],
       "dod": "unit tests: parseRoute → detail | page(pathname); sectionFor: `/` → generate, `/gallery` (+ trailing slash) → gallery, detail → gallery, unknown → none; `replace()` notifies subscribers; registry order Generate, Gallery",
       "files_hint": [
         "src/web/lib/router.tsx",
@@ -19,22 +15,14 @@
         "src/web/sections.test.tsx"
       ],
       "file": "docs/features/app-shell/tasks/t1-section-registry-and-router.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
       "title": "Render the app frame, the navigation bar and the not-found page (SCR-04, SCR-05)",
       "layer": "ui",
-      "deps": [
-        "T1"
-      ],
-      "acs": [
-        "AC-01",
-        "AC-02",
-        "AC-03",
-        "AC-04",
-        "AC-10"
-      ],
+      "deps": ["T1"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-10"],
       "dod": "web tests over `App`: bar lists Generate, Gallery in order with `aria-current` on the owning entry (detail → Gallery); click switches page without reload; popstate back/forward; unknown address → «Page not found.» + «Go to Generate», no entry current; document title per page; bar is a top row below `md` (class contract); server status texts unchanged",
       "files_hint": [
         "src/web/App.tsx",
@@ -49,14 +37,8 @@
       "id": "T3",
       "title": "Keep the draft across sections and show the running generation in the bar",
       "layer": "ui",
-      "deps": [
-        "T2"
-      ],
-      "acs": [
-        "AC-05",
-        "AC-06",
-        "AC-07"
-      ],
+      "deps": ["T2"],
+      "acs": ["AC-05", "AC-06", "AC-07"],
       "dod": "web tests over `App`: prompt, settings and attachments survive Generate → Gallery → Generate (bar and back); running job → indicator on Generate entry while on Gallery, saved → gallery refetched without reload, failed → flag until dismissed; job polled by one observer only; `/?rerun=` and `/?reuse=&output=` applied on every arrival (twice in one visit), `/?focus=prompt` focuses the prompt; existing panel tests green",
       "files_hint": [
         "src/web/features/generate/job.ts",
@@ -71,14 +53,8 @@
       "id": "T4",
       "title": "Point gallery and detail navigation at the sections",
       "layer": "ui",
-      "deps": [
-        "T3"
-      ],
-      "acs": [
-        "AC-02",
-        "AC-07",
-        "AC-08"
-      ],
+      "deps": ["T3"],
+      "acs": ["AC-02", "AC-07", "AC-08"],
       "dod": "web tests: «← Gallery» links to `/gallery`; delete lands on `/gallery?deleted=1` with «Generation deleted.»; empty-gallery «Write a prompt» goes to `/?focus=prompt`; existing gallery/detail tests green",
       "files_hint": [
         "src/web/features/gallery/Gallery.tsx",
@@ -92,18 +68,10 @@
       "id": "T5",
       "title": "Prove section addresses get the app page and the API stays guarded",
       "layer": "ports",
-      "deps": [
-        "T1"
-      ],
-      "acs": [
-        "AC-03",
-        "AC-09"
-      ],
+      "deps": ["T1"],
+      "acs": ["AC-03", "AC-09"],
       "dod": "integration tests with a temp web dir: `/gallery`, `/generations/<id>`, an unknown path → the app page; unknown `/api/*` → error envelope; a cross-site request to `/api/*` still refused",
-      "files_hint": [
-        "src/server/spa-fallback.int.test.ts",
-        "src/server/app.ts"
-      ],
+      "files_hint": ["src/server/spa-fallback.int.test.ts", "src/server/app.ts"],
       "file": "docs/features/app-shell/tasks/t5-spa-fallback-for-sections.md",
       "status": "todo"
     }

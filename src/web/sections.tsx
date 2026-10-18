@@ -1,0 +1,59 @@
+import { Images, type LucideIcon, Sparkles } from "lucide-react";
+import type { ReactNode } from "react";
+import { Gallery } from "@/features/gallery/Gallery";
+import { GeneratePanel } from "@/features/generate/GeneratePanel";
+import type { Route } from "@/lib/router";
+
+/** One top-level area of Ukiyo (CONTEXT: Section). Adding a section = one entry here (ADR-0022). */
+export type Section = {
+  id: string;
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  page: () => ReactNode;
+  /** Stays rendered (hidden) while another page shows, so its state survives (ADR-0023). */
+  keepMounted?: boolean;
+  /** Claims addresses outside its own path, e.g. Gallery owns a generation's detail page. */
+  owns?: (route: Route) => boolean;
+};
+
+function GalleryPage() {
+  return (
+    <section aria-label="Gallery" className="flex flex-col gap-4">
+      <h2 className="font-semibold">Gallery</h2>
+      <Gallery />
+    </section>
+  );
+}
+
+function GeneratePage() {
+  return (
+    <section aria-label="Generate" className="max-w-xl">
+      <GeneratePanel />
+    </section>
+  );
+}
+
+export const SECTIONS: readonly Section[] = [
+  { id: "generate", path: "/", label: "Generate", icon: Sparkles, page: GeneratePage, keepMounted: true },
+  {
+    id: "gallery",
+    path: "/gallery",
+    label: "Gallery",
+    icon: Images,
+    page: GalleryPage,
+    owns: (route) => route.name === "detail",
+  },
+];
+
+/** The section an address belongs to; none means «page not found». Exact paths, one trailing slash tolerated. */
+export function sectionFor(route: Route, sections: readonly Section[] = SECTIONS): Section | undefined {
+  return (
+    sections.find((s) => s.owns?.(route)) ?? (route.name === "page" ? matchPath(route.pathname, sections) : undefined)
+  );
+}
+
+function matchPath(pathname: string, sections: readonly Section[]) {
+  const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  return sections.find((s) => s.path === path);
+}

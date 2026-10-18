@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/router.tsx", "src/web/lib/router.test.tsx", "src/web/s
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Parse addresses into pages and declare sections in one registry
