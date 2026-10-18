@@ -10,7 +10,7 @@
         var t = null;
         try {
           t = localStorage.getItem("gen-img:theme");
-        } catch (e) {}
+        } catch {}
         if (t !== "light" && t !== "dark")
           t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.classList.remove("light", "dark");

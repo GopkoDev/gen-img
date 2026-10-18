@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Gallery } from "@/features/gallery/Gallery";
 import { GeneratePanel } from "@/features/generate/GeneratePanel";
 import { JobIndicator } from "@/features/generate/job";
+import { RecentGenerations } from "@/features/generate/RecentGenerations";
 import type { Route } from "@/lib/router";
 
 /** One top-level area of Ukiyo (CONTEXT: Section). Adding a section = one entry here (ADR-0022). */
@@ -29,11 +30,15 @@ function GalleryPage() {
   );
 }
 
+/** Two columns from `lg` — the generate card and the recent generations (SCR-06); stacked below. */
 function GeneratePage() {
   return (
-    <section aria-label="Generate" className="max-w-xl">
-      <GeneratePanel />
-    </section>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
+      <section aria-label="Generate">
+        <GeneratePanel />
+      </section>
+      <RecentGenerations />
+    </div>
   );
 }
 

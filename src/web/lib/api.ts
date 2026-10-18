@@ -65,8 +65,13 @@ export const api = {
   },
   currentJob: () => request(CurrentJobResponse, "/generation-job"),
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
-  generations: (cursor?: string) =>
-    request(GenerationPage, `/generations${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  generations: (cursor?: string, limit?: number) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set("cursor", cursor);
+    if (limit !== undefined) q.set("limit", String(limit));
+    const qs = q.toString();
+    return request(GenerationPage, `/generations${qs ? `?${qs}` : ""}`);
+  },
   setComment: (id: string, body: string) =>
     request(CommentResponse, `/generations/${encodeURIComponent(id)}/comment`, json("PUT", { body })),
   addTag: (id: string, tag: string) =>

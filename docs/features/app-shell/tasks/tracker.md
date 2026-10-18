@@ -12,6 +12,6 @@
 | T6 | Vendor the sidebar-08 block and its primitives, trimmed and on the project conventions | infra | dmytro.hopko | S | T2 | done | COMMIT |
 | T7 | Put the app frame on the sidebar block (SCR-04) | ui | dmytro.hopko | S | T6 | done | COMMIT |
 | T8 | Follow the system theme with a Light / Dark / System toggle (ADR-0024) | ui | dmytro.hopko | S | T7 | done | COMMIT |
-| T9 | Show the ten latest generations next to the generate form (SCR-06, ADR-0025) | ui | dmytro.hopko | S | T7 | todo | SELECT |
+| T9 | Show the ten latest generations next to the generate form (SCR-06, ADR-0025) | ui | dmytro.hopko | S | T7 | done | COMMIT |
 
 **Total:** 9 tasks, ~3 person-days (T6–T9: amendment 2026-10-19).

@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/api.ts", "src/web/features/generate/RecentGenerations.
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T9 — Show the ten latest generations next to the generate form (SCR-06, ADR-0025)

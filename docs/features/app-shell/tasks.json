@@ -142,7 +142,7 @@
         "src/server/modules/generations/routes.int.test.ts"
       ],
       "file": "docs/features/app-shell/tasks/t9-recent-generations.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

@@ -54,7 +54,9 @@ describe("App frame (SCR-04, SCR-05)", () => {
     expect(window.location.pathname).toBe("/gallery");
     expect(window.history.length).toBe(before + 1);
     expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
-    expect(await screen.findByText("No generations yet.")).toBeVisible();
+    expect(
+      await within(await screen.findByRole("region", { name: "Gallery" })).findByText("No generations yet."),
+    ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Gallery" })).toBeVisible();
     expect(document.title).toBe("Gallery · Ukiyo");
 
@@ -63,13 +65,15 @@ describe("App frame (SCR-04, SCR-05)", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     expect(entry("Generate")).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByText("No generations yet.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Gallery" })).not.toBeInTheDocument();
   });
 
   it("renders the page an address names on a fresh load (AC-03)", async () => {
     at("/gallery");
     expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
-    expect(await screen.findByText("No generations yet.")).toBeVisible();
+    expect(
+      await within(await screen.findByRole("region", { name: "Gallery" })).findByText("No generations yet."),
+    ).toBeVisible();
   });
 
   it("marks Gallery current on a generation's detail page and links back to the gallery (AC-02)", async () => {
@@ -128,7 +132,9 @@ describe("App frame (SCR-04, SCR-05)", () => {
       fireEvent.click(within(panel).getByRole("link", { name: /^Gallery/ }));
       expect(window.location.pathname).toBe("/gallery");
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-      expect(await screen.findByText("No generations yet.")).toBeVisible();
+      expect(
+        await within(await screen.findByRole("region", { name: "Gallery" })).findByText("No generations yet."),
+      ).toBeVisible();
     } finally {
       window.innerWidth = width;
     }

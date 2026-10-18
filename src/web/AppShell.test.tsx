@@ -101,7 +101,9 @@ describe("App shell — draft, job and carried sources across sections", () => {
     expect(screen.getByRole("button", { name: "Remove fox.png" })).toBeVisible();
 
     fireEvent.click(entry("Gallery"));
-    expect(await screen.findByText("No generations yet.")).toBeVisible();
+    expect(
+      await within(await screen.findByRole("region", { name: "Gallery" })).findByText("No generations yet."),
+    ).toBeVisible();
     expect(prompt()).not.toBeVisible();
 
     fireEvent.click(entry("Generate"));
@@ -298,6 +300,35 @@ describe("App shell — draft, job and carried sources across sections", () => {
     fireEvent.click(back as HTMLElement);
     expect(window.location.pathname).toBe("/gallery");
     expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("shows the recent generations next to the form and refreshes them once when a generation finishes (AC-13, AC-14)", async () => {
+    let current: Job | null = job({});
+    m.currentJob.mockImplementation(async () => ({ job: current }));
+    m.generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
+    at("/");
+    const panel = await screen.findByRole("region", { name: "Recent generations" });
+    await waitFor(() => expect(within(panel).getAllByRole("link")).toHaveLength(1));
+    expect(panel.closest("[class*='lg:grid-cols-']")).not.toBeNull(); // two columns from lg, stacked below
+    const recent = () => m.generations.mock.calls.filter(([, limit]) => limit === 10).length;
+    expect(recent()).toBe(1);
+    m.generations.mockResolvedValue({ items: [summary(2), summary(1)], nextCursor: null });
+    current = job({ status: "succeeded", finishedAt: new Date().toISOString(), generationId: "01NEW" });
+    await waitFor(() => expect(within(panel).getAllByRole("link")).toHaveLength(2), { timeout: 3000 });
+    expect(recent()).toBe(2);
+  });
+
+  it("drops a deleted generation from the recent panel (AC-14)", async () => {
+    m.deleteGeneration.mockResolvedValue(null);
+    m.generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
+    at("/generations/01SRC");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    m.generations.mockResolvedValue({ items: [], nextCursor: null });
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Delete generation" })));
+    await screen.findByText("Generation deleted.");
+    fireEvent.click(entry("Generate"));
+    const panel = screen.getByRole("region", { name: "Recent generations" });
+    expect(await within(panel).findByText("No generations yet.")).toBeVisible();
   });
 
   it("applies nothing carried on a detail deep link (the panel is hidden there)", async () => {
