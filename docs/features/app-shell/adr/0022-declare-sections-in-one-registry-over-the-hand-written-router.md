@@ -2,7 +2,7 @@
 status: Accepted
 owner: "dmytro.hopko"
 reviewers: []
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 feature_size: "S"
 ticket: "roadmap step 8"
 ---
@@ -48,6 +48,10 @@ The trigger to revisit: a section needs nested routes of its own or typed search
 
 **Neutral**
 - The server's SPA fallback (`index.html` for any non-`/api` path) already serves every section address.
+
+## Amendment 2026-10-19 — the frame is the kit's `sidebar-08` block
+
+The owner chose the component kit's stock inset-sidebar block (`sidebar-08`) as the frame (spec amendment). The registry decision is unchanged; only its consumer changes: `AppSidebar` (`src/web/components/app-sidebar.tsx`) renders one `SidebarMenuButton` per `SECTIONS` entry (icon, label, `isActive` + `aria-current`, the section's `indicator`, a tooltip when collapsed), replacing the hand-made `NavBar`. The block's demo parts (user, teams, projects, secondary links) are dropped. Collapse to an icon rail, the `Ctrl/⌘+B` shortcut and the mobile sheet come from the block's `SidebarProvider`; choosing an entry on mobile closes the sheet. `SidebarInset` holds a header (trigger · separator · breadcrumb) and the page. A new section is still one registry entry.
 
 ## Links
 
