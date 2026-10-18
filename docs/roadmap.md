@@ -89,9 +89,9 @@ flowchart LR
 
 | Step | Shipped | Link |
 |---|---|---|
-| 2 · Text→image via OpenRouter | 2026-10-18 | [changelog](./features/text-to-image-openrouter/CHANGELOG.md) · branch `feature/text-to-image-openrouter` (PR pending — no remote yet) |
-| 3 · Image inputs via OpenRouter | 2026-10-18 | [changelog](./features/image-inputs-openrouter/CHANGELOG.md) · branch `feature/image-inputs-openrouter` (PR pending — no remote) |
-| 4 · Vercel AI Gateway | 2026-10-18 | [changelog](./features/vercel-ai-gateway/CHANGELOG.md) · branch `feature/vercel-ai-gateway` (PR pending — no remote; independent review pending) |
-| 5 · Curate the gallery | 2026-10-18 | [changelog](./features/curate-gallery/CHANGELOG.md) · branch `feature/curate-gallery` (not merged; independent review pending) |
-| 6 · Re-run & reuse | 2026-10-18 | [changelog](./features/rerun-and-reuse/CHANGELOG.md) · branch `feature/rerun-and-reuse` (not merged; independent review pending) |
-| 7 · Model price preview | 2026-10-18 | [changelog](./features/model-price-preview/CHANGELOG.md) · branch `feature/model-price-preview` (not merged; independent review pending) |
+| 2 · Text→image via OpenRouter | 2026-10-18 | [changelog](./features/text-to-image-openrouter/CHANGELOG.md) · merged into `main` (fast-forward from `feature/text-to-image-openrouter`), independent review passed |
+| 3 · Image inputs via OpenRouter | 2026-10-18 | [changelog](./features/image-inputs-openrouter/CHANGELOG.md) · merged into `main` (fast-forward from `feature/image-inputs-openrouter`), independent review passed |
+| 4 · Vercel AI Gateway | 2026-10-18 | [changelog](./features/vercel-ai-gateway/CHANGELOG.md) · merged into `main` (fast-forward from `feature/vercel-ai-gateway`), independent review passed |
+| 5 · Curate the gallery | 2026-10-18 | [changelog](./features/curate-gallery/CHANGELOG.md) · merged into `main` (fast-forward from `feature/curate-gallery`), independent review passed |
+| 6 · Re-run & reuse | 2026-10-18 | [changelog](./features/rerun-and-reuse/CHANGELOG.md) · merged into `main` (fast-forward from `feature/rerun-and-reuse`), independent review passed |
+| 7 · Model price preview | 2026-10-18 | [changelog](./features/model-price-preview/CHANGELOG.md) · merged into `main` (fast-forward from `feature/model-price-preview`), independent review passed |
