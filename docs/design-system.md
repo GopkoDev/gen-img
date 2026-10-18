@@ -42,6 +42,8 @@ updated_at: "2026-10-19"
 | Dialog | `src/web/components/ui/dialog.tsx:124` | open / closed | overlays |
 | Input | `src/web/components/ui/input.tsx:20` | default / focus / disabled / invalid (`aria-invalid`) | |
 | Select | `src/web/components/ui/select.tsx:150` | closed / open / disabled / invalid | short fixed option lists |
+| Popover | `src/web/components/ui/popover.tsx` | closed / open | the model picker's list (`PopoverTrigger` + `PopoverContent`) |
+| ModelPicker | `src/web/features/generate/ModelPicker.tsx` | closed / loading list / grouped (Favorites · All models) / plain / price «…» · `$X / image` · range · «priced per token» · «price unknown» (· «couldn't load») / ★ pressed · saving failed · preferences unreadable (★ disabled) / hidden-but-selected | rows = «choose» button (name, id, short price) + sibling ★ toggle; ↑/↓ between rows, Esc closes |
 | Textarea | `src/web/components/ui/textarea.tsx:17` | default / focus / disabled / invalid (`aria-invalid`) | prompt entry |
 | Sidebar (block `sidebar-08`, inset variant) | `src/web/components/ui/sidebar.tsx` | expanded / collapsed (icon rail, `Ctrl/⌘+B` or the trigger) / mobile sheet (below `md`) | the app frame's primitives: `SidebarProvider`, `Sidebar`, `SidebarInset`, `SidebarTrigger`, `SidebarMenu*` |
 | AppSidebar | `src/web/components/app-sidebar.tsx` | default / current entry (`isActive` + `aria-current`) / section indicator (generation running, failed) / collapsed (tooltips) | brand + one entry per `SECTIONS` item + footer (theme toggle, server status); no demo user/teams/projects |

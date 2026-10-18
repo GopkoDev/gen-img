@@ -9,8 +9,8 @@ files_hint: ["src/web/components/ui/popover.tsx", "src/web/features/generate/Mod
 owner: "dmytro.hopko"
 estimate: "L"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or
