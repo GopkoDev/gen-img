@@ -40,7 +40,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t3-repo-lineage-and-stored-images.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

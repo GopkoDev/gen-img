@@ -66,6 +66,9 @@ const GenerationRow = z
     duration_ms: z.number().int(),
     raw_request: json(z.unknown()),
     raw_response: json(z.unknown()),
+    source_id: z.string().nullable(),
+    source_relation: z.enum(["rerun", "reuse"]).nullable(),
+    source_output: z.number().int().nullable(),
   })
   .transform((r) => ({
     id: r.id,
@@ -82,11 +85,24 @@ const GenerationRow = z
     durationMs: r.duration_ms,
     rawRequest: r.raw_request,
     rawResponse: r.raw_response,
+    sourceId: r.source_id,
+    sourceRelation: r.source_relation,
+    sourceOutput: r.source_output,
   }));
 
 type StoredGeneration = z.infer<typeof GenerationRow>;
 /** A generation to insert; `costRef` is only set when the price will be looked up later (ADR-0013). */
-export type NewGeneration = Omit<StoredGeneration, "costRef"> & { costRef?: string | null };
+export type NewGeneration = Omit<StoredGeneration, "costRef" | "sourceId" | "sourceRelation" | "sourceOutput"> & {
+  costRef?: string | null;
+  /** Lineage (ADR-0018): set only when the source existed when generating started. */
+  sourceId?: string | null;
+  sourceRelation?: "rerun" | "reuse" | null;
+  sourceOutput?: number | null;
+};
+
+/** A recorded image a start request may name (ADR-0017): where it lives and the name to show/send. */
+export type StoredImage = { path: string; mediaType: string; name: string };
+export type DerivedRecord = { id: string; relation: "rerun" | "reuse"; output: number | null; createdAt: string };
 export type CommentRecord = { body: string; updatedAt: string };
 export type GenerationRecord = StoredGeneration & {
   images: ImageRecord[];
@@ -137,9 +153,11 @@ const TagRow = z.object({ generation_id: z.string(), tag: z.string() });
 export function createGenerationsRepo(db: Db) {
   const insertGen = db.prepare(
     `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
-       cost_micros, cost_status, cost_ref, created_at, duration_ms, raw_request, raw_response)
+       cost_micros, cost_status, cost_ref, created_at, duration_ms, raw_request, raw_response,
+       source_id, source_relation, source_output)
      VALUES (@id, @provider, @model, @prompt, @requestedParams, @acceptedParams, @imagesRequested,
-       @costMicros, @costStatus, @costRef, @createdAt, @durationMs, @rawRequest, @rawResponse)`,
+       @costMicros, @costStatus, @costRef, @createdAt, @durationMs, @rawRequest, @rawResponse,
+       @sourceId, @sourceRelation, @sourceOutput)`,
   );
   const insertImage = db.prepare(
     `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
@@ -185,6 +203,25 @@ export function createGenerationsRepo(db: Db) {
   );
 
   const genExists = db.prepare("SELECT 1 FROM generations WHERE id = ?").pluck();
+  const selectStoredOutput = db.prepare(
+    "SELECT path, media_type FROM generation_images WHERE generation_id = ? AND position = ?",
+  );
+  const selectStoredInput = db.prepare(
+    "SELECT path, media_type, original_name FROM generation_inputs WHERE generation_id = ? AND position = ?",
+  );
+  const StoredRow = z.object({ path: z.string(), media_type: z.string(), original_name: z.string().nullish() });
+  const selectDerived = db.prepare(
+    "SELECT id, source_relation, source_output, created_at FROM generations WHERE source_id = ? ORDER BY id DESC LIMIT ?",
+  );
+  const countDerived = db.prepare("SELECT count(*) FROM generations WHERE source_id = ?").pluck();
+  const DerivedRow = z
+    .object({
+      id: z.string(),
+      source_relation: z.enum(["rerun", "reuse"]),
+      source_output: z.number().int().nullable(),
+      created_at: z.string(),
+    })
+    .transform((r) => ({ id: r.id, relation: r.source_relation, output: r.source_output, createdAt: r.created_at }));
   const selectComment = db.prepare("SELECT body, updated_at FROM generation_comments WHERE generation_id = ?");
   const upsertComment = db.prepare(
     `INSERT INTO generation_comments (generation_id, body, updated_at) VALUES (@id, @body, @updatedAt)
@@ -247,6 +284,9 @@ export function createGenerationsRepo(db: Db) {
       insertGen.run({
         ...gen,
         costRef: gen.costRef ?? null,
+        sourceId: gen.sourceId ?? null,
+        sourceRelation: gen.sourceId ? (gen.sourceRelation ?? null) : null,
+        sourceOutput: gen.sourceId ? (gen.sourceOutput ?? null) : null,
         requestedParams: JSON.stringify(gen.requestedParams),
         acceptedParams: gen.acceptedParams === null ? null : JSON.stringify(gen.acceptedParams),
         rawRequest: JSON.stringify(gen.rawRequest),
@@ -328,6 +368,26 @@ export function createGenerationsRepo(db: Db) {
     /** Deletes a generation and its children; `moveFiles` runs as the transaction's last step. `false` = no such id. */
     deleteAtomic(id: string, moveFiles: () => void): boolean {
       return deleteTx(id, moveFiles);
+    },
+
+    exists(id: string): boolean {
+      return Boolean(genExists.get(id));
+    },
+
+    /** A recorded output/input image of a generation, or `undefined` — the only way a request reaches stored files. */
+    storedImage(generationId: string, kind: "input" | "output", position: number): StoredImage | undefined {
+      const raw = (kind === "output" ? selectStoredOutput : selectStoredInput).get(generationId, position);
+      if (!raw) return undefined;
+      const row = StoredRow.parse(raw);
+      return { path: row.path, mediaType: row.media_type, name: row.original_name ?? row.path.split("/").at(-1) ?? "" };
+    },
+
+    /** Generations derived from `id`, newest first, at most `limit`, with the total (one level — ADR-0018). */
+    derivedOf(id: string, limit = 50): { items: DerivedRecord[]; total: number } {
+      return {
+        items: selectDerived.all(id, limit).map((r) => DerivedRow.parse(r)),
+        total: countDerived.get(id) as number,
+      };
     },
 
     allIds(): string[] {

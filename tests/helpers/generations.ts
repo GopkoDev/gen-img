@@ -33,6 +33,9 @@ export function seedGeneration(
     durationMs: 1234,
     rawRequest: { method: "POST", url: "https://openrouter.ai/api/v1/images", body: { prompt: "A test prompt" } },
     rawResponse: { data: [] },
+    sourceId: null,
+    sourceRelation: null,
+    sourceOutput: null,
     ...rest,
   };
   const dir = join(dataDir, "generations", id);

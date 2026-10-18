@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/repo.ts", "src/server/modules/gener
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Store lineage and look up stored images and derived generations in the repo
