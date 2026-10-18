@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info:
+  title: gen-img — model-price-preview
+  version: 0.1.0
+  description: >
+    Additions for roadmap step 7. Every /api route passes the request guard (ADR-0007): a non-local Host,
+    a foreign Origin or a cross-site fetch is refused with 403 FORBIDDEN. Errors use the envelope
+    { error: { code, message, details? } } of earlier features.
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard replaces it
+paths:
+  /providers/{providerId}/price:
+    get:
+      operationId: getModelPrice
+      summary: Published price of one image model (AC-01…AC-05, AC-10); cached per model for 10 minutes
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string, enum: [openrouter, vercel] } }
+        - { name: model, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        "200":
+          description: The model's price
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PriceResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { description: "NOT_FOUND — unknown provider or a model the provider doesn't offer", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { description: "PROVIDER_NOT_CONFIGURED", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "502": { description: "PROVIDER_ERROR — the price couldn't be loaded (not cached)", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  /generations/cost-history:
+    get:
+      operationId: getCostHistory
+      summary: Known costs of the Owner's last ≤ 20 generations with one provider + model, as an average per image (AC-05, AC-06)
+      parameters:
+        - { name: provider, in: query, required: true, schema: { type: string, enum: [openrouter, vercel] } }
+        - { name: model, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        "200":
+          description: Cost history (count 0 = none)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CostHistory" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+components:
+  responses:
+    Error:
+      description: VALIDATION_ERROR (400) or FORBIDDEN (403)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    UsdRange:
+      type: object
+      required: [minUsd, maxUsd]
+      properties:
+        minUsd: { type: number, minimum: 0 }
+        maxUsd: { type: number, minimum: 0 }
+    ModelPrice:
+      oneOf:
+        - type: object
+          required: [kind, output, input]
+          properties:
+            kind: { const: per-image }
+            output: { $ref: "#/components/schemas/UsdRange" }
+            input:
+              description: per input image; null = the provider doesn't bill input images per image (or doesn't say)
+              oneOf: [{ $ref: "#/components/schemas/UsdRange" }, { type: "null" }]
+        - type: object
+          required: [kind]
+          properties: { kind: { const: per-token } }
+        - type: object
+          required: [kind]
+          properties: { kind: { const: unknown } }
+    PriceResponse:
+      type: object
+      required: [price, fetchedAt]
+      properties:
+        price: { $ref: "#/components/schemas/ModelPrice" }
+        fetchedAt: { type: string, format: date-time }
+    CostHistory:
+      type: object
+      required: [count, perImageMicros]
+      properties:
+        count: { type: integer, minimum: 0, maximum: 20, description: "known-cost generations used" }
+        perImageMicros: { type: [integer, "null"], description: "average cost per received image in micro-USD; null when count is 0" }
