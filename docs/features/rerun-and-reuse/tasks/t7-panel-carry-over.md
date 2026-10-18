@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/GeneratePanel.tsx", "src/web/features/ge
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T7 — Keep supported parameters and name removed ones when the model changes

@@ -96,7 +96,7 @@
       "dod": "web tests: switching a pre-filled draft to a model without seed / aspect ratio / with a lower image max keeps what fits, shows \u00abNot supported by this model: \u2026\u00bb and the lowered count; the request never carries a removed value",
       "files_hint": ["src/web/features/generate/GeneratePanel.tsx", "src/web/features/generate/CarryOver.test.tsx"],
       "file": "docs/features/rerun-and-reuse/tasks/t7-panel-carry-over.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",

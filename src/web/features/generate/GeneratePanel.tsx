@@ -10,6 +10,7 @@ import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
 import { Link } from "@/lib/router";
 import {
+  carryParams,
   checkAgainstModel,
   checkInputFile,
   type FieldErrors,
@@ -18,6 +19,7 @@ import {
   type Job,
   MAX_INPUT_BYTES,
   MAX_INPUT_IMAGES,
+  type RequestedParams,
   type SourceRef,
   StartGenerationRequest,
 } from "../../../shared/generations";
@@ -153,6 +155,8 @@ export function GeneratePanel() {
   const [loadingSource, setLoadingSource] = useState(false);
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [modelNotice, setModelNotice] = useState<string | null>(null);
+  const [removedNote, setRemovedNote] = useState<string | null>(null);
+  const [carryOnLoad, setCarryOnLoad] = useState(false);
 
   // Thumbnails use object URLs; release the remaining ones when the panel goes away.
   const attachmentsRef = useRef(attachments);
@@ -173,6 +177,7 @@ export function GeneratePanel() {
   function applySource(g: Generation, relation: "rerun" | "reuse", output?: number) {
     setSourceGone(false);
     setModelNotice(null);
+    setRemovedNote(null);
     setErrors({});
     setRefused([]);
     if (relation === "rerun") {
@@ -269,9 +274,17 @@ export function GeneratePanel() {
   }, [running]);
 
   const model: ImageModel | undefined = models.data?.models.find((x) => x.id === modelId);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: carries over only when a new list arrives, not on each keystroke
   useEffect(() => {
     if (pending) return; // a draft source decides the model once the list is in
-    if (!modelId && models.data?.models[0]) setModelId(models.data.models[0].id);
+    const first = models.data?.models[0];
+    if (!modelId && first) {
+      setModelId(first.id);
+      if (carryOnLoad) {
+        setCarryOnLoad(false);
+        carryTo(first);
+      }
+    }
   }, [modelId, models.data, pending]);
 
   // Once the model list of the draft's provider is in, check the source's model (AC-10) or find one that takes inputs (AC-11).
@@ -345,13 +358,33 @@ export function GeneratePanel() {
     selectModel(""); // the first model of the new list is preselected; prompt and attachments are kept
   }
 
+  /** Model switch (SAD §4 choice 4): keep what the new model supports, remove and name the rest. */
+  function carryTo(next: ImageModel) {
+    const current: RequestedParams = {
+      n: Math.max(1, Number(n) || 1),
+      ...(aspectRatio !== DEFAULT_ASPECT ? { aspectRatio } : {}),
+      ...(seed.trim() !== "" && Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}),
+    };
+    const { params, removed } = carryParams(current, next);
+    setAspectRatio(params.aspectRatio ?? DEFAULT_ASPECT);
+    setSeed(params.seed === undefined ? "" : String(params.seed));
+    setN(String(params.n));
+    const names = removed.filter((r) => !r.startsWith("images lowered"));
+    const lowered = removed.find((r) => r.startsWith("images lowered"));
+    const parts = [
+      ...(names.length ? [`Not supported by this model: ${names.join(", ")}.`] : []),
+      ...(lowered ? [`Images lowered to ${params.n}.`] : []),
+    ];
+    setRemovedNote(parts.length ? parts.join(" ") : null);
+  }
+
   function selectModel(id: string) {
     setModelId(id);
-    setAspectRatio(DEFAULT_ASPECT);
-    setSeed("");
-    setN("1");
     setErrors({});
     setRefused([]);
+    const next = models.data?.models.find((x) => x.id === id);
+    if (next) carryTo(next);
+    else setCarryOnLoad(true); // provider switch: the new list's first model is checked once it loads
   }
 
   function submit(e: FormEvent) {
@@ -442,6 +475,7 @@ export function GeneratePanel() {
               ))}
             </SelectContent>
           </Select>
+          {removedNote && <p className="text-muted-foreground text-sm">{removedNote}</p>}
         </Field>
         <Field id="prompt" label="Prompt" error={errors.prompt}>
           <Textarea
