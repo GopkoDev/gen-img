@@ -1,0 +1,16 @@
+{
+  "id": "recraft/recraft-v4.1-flash",
+  "endpoints": [
+    {
+      "provider_name": "Recraft",
+      "provider_slug": "recraft",
+      "pricing": [
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.007
+        }
+      ]
+    }
+  ]
+}

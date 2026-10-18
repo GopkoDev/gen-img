@@ -26,7 +26,7 @@
         "tests/fixtures/openrouter/"
       ],
       "file": "docs/features/model-price-preview/tasks/t2-openrouter-price.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

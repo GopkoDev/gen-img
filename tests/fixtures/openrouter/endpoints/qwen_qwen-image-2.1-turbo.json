@@ -1,0 +1,28 @@
+{
+  "id": "qwen/qwen-image-2.1-turbo",
+  "endpoints": [
+    {
+      "provider_name": "Alibaba Cloud Int.",
+      "provider_slug": "alibaba",
+      "pricing": [
+        {
+          "billable": "input_image",
+          "unit": "image",
+          "cost_usd": 0
+        },
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.0184,
+          "variant": "1k"
+        },
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.0184,
+          "variant": "2k"
+        }
+      ]
+    }
+  ]
+}

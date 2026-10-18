@@ -1,4 +1,5 @@
 import type { RequestedParams } from "../../../shared/generations";
+import type { ModelPrice } from "../../../shared/pricing";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import type { SniffedImage } from "./image-sniff";
 
@@ -52,4 +53,9 @@ export interface ImageProvider {
   generate(input: GenerateInput, signal: AbortSignal): Promise<GenerationResult>;
   /** Optional: look up a deferred price by the result's `costRef`. Adapters without it never yield `pending`. */
   lookupCost?(costRef: string, signal: AbortSignal): Promise<CostLookup>;
+  /**
+   * Optional: the model's published price, from a public source (no key — ADR-0020). Adapters without it
+   * mean «price unknown». Throws `ProviderError` when the price can't be loaded.
+   */
+  priceOf?(modelId: string, signal?: AbortSignal): Promise<ModelPrice>;
 }

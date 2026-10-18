@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import type { ModelPrice } from "../../../shared/pricing";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
 import { jsonWithImageRefs, toDataUrl } from "./inline-json";
@@ -38,6 +39,24 @@ const ErrorBody = z.object({
   }),
 });
 
+const PriceItem = z.looseObject({ billable: z.string(), unit: z.string(), cost_usd: z.number() });
+const Endpoints = z.looseObject({
+  endpoints: z.array(z.looseObject({ pricing: z.array(z.unknown()).default([]) })).default([]),
+});
+
+const range = (xs: number[]) => (xs.length ? { minUsd: Math.min(...xs), maxUsd: Math.max(...xs) } : null);
+
+/** OpenRouter endpoints pricing → ModelPrice (SAD §8): per-image wins over per-token; nothing usable → unknown. */
+function toPrice(body: z.infer<typeof Endpoints>): ModelPrice {
+  const items = body.endpoints.flatMap((e) => e.pricing.flatMap((p) => PriceItem.safeParse(p).data ?? []));
+  const usd = (billable: string, unit: string) =>
+    items.filter((p) => p.billable === billable && p.unit === unit && p.cost_usd >= 0).map((p) => p.cost_usd);
+  const output = range(usd("output_image", "image"));
+  if (output) return { kind: "per-image", output, input: range(usd("input_image", "image")) };
+  if (usd("output_image", "token").length) return { kind: "per-token" };
+  return { kind: "unknown" };
+}
+
 function toModel(entry: z.infer<typeof CatalogEntry>): ImageModel {
   const sp = entry.supported_parameters ?? {};
   const params: ImageModel["params"] = {};
@@ -75,6 +94,13 @@ export function createOpenRouterProvider(opts: { apiKey: string | undefined; fet
     id: "openrouter",
     name: "OpenRouter",
     configured: Boolean(opts.apiKey),
+
+    async priceOf(modelId, signal) {
+      // Public listing — no key (ADR-0020). Each part of the id is encoded; ids come from the catalog (prices.ts).
+      const path = modelId.split("/").map(encodeURIComponent).join("/");
+      const parsed = Endpoints.safeParse(await call(`${BASE}/images/models/${path}/endpoints`, { signal }));
+      return parsed.success ? toPrice(parsed.data) : { kind: "unknown" };
+    },
 
     async listModels(signal) {
       const parsed = Catalog.safeParse(await call(`${BASE}/images/models`, { signal }));

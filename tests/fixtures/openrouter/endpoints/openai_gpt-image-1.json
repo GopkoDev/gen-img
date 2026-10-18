@@ -1,0 +1,26 @@
+{
+  "id": "openai/gpt-image-1",
+  "endpoints": [
+    {
+      "provider_name": "OpenAI",
+      "provider_slug": "openai",
+      "pricing": [
+        {
+          "billable": "input_image",
+          "unit": "token",
+          "cost_usd": 1e-5
+        },
+        {
+          "billable": "input_text",
+          "unit": "token",
+          "cost_usd": 5e-6
+        },
+        {
+          "billable": "output_image",
+          "unit": "token",
+          "cost_usd": 4e-5
+        }
+      ]
+    }
+  ]
+}

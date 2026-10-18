@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/port.ts", "src/server/modules/provide
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Map OpenRouter's per-model endpoints pricing to the price shape

@@ -1,0 +1,27 @@
+{
+  "id": "bytedance-seed/seedream-5-0-pro",
+  "endpoints": [
+    {
+      "provider_name": "Seed",
+      "provider_slug": "seed",
+      "pricing": [
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.045
+        },
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.09,
+          "variant": "high_resolution"
+        },
+        {
+          "billable": "input_image",
+          "unit": "image",
+          "cost_usd": 0.003
+        }
+      ]
+    }
+  ]
+}
