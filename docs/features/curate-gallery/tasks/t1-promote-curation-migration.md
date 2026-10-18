@@ -9,8 +9,8 @@ files_hint: ["docs/features/curate-gallery/migrations/01_create_generation_curat
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Promote the curation migration

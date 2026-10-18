@@ -14,7 +14,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/curate-gallery/tasks/t1-promote-curation-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

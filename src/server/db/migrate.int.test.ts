@@ -23,6 +23,35 @@ describe("migration runner", () => {
     while (appliedVersions(db).at(-1) !== version) migrateDown(db);
   }
 
+  it("0006_create_generation_curation enforces comment/tag rules, cascades with the generation and reverts", () => {
+    migrateUp(db);
+    db.prepare(
+      `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
+         cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response)
+       VALUES ('01G', 'openrouter', 'm', 'p', '{}', NULL, 1, NULL, 'unavailable', '2026-10-18T00:00:00.000Z', 1, '{}', '{}')`,
+    ).run();
+    const comment = db.prepare(
+      "INSERT INTO generation_comments (generation_id, body, updated_at) VALUES ('01G', ?, 'x')",
+    );
+    const tag = db.prepare("INSERT INTO generation_tags (generation_id, tag, position) VALUES ('01G', ?, ?)");
+    expect(() => comment.run("   ")).toThrow(/CHECK/);
+    expect(() => comment.run("x".repeat(2001))).toThrow(/CHECK/);
+    comment.run("Good one");
+    expect(() => tag.run("x".repeat(33), 1)).toThrow(/CHECK/);
+    expect(() => tag.run("Upper", 1)).toThrow(/CHECK/);
+    tag.run("neon city", 1);
+    expect(() => tag.run("neon city", 2)).toThrow(/UNIQUE|PRIMARY/);
+    db.prepare("DELETE FROM generations WHERE id = '01G'").run();
+    expect(db.prepare("SELECT count(*) FROM generation_tags").pluck().get()).toBe(0);
+    expect(db.prepare("SELECT count(*) FROM generation_comments").pluck().get()).toBe(0);
+    downTo("0005");
+    const left = db
+      .prepare("SELECT name FROM sqlite_master WHERE name IN ('generation_tags','generation_comments')")
+      .pluck()
+      .all();
+    expect(left).toEqual([]);
+  });
+
   it("0005_add_generation_cost_ref adds the cost reference and serves pending lookups from an index", () => {
     migrateUp(db);
     const cols = db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all();
@@ -36,10 +65,11 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0006");
     expect(migrateDown(db)?.version).toBe("0005");
     expect(migrateDown(db)?.version).toBe("0004");
     expect(migrateDown(db)?.version).toBe("0003");
@@ -48,7 +78,7 @@ describe("migration runner", () => {
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
   });
 
   it("0004_create_generation_inputs keeps input copies consistent and reverts cleanly", () => {
