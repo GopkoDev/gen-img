@@ -1,0 +1,145 @@
+{
+  "slug": "curate-gallery",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the curation migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-01", "AC-02"],
+      "dod": "migration 0006_create_generation_curation applies and reverts cleanly; CHECKs and cascades hold",
+      "files_hint": [
+        "docs/features/curate-gallery/migrations/01_create_generation_curation.up.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t1-promote-curation-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Implement the shared tag and comment rules",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-06", "AC-07", "AC-08", "AC-15"],
+      "dod": "unit tests: normalizeTag trims, collapses spaces, lower-cases (incl. Cyrillic), accepts letters of any alphabet/digits/space/-/_ 1\u201332 chars and rejects the rest with the spec message; checkComment counts characters (code points) \u2264 2000 and treats blank as removal",
+      "files_hint": ["src/shared/curation.ts", "src/shared/curation.test.ts"],
+      "file": "docs/features/curate-gallery/tasks/t2-shared-curation-rules.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Add comment, tag and atomic-delete queries to the generations repo",
+      "layer": "infra",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-08", "AC-09"],
+      "dod": "integration tests: set/replace/remove comment; add tags in order, dedup, refuse the 11th inside one transaction; remove tag; page summaries carry tags + hasComment; detail carries comment + tags; deleteAtomic removes rows (cascades) and rolls back when moveFiles throws; seedGeneration accepts comment/tags",
+      "files_hint": [
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/repo.int.test.ts",
+        "tests/helpers/generations.ts"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t3-repo-curation-and-delete.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Let the file store move a generation into staging and purge it",
+      "layer": "infra",
+      "deps": [],
+      "acs": ["AC-09"],
+      "dod": "integration tests: trashSync moves generations/<id> to .staging/<id>.deleted (sync), is a no-op when the dir is missing, throws when the move fails; purge removes the trash dir; sweep removes leftover trash dirs",
+      "files_hint": ["src/server/modules/storage/file-store.ts", "src/server/modules/storage/file-store.int.test.ts"],
+      "file": "docs/features/curate-gallery/tasks/t4-file-store-trash.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Curate and delete generations in the service without disturbing running work",
+      "layer": "app",
+      "deps": ["T3", "T4"],
+      "acs": ["AC-01", "AC-02", "AC-04", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-14"],
+      "dod": "service integration tests: comment/tag rules map to VALIDATION_ERROR fields and NOT_FOUND; delete removes rows + dir (purged), failing move \u2192 STORAGE_ERROR with generation intact, pending cost lookup cancelled (no lookup after delete), succeeded job pointing at it forgotten, a held running job still saves after deleting another generation",
+      "files_hint": [
+        "src/server/modules/generations/service.ts",
+        "src/server/modules/generations/cost-sync.ts",
+        "src/server/modules/generations/jobs.ts",
+        "src/server/modules/generations/curation.int.test.ts",
+        "src/server/app.ts"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t5-service-curation-delete.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Expose the curation and delete routes and add tags/comment to the DTOs",
+      "layer": "ports",
+      "deps": ["T5"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-13", "AC-14"],
+      "dod": "integration tests via app.request(): each operation's happy + 400 + 404 paths; summary/detail carry tags/hasComment/comment; cross-site requests to all four mutating routes \u2192 403 and nothing changes; web api client methods parse with the shared schemas",
+      "files_hint": [
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/curation-routes.int.test.ts",
+        "src/shared/generations.ts",
+        "src/shared/curation.ts",
+        "src/web/lib/api.ts"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t6-routes-and-dtos.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Build the Notes card: comment editor and tag editor (SCR-02)",
+      "layer": "ui",
+      "deps": ["T6"],
+      "acs": ["AC-01", "AC-02", "AC-06", "AC-07", "AC-08", "AC-14", "AC-15"],
+      "dod": "web tests (mocked api): add/edit/cancel/save/remove comment; counter; >2000 refused client-side with text kept; add tag on Enter, duplicate leaves list, invalid/11th shows the message, remove via \u00d7; NOT_FOUND switches to \u00abno longer exists\u00bb; markup in comment/tag shown as text",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/Notes.tsx",
+        "src/web/features/gallery/Notes.test.tsx"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t7-notes-card-ui.md",
+      "status": "todo"
+    },
+    {
+      "id": "T8",
+      "title": "Build the delete confirmation and its after-effects (SCR-03, SCR-01 notice, SCR-04)",
+      "layer": "ui",
+      "deps": ["T6"],
+      "acs": ["AC-04", "AC-05", "AC-09", "AC-12", "AC-14"],
+      "dod": "web tests (mocked api): dialog names the prompt excerpt; Cancel/Esc sends nothing; Confirm deletes, navigates to the gallery with \u00abGeneration deleted.\u00bb, invalidates gallery + job queries; STORAGE_ERROR shows the failure panel; NOT_FOUND shows \u00abno longer exists\u00bb; the panel's latest result disappears when its generation 404s",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/DeleteGeneration.tsx",
+        "src/web/features/gallery/DeleteGeneration.test.tsx",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/generate/GeneratePanel.tsx"
+      ],
+      "file": "docs/features/curate-gallery/tasks/t8-delete-dialog-ui.md",
+      "status": "todo"
+    },
+    {
+      "id": "T9",
+      "title": "Show tags and a comment marker on gallery tiles (SCR-01)",
+      "layer": "ui",
+      "deps": ["T6"],
+      "acs": ["AC-03", "AC-15"],
+      "dod": "web tests: first 3 tags + \u00ab+N\u00bb; comment marker with aria-label only when hasComment; tag text with markup rendered as text",
+      "files_hint": ["src/web/features/gallery/Gallery.tsx", "src/web/features/gallery/Gallery.test.tsx"],
+      "file": "docs/features/curate-gallery/tasks/t9-gallery-tile-curation-ui.md",
+      "status": "todo"
+    },
+    {
+      "id": "T10",
+      "title": "Verify the curation and deletion NFRs",
+      "layer": "tests",
+      "deps": ["T6"],
+      "acs": ["AC-09"],
+      "dod": "NFR tests in the serial nfr project (files named `nfr.int.test.ts`): comment/tag save \u2264 100 ms p95; delete with 4 outputs + 8 inputs \u2264 300 ms p95 and the dir is gone; gallery first page \u2264 300 ms p95 with 1 000 generations \u00d7 10 tags + comment; restart after a commit-before-purge crash leaves no trash",
+      "files_hint": ["src/server/modules/generations/nfr.int.test.ts"],
+      "file": "docs/features/curate-gallery/tasks/t10-curation-nfr-tests.md",
+      "status": "todo"
+    }
+  ]
+}
