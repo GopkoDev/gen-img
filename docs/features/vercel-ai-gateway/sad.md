@@ -168,6 +168,176 @@ sequenceDiagram
     Gen-->>Web: cost known or unavailable
 ```
 
+### Choose the provider and load its models (US-01)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant Ext as <external-system>
+    UI->>Svc: get providers with configured state
+    Svc-->>UI: OpenRouter, Vercel AI Gateway (configured or not)
+    Owner->>UI: selects a provider
+    alt provider not configured
+        UI-->>Owner: how to configure it; other provider and gallery still usable
+    else configured
+        UI->>Svc: get image models of the provider
+        alt cached within 10 min
+            Svc-->>UI: models
+        else fetch catalog
+            Svc->>Ext: list models
+            alt catalog unavailable
+                Ext-->>Svc: failure
+                Svc-->>UI: provider error
+                UI-->>Owner: model list unavailable + Retry
+            else ok
+                Ext-->>Svc: catalog
+                Svc-->>UI: image-producing models with what each accepts
+                UI-->>Owner: form offers only accepted parameters and inputs
+            end
+        end
+    end
+```
+
+Covers AC-03, AC-10. The selector lists both providers. An unconfigured one explains itself. The model list is per provider, cached for 10 minutes, and the form follows the model.
+
+### Vercel call path per model (US-02, US-03)
+
+```mermaid
+sequenceDiagram
+    participant Svc as <service>
+    participant Ad as <service> Vercel adapter
+    participant Ext as <external-system>
+    Svc->>Ad: generate (model, prompt, n, inputs)
+    Ad->>Ad: look up the model kind (catalog, refreshed if unknown)
+    alt input images attached
+        Ad->>Ext: edit images with source images
+    else image-only model
+        Ad->>Ext: generate images
+    else multimodal language model
+        Ad->>Ext: chat asking for image output
+    end
+    alt refused, failed, timed out
+        Ext-->>Ad: error with reason
+        Ad-->>Svc: provider error
+    else answer
+        Ext-->>Ad: images (+ text for chat), maybe a price, maybe a reference
+        alt no usable image
+            Ad-->>Svc: provider error «no usable image»
+        else usable images
+            Ad-->>Svc: images, price or none, cost reference or none, redacted exchange
+        end
+    end
+```
+
+Covers AC-01, AC-02, AC-04, AC-08. With inputs attached, every model kind goes through the edit path (D5 default). Otherwise the catalog decides between the images API and chat. All answers normalize to the same result. Chat text is kept only in the stored exchange.
+
+### Validate a Vercel request (US-02)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    Owner->>UI: generates
+    alt too many images or inputs for this model
+        UI-->>Owner: field errors, nothing sent
+    else a generation already runs on any provider
+        Svc-->>UI: generation in progress
+        UI-->>Owner: in progress, submit disabled
+    else valid
+        UI->>Svc: start generation
+        Svc-->>UI: job running
+    end
+```
+
+Covers AC-09, AC-11. The domain checks are the same as for OpenRouter and run against the Vercel model's limits. There is one job slot across both providers.
+
+### Resolve a pending cost, incl. restart (US-04)
+
+```mermaid
+sequenceDiagram
+    participant Sync as <service> cost resolver
+    participant DB as <data-store>
+    participant Ad as <service> adapter
+    participant Ext as <external-system>
+    Note over Sync,DB: on boot: read every pending generation
+    loop each pending generation
+        alt no cost reference
+            Sync->>DB: cost unavailable
+        else past the 10-minute deadline
+            Sync->>Ad: one last lookup
+        else within the deadline
+            Sync->>Sync: schedule lookups (5 s, doubling to 60 s, max 8)
+        end
+    end
+    Sync->>Ad: look up cost by reference
+    Ad->>Ext: price lookup
+    alt not found yet
+        Ext-->>Ad: not found
+        Ad-->>Sync: not yet
+        Sync->>Sync: next attempt if attempts and deadline allow, else unavailable
+    else reported
+        Ext-->>Ad: price record
+        Ad-->>Sync: known amount (own-key requests: provider market price if non-zero)
+        Sync->>DB: cost known
+    else failure or unusable answer
+        Ad-->>Sync: unavailable
+        Sync->>DB: cost unavailable
+    end
+    Note over Sync,DB: persists generations.cost_status, cost_micros
+```
+
+Covers AC-05, AC-06, AC-07. The resolver is driven by DB state. A restart resumes young pending costs and finalizes overdue ones. Every exit is `known` or `unavailable`.
+
+### Browse mixed providers with pending costs (US-04, US-05)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    Owner->>UI: opens the gallery or a detail view
+    UI->>Svc: get page or generation
+    Svc->>DB: read generations of both providers, newest first
+    Svc-->>UI: items with provider and cost status
+    loop while a visible cost is pending (detail 5 s, gallery 10 s)
+        UI->>Svc: re-read
+        Svc-->>UI: cost known or unavailable or still pending
+    end
+    UI-->>Owner: provider named everywhere; pending shown as pending, never $0
+```
+
+Covers AC-05, AC-12.
+
+### AC coverage (runtime view)
+
+| US / AC | Shown by |
+|---|---|
+| US-01 | Choose the provider; Validate |
+| US-02 | Critical flow 1; Vercel call path; Validate |
+| US-03 | Vercel call path (inputs → edit) |
+| US-04 | Critical flow 1; Resolve a pending cost; Browse |
+| US-05 | Browse |
+| US-06 | AC-13/14 notes below |
+| AC-01 | Vercel call path → image-only |
+| AC-02 | Vercel call path → multimodal language model |
+| AC-03 | Choose the provider → ok |
+| AC-04 | Vercel call path → inputs attached |
+| AC-05 | Critical flow 1 loop; Browse loop |
+| AC-06 | Resolve a pending cost → on boot |
+| AC-07 | Resolve a pending cost → failure / not yet past limits |
+| AC-08 | Vercel call path → refused / no usable image; Critical flow 1 failure branch |
+| AC-09 | Validate → too many images or inputs |
+| AC-10 | Choose the provider → not configured |
+| AC-11 | Validate → generation already runs |
+| AC-12 | Browse |
+| AC-13 | Non-runtime: the key is only in the adapter's outgoing headers; redaction before storing (ADR-0008); lookups are server-side only |
+| AC-14 | Non-runtime: the existing request guard (ADR-0007) runs before every route |
+| AC-15 | Non-runtime: OpenRouter adapter and its flows unchanged (text-to-image-openrouter sad §6) |
+
 ## 7. Deployment view
 
 <!-- N/A: same single local process; adds AI_GATEWAY_API_KEY (already in .env.example) and an in-process background resolver. -->
