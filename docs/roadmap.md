@@ -91,5 +91,4 @@ flowchart LR
 |---|---|---|
 | 2 · Text→image via OpenRouter | 2026-10-18 | [changelog](./features/text-to-image-openrouter/CHANGELOG.md) · branch `feature/text-to-image-openrouter` (PR pending — no remote yet) |
 | 3 · Image inputs via OpenRouter | 2026-10-18 | [changelog](./features/image-inputs-openrouter/CHANGELOG.md) · branch `feature/image-inputs-openrouter` (PR pending — no remote) |
-
 | 4 · Vercel AI Gateway | 2026-10-18 | [changelog](./features/vercel-ai-gateway/CHANGELOG.md) · branch `feature/vercel-ai-gateway` (PR pending — no remote; independent review pending) |
