@@ -15,7 +15,7 @@
         "src/server/modules/generations/nfr.int.test.ts"
       ],
       "file": "docs/features/gallery-grid/tasks/t1-summary-duration.md",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "T2",

@@ -21,6 +21,7 @@ export function summary(i: number, over: Partial<GenerationSummary> = {}): Gener
     imagesRequested: 1,
     imagesReceived: 1,
     inputsCount: 0,
+    durationMs: 1234,
     tags: [],
     hasComment: false,
     thumbnail: {

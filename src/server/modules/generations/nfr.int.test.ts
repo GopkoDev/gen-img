@@ -49,6 +49,24 @@ describe("curate-gallery NFRs", () => {
     expect(p95(page)).toBeLessThanOrEqual(300);
   });
 
+  it("a continued gallery page of 24 (cursor mid-list, with durationMs) ≤ 300 ms p95 with 1 000 generations × 10 tags + comment", async () => {
+    t = createTestApp();
+    const tags = Array.from({ length: 10 }, (_, i) => `tag ${i}`);
+    t.db.transaction(() => {
+      for (let i = 0; i < 1000; i++)
+        seedGeneration(t.db, t.dataDir, { id: `01CON${String(i).padStart(21, "0")}`, tags, comment: "A note" });
+    })();
+    const cursor = "01CON000000000000000000500";
+    const runs = await timed(20, async () => {
+      const res = await t.app.request(`/api/generations?cursor=${cursor}&limit=24`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: { durationMs?: number }[] };
+      expect(body.items).toHaveLength(24);
+      expect(body.items[0]?.durationMs).toBe(1234);
+    });
+    expect(p95(runs)).toBeLessThanOrEqual(300);
+  });
+
   it("deletes a generation with 4 outputs + 8 input copies ≤ 300 ms p95 and its files are gone", async () => {
     t = createTestApp();
     const ids = Array.from(

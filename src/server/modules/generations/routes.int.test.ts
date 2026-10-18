@@ -255,6 +255,23 @@ describe("generations routes", () => {
       expect((await t.app.request(`/api/generations?${q}`)).status).toBe(400);
   });
 
+  it("carries the stored duration on every list item and refuses a foreign page (AC-01, AC-09)", async () => {
+    t = createTestApp();
+    seedGeneration(t.db, t.dataDir, { id: "01DUR00000000000000000000A", durationMs: 850 });
+    seedGeneration(t.db, t.dataDir, { id: "01DUR00000000000000000000B", durationMs: 12_400 });
+    const res = await t.app.request("/api/generations");
+    const raw = (await res.json()) as { items: { id: string; durationMs?: number }[] };
+    expect(raw.items.map((i) => [i.id, i.durationMs])).toEqual([
+      ["01DUR00000000000000000000B", 12_400],
+      ["01DUR00000000000000000000A", 850],
+    ]);
+    expect(GenerationPage.parse(raw).items[0]?.durationMs).toBe(12_400);
+    const foreign = await t.app.request("/api/generations", {
+      headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+    });
+    expect(foreign.status).toBe(403);
+  });
+
   it("serves only recorded images and hides everything else", async () => {
     t = createTestApp();
     const g = seedGeneration(t.db, t.dataDir);

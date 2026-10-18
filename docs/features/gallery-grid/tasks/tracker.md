@@ -7,7 +7,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | Carry the duration in the gallery list summary | ports | dmytro.hopko | S | — | in_progress | RED |
+| T1 | Carry the duration in the gallery list summary | ports | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Word the cost, size and count badges | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Show the badge strip over each card's preview | ui | dmytro.hopko | S | T1, T2 | todo | — |
 | T4 | Load pages as the Owner scrolls and keep the place on return | ui | dmytro.hopko | M | T3 | todo | — |

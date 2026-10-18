@@ -9,8 +9,8 @@ files_hint: ["src/shared/generations.ts", "src/server/modules/generations/repo.t
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

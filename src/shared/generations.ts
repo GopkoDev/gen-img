@@ -184,6 +184,7 @@ export const GenerationSummary = z.object({
   imagesRequested: z.number().int(),
   imagesReceived: z.number().int(),
   inputsCount: z.number().int().min(0),
+  durationMs: z.number().int().min(0),
   thumbnail: OutputImage,
   tags: z.array(Tag),
   hasComment: z.boolean(),
