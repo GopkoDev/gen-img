@@ -290,7 +290,12 @@ describe("App shell — draft, job and carried sources across sections", () => {
 
   it("the detail page's «Gallery» link returns to the Gallery section (AC-02)", async () => {
     at("/generations/01SRC");
-    fireEvent.click(await within(screen.getByRole("main")).findByRole("link", { name: /Gallery/ }));
+    await screen.findByRole("button", { name: "Delete" });
+    const crumbs = screen.getByRole("navigation", { name: "breadcrumb" });
+    const back = within(screen.getByRole("main"))
+      .getAllByRole("link", { name: /Gallery/ })
+      .find((l) => !crumbs.contains(l));
+    fireEvent.click(back as HTMLElement);
     expect(window.location.pathname).toBe("/gallery");
     expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
   });

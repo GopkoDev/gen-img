@@ -1,0 +1,89 @@
+import { useQuery } from "@tanstack/react-query";
+import { Waves } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { api } from "@/lib/api";
+import { Link } from "@/lib/router";
+import type { Section } from "@/sections";
+
+/** SCR-04 — the kit's `sidebar-08` block trimmed to Ukiyo: brand, one entry per section, footer (ADR-0022). */
+export function AppSidebar({ sections, current }: { sections: readonly Section[]; current: Section | undefined }) {
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health });
+  const label = health.isPending ? "checking…" : health.isSuccess ? "server ok" : "server unreachable";
+  const { isMobile, setOpenMobile } = useSidebar();
+  // On a narrow window the sidebar is a sheet: choosing an entry closes it.
+  const close = () => isMobile && setOpenMobile(false);
+
+  return (
+    <Sidebar variant="inset" collapsible="icon">
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link to="/" onClick={close}>
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Waves className="size-4" aria-hidden />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">Ukiyo</span>
+                  <span className="truncate text-sidebar-foreground/70 text-xs" aria-hidden>
+                    浮世 · the floating world
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Sections</SidebarGroupLabel>
+          <nav aria-label="Sections">
+            <SidebarMenu>
+              {sections.map((s) => {
+                const Icon = s.icon;
+                const Indicator = s.indicator;
+                const isCurrent = s === current;
+                return (
+                  <SidebarMenuItem key={s.id} className="relative">
+                    <SidebarMenuButton asChild isActive={isCurrent} tooltip={s.label}>
+                      <Link to={s.path} aria-current={isCurrent ? "page" : undefined} onClick={close}>
+                        <Icon aria-hidden />
+                        <span>{s.label}</span>
+                        {Indicator && (
+                          // Collapsed to the icon rail, the indicator sits on the icon's corner instead of after the label.
+                          <span className="ml-auto flex items-center group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:[&_svg]:size-3">
+                            <Indicator />
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </nav>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        <Badge
+          variant={health.isError ? "destructive" : "secondary"}
+          className="mx-2 group-data-[collapsible=icon]:hidden"
+        >
+          {label}
+        </Badge>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}

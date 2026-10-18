@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/lib/api";
 import { renderWithQuery } from "@/test-utils";
@@ -92,13 +92,46 @@ describe("App frame (SCR-04, SCR-05)", () => {
     expect(document.title).toBe("Page not found · Ukiyo");
   });
 
-  it("keeps the bar as a top row below md and a left column from md (AC-10)", () => {
-    at("/");
-    const bar = screen.getByRole("banner");
-    expect(bar.className).toMatch(/\bmd:w-56\b/);
-    expect(bar.className).toMatch(/\bmd:flex-col\b/);
-    expect(bar.className).toMatch(/\bflex-wrap\b/); // no horizontal scroll on a narrow window
-    expect(bar.parentElement?.className).toMatch(/\bflex-col\b.*\bmd:flex-row\b/);
+  it("names where you are in the header breadcrumb (AC-02, AC-04)", async () => {
+    const crumbs = () => screen.getByRole("navigation", { name: "breadcrumb" });
+    const { unmount } = at("/gallery");
+    expect(crumbs()).toHaveTextContent("Gallery");
+    unmount();
+    const detail = at("/generations/01MISSING");
+    expect(crumbs()).toHaveTextContent(/Gallery.*Generation/);
+    expect(within(crumbs()).getByRole("link", { name: "Gallery" })).toHaveAttribute("href", "/gallery");
+    detail.unmount();
+    at("/nope");
+    expect(crumbs()).toHaveTextContent("Page not found");
+  });
+
+  it("collapses to an icon rail that keeps the entries and the current marker (AC-16)", () => {
+    const { container } = at("/gallery");
+    const sidebar = () => container.querySelector("[data-slot=sidebar]");
+    expect(sidebar()).toHaveAttribute("data-state", "expanded");
+    fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    expect(sidebar()).toHaveAttribute("data-state", "collapsed");
+    expect(sidebar()).toHaveAttribute("data-collapsible", "icon");
+    expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
+    fireEvent.click(entry("Generate"));
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("opens the sections as a slide-in panel on a narrow window, closing it on a choice (AC-10)", async () => {
+    const width = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      at("/");
+      expect(screen.queryByRole("navigation", { name: "Sections" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+      const panel = await screen.findByRole("dialog");
+      fireEvent.click(within(panel).getByRole("link", { name: /^Gallery/ }));
+      expect(window.location.pathname).toBe("/gallery");
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(await screen.findByText("No generations yet.")).toBeVisible();
+    } finally {
+      window.innerWidth = width;
+    }
   });
 
   it("reports the server as ok, or unreachable when health fails", async () => {

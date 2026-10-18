@@ -108,7 +108,7 @@
         "src/web/AppShell.test.tsx"
       ],
       "file": "docs/features/app-shell/tasks/t7-sidebar-frame.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",

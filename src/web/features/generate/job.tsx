@@ -10,14 +10,14 @@ export function JobIndicator() {
   const job = useQuery({ queryKey: JOB_QUERY_KEY, queryFn: api.currentJob, enabled: false }).data?.job;
   if (job?.status === "running")
     return (
-      <span className="ml-auto flex items-center">
+      <span className="flex items-center">
         <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />
         <span className="sr-only">generation running</span>
       </span>
     );
   if (job?.status === "failed")
     return (
-      <span className="ml-auto flex items-center">
+      <span className="flex items-center">
         <span className="size-2 rounded-full bg-destructive" aria-hidden />
         <span className="sr-only">generation failed — see Generate</span>
       </span>

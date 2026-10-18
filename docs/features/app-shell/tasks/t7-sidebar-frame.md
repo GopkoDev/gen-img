@@ -9,8 +9,8 @@ files_hint: ["src/web/App.tsx", "src/web/components/app-sidebar.tsx", "src/web/A
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T7 — Put the app frame on the sidebar block (SCR-04)
