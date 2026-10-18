@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/prices.ts", "src/server/modules/provi
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Expose the model price with a per-model 10-minute cache

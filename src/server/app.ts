@@ -10,6 +10,7 @@ import { createGenerationsRepo } from "./modules/generations/repo";
 import { registerGenerationsRoutes } from "./modules/generations/routes";
 import { createGenerationsService } from "./modules/generations/service";
 import { createModelCatalog } from "./modules/providers/catalog";
+import { createPriceCatalog } from "./modules/providers/prices";
 import { createProviderRegistry } from "./modules/providers/registry";
 import { registerProvidersRoutes } from "./modules/providers/routes";
 import { createFileStore } from "./modules/storage/file-store";
@@ -43,7 +44,7 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
 
   const providers = createProviderRegistry(deps.config, deps.fetch);
   const catalog = createModelCatalog(providers, deps.now);
-  registerProvidersRoutes(api, { providers, catalog });
+  registerProvidersRoutes(api, { providers, catalog, prices: createPriceCatalog(providers, catalog, deps.now) });
 
   const files = createFileStore(deps.config.dataDir);
   const repo = createGenerationsRepo(deps.db);

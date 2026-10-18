@@ -57,7 +57,7 @@
         "src/server/app.ts"
       ],
       "file": "docs/features/model-price-preview/tasks/t4-price-route-and-cache.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",
