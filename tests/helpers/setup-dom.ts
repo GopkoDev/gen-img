@@ -1,8 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { installIntersectionObserver, resetIntersections } from "./intersection";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  resetIntersections();
+});
 
 // Radix primitives (Select) use pointer capture and scrollIntoView, which jsdom lacks.
 if (!Element.prototype.hasPointerCapture) {
@@ -56,3 +60,7 @@ if (typeof globalThis.ResizeObserver !== "function") {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
 }
+
+// The Models page loads prices only for rows in view (IntersectionObserver). The double reports nothing
+// intersecting until a test calls intersect()/intersectAll() — see tests/helpers/intersection.ts.
+installIntersectionObserver();

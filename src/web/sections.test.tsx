@@ -6,11 +6,18 @@ import { App } from "./App";
 import { SECTIONS, type Section, sectionFor } from "./sections";
 
 describe("sections registry", () => {
-  it("lists Generate then Gallery, Generate at the root address", () => {
+  it("lists Generate, Gallery then Models, Generate at the root address", () => {
     expect(SECTIONS.map((s) => [s.id, s.path, s.label])).toEqual([
       ["generate", "/", "Generate"],
       ["gallery", "/gallery", "Gallery"],
+      ["models", "/models", "Models"],
     ]);
+  });
+
+  it("makes Models reachable at /models, not kept mounted", () => {
+    const section = sectionFor({ name: "page", pathname: "/models", search: "" });
+    expect(section?.id).toBe("models");
+    expect(section?.keepMounted).toBeFalsy();
   });
 
   it("finds the section that owns an address", () => {
@@ -37,23 +44,23 @@ describe("sections registry", () => {
       vi.fn(async () => Response.json({ status: "ok" })),
     );
     const models: Section = {
-      id: "models",
-      path: "/models",
-      label: "Models",
+      id: "extras",
+      path: "/extras",
+      label: "Extras",
       icon: Boxes,
-      page: () => <p>Models page</p>,
+      page: () => <p>Extras page</p>,
     };
-    window.history.replaceState(null, "", "/models");
+    window.history.replaceState(null, "", "/extras");
     renderWithQuery(<App sections={[...SECTIONS, models]} />);
-    const link = within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Models" });
-    expect(link).toHaveAttribute("href", "/models");
+    const link = within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Extras" });
+    expect(link).toHaveAttribute("href", "/extras");
     expect(link).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Models page")).toBeVisible();
-    expect(document.title).toBe("Models · Ukiyo");
+    expect(screen.getByText("Extras page")).toBeVisible();
+    expect(document.title).toBe("Extras · Ukiyo");
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Gallery" }),
     );
-    expect(screen.queryByText("Models page")).not.toBeInTheDocument();
+    expect(screen.queryByText("Extras page")).not.toBeInTheDocument();
     window.history.replaceState(null, "", "/");
     vi.unstubAllGlobals();
   });

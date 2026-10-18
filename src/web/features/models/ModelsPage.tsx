@@ -1,0 +1,284 @@
+import { useQuery } from "@tanstack/react-query";
+import { Loader2Icon, StarIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import type { ModelPreference } from "../../../shared/models";
+import type { ImageModel, ProviderId } from "../../../shared/providers";
+import { useShortPrice } from "../generate/PricePreview";
+import { describeParams } from "./params";
+import { useModelPreferences, useSetModelPreference } from "./preferences";
+
+type ProviderInfo = { id: ProviderId; name: string; configured: boolean };
+
+function Row({
+  provider,
+  model,
+  inView,
+  favorite,
+  hidden,
+  togglesDisabled,
+  failed,
+  onFavorite,
+  onShow,
+}: {
+  provider: ProviderId;
+  model: ImageModel;
+  inView: boolean;
+  favorite: boolean;
+  hidden: boolean;
+  togglesDisabled: boolean;
+  failed: boolean;
+  onFavorite: () => void;
+  onShow: () => void;
+}) {
+  const price = useShortPrice(provider, model.id, inView, { retryOnMount: true });
+  const params = describeParams(model);
+  return (
+    <TableRow data-model={model.id} className={cn(hidden && "text-muted-foreground")}>
+      <TableCell className="max-w-72">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{model.name}</span>
+          {hidden && <Badge variant="outline">Hidden</Badge>}
+        </div>
+        <div className="truncate text-muted-foreground text-xs">{model.id}</div>
+        {failed && (
+          <p role="alert" className="text-destructive text-xs">
+            Couldn't save — try again.
+          </p>
+        )}
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {price?.perToken ? <Badge variant="outline">{price.text}</Badge> : (price?.text ?? "…")}
+      </TableCell>
+      <TableCell>{params.aspectRatios}</TableCell>
+      <TableCell>{params.seed}</TableCell>
+      <TableCell>{params.images}</TableCell>
+      <TableCell>{params.inputs}</TableCell>
+      <TableCell>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Favorite ${model.name}`}
+          aria-pressed={favorite}
+          disabled={togglesDisabled}
+          onClick={onFavorite}
+        >
+          <StarIcon className={cn("size-4", favorite && "fill-current")} aria-hidden />
+        </Button>
+      </TableCell>
+      <TableCell>
+        <Switch
+          aria-label={`Show ${model.name} in picker`}
+          checked={!hidden}
+          disabled={togglesDisabled}
+          onCheckedChange={onShow}
+        />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ProviderCard({ info }: { info: ProviderInfo }) {
+  const { id, name } = info;
+  const models = useQuery({
+    queryKey: ["models", id],
+    queryFn: () => api.models(id),
+    enabled: info.configured,
+  });
+  const prefsQuery = useModelPreferences(id, info.configured);
+  const unreadable = prefsQuery.isError;
+  const prefs = prefsQuery.data?.preferences ?? null;
+  const flags = new Map((prefs ?? []).map((p) => [p.model, p]));
+
+  const toggle = useSetModelPreference(id);
+  const [saveFailed, setSaveFailed] = useState<ReadonlySet<string>>(new Set());
+  const [forgetFailed, setForgetFailed] = useState<ReadonlySet<string>>(new Set());
+  const [forgetting, setForgetting] = useState<ReadonlySet<string>>(new Set());
+  const mark = (set: ReadonlySet<string>, key: string, on: boolean) => {
+    const next = new Set(set);
+    if (on) next.add(key);
+    else next.delete(key);
+    return next;
+  };
+
+  const change = (model: string, flag: { favorite: boolean } | { hidden: boolean }) =>
+    toggle.mutate(
+      { model, ...flag },
+      {
+        onSuccess: () => setSaveFailed((s) => mark(s, model, false)),
+        onError: () => setSaveFailed((s) => mark(s, model, true)),
+      },
+    );
+
+  const forget = (model: string) => {
+    setForgetting((s) => mark(s, model, true));
+    setForgetFailed((s) => mark(s, model, false));
+    toggle.mutate(
+      { model, favorite: false, hidden: false },
+      {
+        onError: () => setForgetFailed((s) => mark(s, model, true)),
+        onSettled: () => setForgetting((s) => mark(s, model, false)),
+      },
+    );
+  };
+
+  // Prices only for rows that came into view (SAD §4): one observer per table, rows tracked by model id.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [inView, setInView] = useState<ReadonlySet<string>>(new Set());
+  const list = models.data?.models;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rows are re-observed when the list changes
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table) return;
+    const observer = new IntersectionObserver((entries) => {
+      const seen = entries.filter((e) => e.isIntersecting).map((e) => (e.target as HTMLElement).dataset.model ?? "");
+      if (seen.length > 0) setInView((s) => (seen.every((m) => s.has(m)) ? s : new Set([...s, ...seen])));
+    });
+    for (const row of table.querySelectorAll("tbody tr[data-model]")) observer.observe(row);
+    return () => observer.disconnect();
+  }, [list]);
+
+  let body: React.ReactNode;
+  if (!info.configured) {
+    body = <p className="text-muted-foreground text-sm">{name} isn't configured — add its key to .env.local.</p>;
+  } else if (models.isPending) {
+    body = <p className="text-muted-foreground text-sm">Loading models…</p>;
+  } else if (models.isError || !list) {
+    body = (
+      <div className="flex flex-wrap items-center gap-3 rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+        <p>Couldn't load the {name} models.</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => models.refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  } else if (list.length === 0) {
+    body = <p className="text-muted-foreground text-sm">No image models.</p>;
+  } else {
+    const offered = new Set(list.map((m) => m.id));
+    const retired: ModelPreference[] = prefs
+      ? prefs.filter((p) => !offered.has(p.model) && (p.favorite || p.hidden))
+      : [];
+    body = (
+      <>
+        {unreadable && (
+          <p className="mb-2 text-muted-foreground text-sm">Favorites and hidden models couldn't be loaded.</p>
+        )}
+        <Table ref={tableRef}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Aspect ratios</TableHead>
+              <TableHead>Seed</TableHead>
+              <TableHead>Images</TableHead>
+              <TableHead>Inputs</TableHead>
+              <TableHead>
+                <span className="sr-only">Favorite</span>
+              </TableHead>
+              <TableHead>Show in picker</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((model) => {
+              const f = flags.get(model.id);
+              return (
+                <Row
+                  key={model.id}
+                  provider={id}
+                  model={model}
+                  inView={inView.has(model.id)}
+                  favorite={f?.favorite ?? false}
+                  hidden={f?.hidden ?? false}
+                  togglesDisabled={prefs === null}
+                  failed={saveFailed.has(model.id)}
+                  onFavorite={() => change(model.id, { favorite: !(f?.favorite ?? false) })}
+                  onShow={() => change(model.id, { hidden: !(f?.hidden ?? false) })}
+                />
+              );
+            })}
+          </TableBody>
+        </Table>
+        {retired.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-muted-foreground text-sm">No longer offered</h4>
+            <ul className="mt-1 flex flex-col gap-1">
+              {retired.map((p) => (
+                <li key={p.model} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>{p.model}</span>
+                  {p.favorite && <Badge variant="outline">Favorite</Badge>}
+                  {p.hidden && <Badge variant="outline">Hidden</Badge>}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={forgetting.has(p.model)}
+                    onClick={() => forget(p.model)}
+                  >
+                    {forgetting.has(p.model) && <Loader2Icon className="animate-spin" aria-hidden />}
+                    Forget
+                  </Button>
+                  {forgetFailed.has(p.model) && (
+                    <span role="alert" className="text-destructive text-xs">
+                      Couldn't forget — try again.
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  const count = list ? ` · ${list.length} ${list.length === 1 ? "model" : "models"}` : "";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          {name}
+          {count}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
+    </Card>
+  );
+}
+
+/** SCR-08: every configured provider's image models with price, parameters and the ★ / «show in picker» toggles. */
+export function ModelsPage() {
+  const providers = useQuery({ queryKey: ["providers"], queryFn: api.providers });
+  const list = providers.data?.providers ?? [];
+  let body: React.ReactNode;
+  if (providers.isPending) body = <p className="text-muted-foreground text-sm">Loading…</p>;
+  else if (providers.isError)
+    body = (
+      <div className="flex flex-wrap items-center gap-3 rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+        <p>Couldn't load the providers.</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => providers.refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  else if (!list.some((p) => p.configured))
+    body = (
+      <p className="text-muted-foreground text-sm">
+        No provider is configured yet. Add an OpenRouter or Vercel AI Gateway key to .env.local and restart Ukiyo.
+      </p>
+    );
+  else body = list.map((p) => <ProviderCard key={p.id} info={p} />);
+  return (
+    <section aria-label="Models" className="flex flex-col gap-4">
+      <h2 className="font-semibold">Models</h2>
+      {body}
+    </section>
+  );
+}

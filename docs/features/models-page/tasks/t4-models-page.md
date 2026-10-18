@@ -9,8 +9,8 @@ files_hint: ["src/web/components/ui/table.tsx", "src/web/components/ui/switch.ts
 owner: "dmytro.hopko"
 estimate: "L"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or
