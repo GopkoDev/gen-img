@@ -1,0 +1,131 @@
+{
+  "slug": "rerun-and-reuse",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the lineage migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-02", "AC-07"],
+      "dod": "migration 0007_add_generation_source applies and reverts cleanly; CHECKs reject a bad relation / output; the derived-list query uses generations_source",
+      "files_hint": [
+        "docs/features/rerun-and-reuse/migrations/01_add_generation_source.up.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t1-promote-lineage-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Extend the shared start and detail schemas and add the parameter carry-over rule",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-05", "AC-13"],
+      "dod": "unit tests: StartGenerationRequest accepts source + ordered inputs (stored refs, upload slots) and rejects reuse without output / rerun with output / >8 inputs; carryParams keeps supported params, removes and names the rest, clamps n",
+      "files_hint": ["src/shared/generations.ts", "src/shared/rerun.test.ts"],
+      "file": "docs/features/rerun-and-reuse/tasks/t2-shared-rerun-schemas.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Store lineage and look up stored images and derived generations in the repo",
+      "layer": "infra",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-02", "AC-04", "AC-07", "AC-15"],
+      "dod": "integration tests: insert + get round-trip the source columns; storedImage(generationId, kind, position) returns the recorded row or undefined; derivedOf(id) returns \u2264 50 newest + total; a deleted source reads as exists=false while the derived row is unchanged",
+      "files_hint": [
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/lineage-repo.int.test.ts",
+        "tests/helpers/generations.ts"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t3-repo-lineage-and-stored-images.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Resolve stored-image references and record lineage when starting a generation",
+      "layer": "app",
+      "deps": ["T3"],
+      "acs": ["AC-02", "AC-03", "AC-08", "AC-09", "AC-13", "AC-14"],
+      "dod": "integration tests with a fake provider: re-run from stored inputs sends the same bytes in order and saves own copies + lineage; reuse of an output; missing source / unknown ref / bad kind / out-of-range position \u2192 one generic field error, nothing sent; output > 10 MB refused; running job \u2192 GENERATION_IN_PROGRESS",
+      "files_hint": [
+        "src/server/modules/generations/service.ts",
+        "src/server/modules/storage/file-store.ts",
+        "src/server/modules/generations/rerun.int.test.ts"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t4-service-stored-inputs-and-lineage.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Expose stored-image inputs and lineage through the routes",
+      "layer": "ports",
+      "deps": ["T4"],
+      "acs": ["AC-04", "AC-12", "AC-13"],
+      "dod": "integration tests via app.request(): JSON start with stored refs only \u2192 202; multipart with mixed refs and uploads keeps order; detail returns source (exists true/false) + derived; cross-site start \u2192 403; crafted refs \u2192 400 generic",
+      "files_hint": [
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/rerun-routes.int.test.ts",
+        "src/web/lib/api.ts"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t5-routes-lineage-dto.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Fill the generate panel from a re-run or reuse source",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-01", "AC-03", "AC-06", "AC-08", "AC-10", "AC-11"],
+      "dod": "web tests (mocked api): ?rerun fills provider/model/prompt/params/stored inputs and shows \u00abRe-run of\u00bb + \u00abresults can differ\u00bb, then cleans the address; ?reuse attaches one output, empty prompt, input-capable model chosen; source gone / model unavailable / no input-capable model notices; removing the link drops `source` from the request",
+      "files_hint": [
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/features/generate/InputImages.tsx",
+        "src/web/features/generate/DraftSource.test.tsx"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t6-panel-draft-from-source.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Keep supported parameters and name removed ones when the model changes",
+      "layer": "ui",
+      "deps": ["T6", "T2"],
+      "acs": ["AC-05"],
+      "dod": "web tests: switching a pre-filled draft to a model without seed / aspect ratio / with a lower image max keeps what fits, shows \u00abNot supported by this model: \u2026\u00bb and the lowered count; the request never carries a removed value",
+      "files_hint": ["src/web/features/generate/GeneratePanel.tsx", "src/web/features/generate/CarryOver.test.tsx"],
+      "file": "docs/features/rerun-and-reuse/tasks/t7-panel-carry-over.md",
+      "status": "todo"
+    },
+    {
+      "id": "T8",
+      "title": "Add Re-run, Use as input and the lineage card to the detail view",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-02", "AC-03", "AC-04", "AC-07", "AC-09", "AC-15"],
+      "dod": "web tests: Re-run links to /?rerun=<id>; Use as input links to /?reuse=<id>&output=N and is refused in place for > 10 MB / unsupported outputs; lineage card shows source link or \u00absource deleted\u00bb, derived list newest first with \u00aband N more\u00bb, hidden when empty",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/Lineage.tsx",
+        "src/web/features/gallery/Lineage.test.tsx"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t8-detail-actions-and-lineage.md",
+      "status": "todo"
+    },
+    {
+      "id": "T9",
+      "title": "Verify derived generations survive source deletion and the NFRs",
+      "layer": "tests",
+      "deps": ["T5"],
+      "acs": ["AC-07"],
+      "dod": "tests pass: deleting a source leaves the derived generation's images and input copies served and its source exists=false; a failing commit of a derived save leaves no half-saved generation after restart; NFR timings (stored-input start \u2264 300 ms p95, lineage detail \u2264 150 ms p95) in the serial nfr project",
+      "files_hint": [
+        "src/server/modules/generations/lineage-integrity.int.test.ts",
+        "src/server/modules/generations/nfr.int.test.ts"
+      ],
+      "file": "docs/features/rerun-and-reuse/tasks/t9-lineage-integrity-and-nfr.md",
+      "status": "todo"
+    }
+  ]
+}
