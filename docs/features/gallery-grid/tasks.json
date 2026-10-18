@@ -1,0 +1,78 @@
+{
+  "slug": "gallery-grid",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Carry the duration in the gallery list summary",
+      "layer": "ports",
+      "deps": [],
+      "acs": ["AC-01", "AC-09"],
+      "dod": "integration test: every list item carries the stored durationMs; nfr: a continued page ≤ 300 ms p95 with 1 000 generations × 10 tags + comment",
+      "files_hint": [
+        "src/shared/generations.ts",
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/routes.int.test.ts",
+        "src/server/modules/generations/nfr.int.test.ts"
+      ],
+      "file": "docs/features/gallery-grid/tasks/t1-summary-duration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Word the cost, size and count badges",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-01", "AC-02", "AC-03"],
+      "dod": "unit tests: cost badge for known/pending/unavailable (never $0 when unknown), size with ×, count rules incl. partial; badge token contrast ≥ 4.5:1 in both themes",
+      "files_hint": ["src/web/lib/format.ts", "src/web/lib/format.test.ts", "src/web/theme-tokens.test.ts"],
+      "file": "docs/features/gallery-grid/tasks/t2-badge-wording.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Show the badge strip over each card's preview",
+      "layer": "ui",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-10"],
+      "dod": "component tests: strip with cost/duration/size(/count) per card; pending and unavailable wording; partial count; strip kept with «Image unavailable»; no duplicate pending badge in the footer",
+      "files_hint": [
+        "src/web/features/gallery/CardBadges.tsx",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/Gallery.test.tsx"
+      ],
+      "file": "docs/features/gallery-grid/tasks/t3-card-badges.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Load pages as the Owner scrolls and keep the place on return",
+      "layer": "ui",
+      "deps": ["T3"],
+      "acs": ["AC-04", "AC-05", "AC-06", "AC-08"],
+      "dod": "component tests: auto-load one request per page, no request in flight twice or after the last page, Load more fallback, end message, failed page inline + Try again with no auto-retry, failed refresh keeps cards with a note, return from detail restores scroll with no request, no duplicate or missing card at a page boundary",
+      "files_hint": [
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/Gallery.test.tsx",
+        "src/web/features/gallery/Paging.test.tsx"
+      ],
+      "file": "docs/features/gallery-grid/tasks/t4-auto-paging-and-restore.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Refresh a pending cost per card instead of the whole gallery",
+      "layer": "ui",
+      "deps": ["T4"],
+      "acs": ["AC-02", "AC-07"],
+      "dod": "component tests with fake timers: only pending generations are read every 10 s, no list re-read; the card turns into the amount or «cost unavailable»; the recent strip makes no request",
+      "files_hint": [
+        "src/web/features/gallery/usePendingCost.ts",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/PendingCost.test.tsx",
+        "src/web/features/generate/RecentGenerations.test.tsx"
+      ],
+      "file": "docs/features/gallery-grid/tasks/t5-pending-cost-per-card.md",
+      "status": "todo"
+    }
+  ]
+}
