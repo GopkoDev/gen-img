@@ -175,7 +175,196 @@ sequenceDiagram
     Web-->>Owner: latest result or the reason
 ```
 
-**Critical flow 2: browse and inspect** — the gallery asks for a page of generations (newest first, cursor = last id), the detail view asks for one generation, and images load through the file route. All three are guarded reads (flow details in `sequences`).
+**Critical flow 2: browse and inspect** — see the «Browse the gallery and inspect a generation» flow below.
+
+### Open the generate panel (US-01, US-05)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant Ext as <external-system>
+    Note over Owner,UI: Owner opens the app (or the window regains focus)
+    UI->>Svc: get providers and their configured state
+    Svc-->>UI: providers (configured or not)
+    alt provider not configured
+        UI-->>Owner: «OpenRouter is not configured» + how to fix; gallery stays usable
+    else configured
+        UI->>Svc: get current generation job
+        alt a job is running
+            Svc-->>UI: running job
+            UI-->>Owner: form shows «in progress», submit disabled
+        else last job failed and not dismissed
+            Svc-->>UI: failed job with reason (persisted notice)
+            UI-->>Owner: shows the reason with a dismiss action
+            Owner->>UI: dismisses
+            UI->>Svc: dismiss last job
+            Note over Svc: removes the persisted notice
+        end
+        Owner->>UI: opens the model picker
+        UI->>Svc: get image models of the provider
+        alt catalog cached and younger than 10 min
+            Svc-->>UI: cached models with supported parameters
+        else fetch catalog
+            Svc->>Ext: list image models
+            alt provider unreachable or refuses
+                Ext-->>Svc: failure
+                Svc-->>UI: provider error
+                UI-->>Owner: «model list unavailable» + Retry
+            else ok
+                Ext-->>Svc: models
+                Svc-->>UI: models with supported parameters
+                UI-->>Owner: picker lists models; form shows only supported parameters
+            end
+        end
+    end
+```
+
+The panel first learns whether OpenRouter is configured; if not, it explains how to configure it and leaves the gallery usable (AC-13). It then asks for the current job: a running one locks the form (AC-17), a persisted failure notice is shown until dismissed (AC-17). The model picker reads the catalog — from a ≤ 10-minute cache or from the provider — and on failure shows «model list unavailable» with Retry (AC-14); on success only the model's supported parameters are offered (AC-03).
+
+### Generate — validation and timeout branches (US-01, US-05)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant Ext as <external-system>
+    Owner->>UI: clicks Generate
+    alt form invalid (blank prompt, no model, image count out of range)
+        UI-->>Owner: field errors; nothing sent
+    else form valid
+        UI->>Svc: start generation
+        alt server-side validation fails
+            Svc-->>UI: validation error with per-field reasons
+            UI-->>Owner: field errors; nothing sent
+        else provider not configured
+            Svc-->>UI: provider not configured
+        else accepted
+            Svc-->>UI: job running
+            Svc->>Ext: generate (abortable)
+            alt no answer within 180 s
+                Svc->>Ext: cancel request
+                Note over Svc: job failed «timed out»; nothing recorded
+            else provider answered
+                Ext-->>Svc: answer
+            end
+        end
+    end
+```
+
+Client-side checks block an invalid form without contacting the server; the server re-validates and returns per-field reasons (AC-05). A missing key is refused (AC-13). An accepted job calls the provider with an abort signal; after 180 s the call is cancelled and the job fails with «timed out» and nothing is recorded (spec §6, AC-06). The provider-answer branches continue in Critical flow 1.
+
+### Browse the gallery and inspect a generation (US-03, US-04)
+
+```mermaid
+sequenceDiagram
+    actor Owner as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    participant Files as <data-store>
+    Owner->>UI: opens the gallery
+    UI->>Svc: get first page (24, newest first)
+    Svc->>DB: reads generations by id descending + their first image
+    Note over Svc,DB: reads generations, generation_images (primary keys only)
+    alt no generations
+        Svc-->>UI: empty page
+        UI-->>Owner: empty state pointing to the generate form
+    else has generations
+        Svc-->>UI: page + next cursor
+        UI-->>Owner: tiles with prompt excerpt, provider + model, created-at
+        UI->>Svc: get image file (thumbnail)
+        Svc->>DB: is this path a recorded image?
+        alt recorded
+            Svc->>Files: read file
+            Svc-->>UI: image bytes
+        else not recorded
+            Svc-->>UI: not found (existence never revealed)
+        end
+        opt Owner scrolls / clicks Load more
+            UI->>Svc: get next page after cursor
+        end
+        Owner->>UI: opens a tile
+        UI->>Svc: get generation detail
+        alt not a stored generation
+            Svc-->>UI: not found
+            UI-->>Owner: «generation not found» + back link
+        else found
+            Svc->>DB: reads generation + images
+            Svc-->>UI: detail incl. cost + status, requested vs received, redacted raw exchange
+            UI-->>Owner: detail view
+        end
+    end
+```
+
+The gallery reads one page of 24 newest-first generations by primary key and appends further pages on demand (AC-04); an empty data set shows the empty state (AC-15). Every tile shows provider and model (AC-18). Image bytes are served only for paths recorded as generation images; anything else is «not found» without revealing existence (AC-12). The detail view shows everything stored: cost with status — «unavailable», never zero (AC-07) — requested vs received parameters and «not reported» accepted parameters (AC-09, AC-16), and the redacted raw exchange (AC-10).
+
+### Request guard refusal (US-06)
+
+```mermaid
+sequenceDiagram
+    participant Foreign as <client>
+    participant Svc as <service>
+    participant Ext as <external-system>
+    Foreign->>Svc: any request (start generation, gallery, image)
+    alt foreign Host, foreign Origin, or cross-site fetch
+        Svc-->>Foreign: refused
+        Note over Svc,Ext: no provider call, no data returned
+    else gen-img's own page
+        Note over Svc: request continues to the module routes
+    end
+```
+
+Every request first passes the guard: a non-local Host (DNS rebinding), a foreign Origin, or a cross-site fetch is refused before any module runs — nothing is sent to the provider and no data or image is returned (AC-19).
+
+### Boot sweep (integrity after a crash)
+
+```mermaid
+sequenceDiagram
+    participant Svc as <service>
+    participant DB as <data-store>
+    participant Files as <data-store>
+    Note over Svc: process starts, migrations applied
+    Svc->>Files: delete everything under the staging dir
+    Svc->>Files: list generation dirs
+    Svc->>DB: which of these ids have a record?
+    Svc->>Files: delete dirs without a record
+    Note over Svc,Files: data dir holds only complete generations
+```
+
+On start the server deletes leftover staging files and any generation directory without a record, so after a crash or kill only complete generations remain (spec §6 Durability, AC-08).
+
+### AC coverage (runtime view)
+
+| US / AC | Shown by |
+|---|---|
+| US-01 | Critical flow 1; Open the generate panel; Generate — validation and timeout |
+| US-02 | Critical flow 1 (save branch); Boot sweep |
+| US-03 | Browse the gallery and inspect |
+| US-04 | Browse the gallery and inspect (detail branch) |
+| US-05 | Critical flow 1 (failure branches); Generate — timeout branch; Open the generate panel (persisted notice) |
+| US-06 | Request guard refusal; AC-10/AC-11 notes below |
+| AC-01 | Critical flow 1 → saved |
+| AC-02 | Browse → detail found |
+| AC-03 | Open the generate panel → catalog ok |
+| AC-04 | Browse → page + next cursor, Load more |
+| AC-05 | Generate — form invalid / server-side validation |
+| AC-06 | Critical flow 1 → provider refuses / no usable image; Generate → 180 s timeout |
+| AC-07 | Browse → detail (cost status); write side in Critical flow 1 (cost or none) |
+| AC-08 | Critical flow 1 → storage fails; Boot sweep |
+| AC-09 | Browse → detail (requested vs received) |
+| AC-10 | Non-runtime: redaction happens inside the adapter before anything is stored (ADR-0008); shown in Critical flow 1 «redacted raw exchange» |
+| AC-11 | Non-runtime: the server binds only the loopback address — another device has no route to it |
+| AC-12 | Browse → image file «not recorded» |
+| AC-13 | Open the generate panel → not configured; Generate → provider not configured |
+| AC-14 | Open the generate panel → provider unreachable |
+| AC-15 | Browse → no generations |
+| AC-16 | Critical flow 1 → ≥ 1 usable image (partial kept); Browse → detail |
+| AC-17 | Critical flow 1 → slot busy; Open the generate panel → running / failed notice |
+| AC-18 | Browse → tiles and detail (provider shown) |
+| AC-19 | Request guard refusal |
 
 ## 7. Deployment view
 
