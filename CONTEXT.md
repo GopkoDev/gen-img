@@ -8,6 +8,7 @@ updated_at: "2026-10-18"
 ## Glossary
 
 - Cost status — whether a generation's price is `known` (an exact amount), `pending` (expected to arrive later) or `unavailable` (the provider gave none). NOT a zero price: an unknown cost is never shown or stored as free.
+- Cost lookup — gen-img asking a provider, some time after a generation, for the price it did not state in its answer; it ends with a known amount or «unavailable». NOT a price estimate made before generating (roadmap step 7).
 - Gallery — the owner's browsable list of every saved generation, newest first, with a detail view per generation. NOT a provider's playground history: the gallery lives only on the owner's machine.
 - Generation — one request the owner sent to a provider together with everything it produced and cost: prompt, model, parameters, output images, cost, duration, raw request/response. NOT a single image: one generation can hold several output images.
 - Image model — a provider-offered model that can produce images, identified by the provider's model id. NOT a text-only chat model.
