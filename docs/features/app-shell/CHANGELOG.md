@@ -11,6 +11,8 @@
 **Operational notes:**
 - Migration: none. Config: none. API: unchanged (the server's SPA fallback already served every address; now covered by `src/server/spa-fallback.int.test.ts`).
 - Address changes: the gallery moved from `/` to `/gallery`; the «deleted» notice is now `/gallery?deleted=1`; new carried flag `/?focus=prompt`. `/?rerun=` and `/?reuse=&output=` are unchanged.
+- Revisiting a section reloads nothing (gallery and detail are refreshed by changes and on window focus); a finished generation also refreshes an open detail page.
+- Review: independent `sdd:reviewer` — no blockers; R1–R6 fixed on the branch ([review](./_review/review-2026-10-18.md)).
 - Rollback: revert the branch.
 
 **Acceptance criteria delivered:** AC-01 … AC-10 (spec §5); AC-10 and the section-switch timing are additionally for a manual browser check.
