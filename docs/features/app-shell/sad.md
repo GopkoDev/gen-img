@@ -114,6 +114,7 @@ sequenceDiagram
     Owner->>Detail: Re-run / Use as input
     Detail->>Shell: push /?rerun=<id> (or /?reuse=<id>&output=<n>)
     Shell->>Gen: show; address carries a source
+    Gen->>Shell: replace address with / at once (router notified; Back never re-applies)
     Gen->>API: load source generation
     alt source exists
         API-->>Gen: generation
@@ -122,8 +123,7 @@ sequenceDiagram
         API-->>Gen: not found
         Gen->>Gen: «source no longer exists» notice
     end
-    Gen->>Shell: replace address with / (router notified)
-    Note over Gen,Shell: the same link works again later in the visit
+    Note over Gen,Shell: applied only if this arrival is still current; the same link works again later in the visit
     Owner->>Detail: Delete (confirmed)
     Detail->>API: delete generation
     API-->>Detail: deleted
@@ -145,7 +145,8 @@ AC-02, AC-03, AC-04 and AC-10 are static routing/layout rules (§8); AC-09 is th
 | Document title | `<Section label> · Ukiyo`; not found → `Page not found · Ukiyo` | `App.tsx` |
 | Current marker | `aria-current="page"` on the owning entry + accent background | `NavBar.tsx` |
 | Hidden pages | `hidden` attribute (out of layout and the accessibility tree) | `App.tsx` |
-| Carried flags | `rerun`, `reuse`+`output`, `focus=prompt`, `deleted` — applied once, then removed with `replace()` | ADR-0019, ADR-0023 |
+| Carried flags | `rerun`, `reuse`+`output`, `focus=prompt`, `deleted` — removed at once with `replace()`, applied for that arrival only (a stale source load is dropped) | ADR-0019, ADR-0023 |
+| Revisits | gallery + detail queries `staleTime: ∞`, `refetchOnWindowFocus: "always"`; job success / delete / curation invalidate them | ADR-0023 |
 | Layout | ≥ `md`: fixed-width left bar (`w-56`) + fluid content; < `md`: the bar becomes a top row, entries inline | `App.tsx`, `NavBar.tsx` |
 
 ## 9. Architecture decisions

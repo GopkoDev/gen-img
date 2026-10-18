@@ -27,7 +27,7 @@ The generate panel keeps its draft (prompt, model, parameters, attachments, draf
 
 ## Considered options
 
-1. **Keep the Generate page mounted, hidden while another section shows** — a registry flag `keepMounted`; the panel keeps its state and its job polling; the bar reads the job from the shared query cache without fetching. Carried sources (`?rerun=`, `?reuse=&output=`, and a new `?focus=prompt`) are applied whenever the address on Generate carries one, then cleared with a `replace` that notifies the router.
+1. **Keep the Generate page mounted, hidden while another section shows** — a registry flag `keepMounted`; the panel keeps its state and its job polling; the bar reads the job from the shared query cache without fetching. Carried sources (`?rerun=`, `?reuse=&output=`, and a new `?focus=prompt`) are applied whenever the address on Generate carries one. The flag is taken from the address at once with a `replace` that notifies the router (so Back never re-applies it), and a source load applies only while its arrival is still current — a slower earlier load, or one that finishes after the Owner left Generate, is dropped.
 2. **Lift the draft into a store** (context or module-level) and let the panel remount — the store outlives the page; job polling moves to the shell.
 3. **Persist the draft in session storage** on every change and restore on mount.
 
@@ -46,7 +46,9 @@ The generate panel keeps its draft (prompt, model, parameters, attachments, draf
 - A hidden page must not steal focus or announce itself: it is rendered with the `hidden` attribute, which also removes it from the accessibility tree.
 
 **Neutral**
-- `focus=prompt` joins the ADR-0019 flags: applied once, then removed from the address.
+- `focus=prompt` joins the ADR-0019 flags: tried once the panel has settled, then dropped (also on leaving Generate).
+- Unlike ADR-0019's «survives a reload until applied», a reload during the brief source load now loses the carried source; the Owner starts the re-run again.
+- Revisiting a section reloads nothing: the gallery and detail queries never go stale on their own (each change invalidates them; window focus still refetches, for other tabs).
 
 ## Links
 
