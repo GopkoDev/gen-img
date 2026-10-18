@@ -77,7 +77,8 @@ Aggregate: **Generation** (root `generations`, child `generation_images`). Both 
 | `byte_size` | INTEGER | NOT NULL, > 0 | |
 
 **Aggregate root:** `generations`.
-**Access patterns:** images of one generation / of a page of generations (`WHERE generation_id IN (…) ORDER BY generation_id, position`) → PK prefix.
+**Access patterns:** images of one generation / of a page of generations (`WHERE generation_id IN (…) ORDER BY generation_id, position`) → PK prefix; file route lookup by exact path (`WHERE path = ?`) → `generation_images_path`.
+**Constraints:** `path` is UNIQUE (one file per row).
 
 ## Indexes
 
@@ -85,8 +86,7 @@ Aggregate: **Generation** (root `generations`, child `generation_images`). Both 
 |---|---|---|
 | PK `generations` | `id` | gallery page (cursor + `ORDER BY id DESC`), detail by id — flows «browse» / «inspect» |
 | PK `generation_images` | `generation_id, position` | images for a generation / a page; also covers the FK column |
-
-No secondary indexes: every query is served by a primary key.
+| `generation_images_path` (UNIQUE) | `path` | file route: «is this exact path a recorded image?» (AC-12) — added after review F4, staged `02_index_generation_images_path` |
 
 ## Test fixtures
 
