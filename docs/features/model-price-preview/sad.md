@@ -161,7 +161,7 @@ The flow covers AC-01…AC-07 and AC-10; AC-08 is a non-runtime rule (the estima
 | Concept | Convention | Where defined |
 |---|---|---|
 | Price shape | `per-image {output: {minUsd, maxUsd}, input: {minUsd, maxUsd} | null}` · `per-token` · `unknown` | `src/shared/pricing.ts` |
-| Mapping rules | OpenRouter: `output_image` + `unit: image` prices (all endpoints, all variants) → range; `input_image` + `unit: image` → input range; output billed per token only → per-token; no output price → unknown. Vercel: `pricing.image` → exact; else `image_dimension_quality_pricing` entries with a `size` → range; else `input`/`output` → per-token; else unknown | adapters |
+| Mapping rules | OpenRouter: `output_image` + `unit: image` prices (all endpoints, all variants) → range; `input_image` + `unit: image` → input range; output billed per token only → per-token; no output price → unknown. Vercel: `pricing.image` → exact; else the `image_dimension_quality_pricing` entry with `size: default` → exact (gen-img sends no size), else entries with a `size` → range (`operation` entries ignored); else `input`/`output` → per-token; else unknown | adapters |
 | Caching | price per (provider, model) in memory, 10 min; failures not cached; unknown model answered from the model catalog without a price request | `providers/prices.ts` |
 | Keys | price lookups are public reads — the adapters send no authorization header | adapters |
 | Errors | unknown model → `NOT_FOUND`; provider failure → `PROVIDER_ERROR` (502); not configured → `PROVIDER_NOT_CONFIGURED` (409, like the model list) | `providers/routes.ts` |
