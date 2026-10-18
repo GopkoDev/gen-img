@@ -14,7 +14,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/image-inputs-openrouter/tasks/t1-promote-generation-inputs-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

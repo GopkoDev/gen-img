@@ -19,17 +19,42 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0004");
     expect(migrateDown(db)?.version).toBe("0003");
     expect(migrateDown(db)?.version).toBe("0002");
     expect(migrateDown(db)?.version).toBe("0001");
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004"]);
+  });
+
+  it("0004_create_generation_inputs keeps input copies consistent and reverts cleanly", () => {
+    migrateUp(db);
+    db.prepare(
+      `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
+         cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response)
+       VALUES ('01A', 'openrouter', 'm', 'p', '{}', NULL, 1, NULL, 'unavailable', '2026-10-18T00:00:00.000Z', 1, '{}', '{}')`,
+    ).run();
+    const input = db.prepare(
+      `INSERT INTO generation_inputs (generation_id, position, path, media_type, width, height, byte_size, original_name)
+       VALUES (?, ?, ?, ?, 1, 1, ?, ?)`,
+    );
+    input.run("01A", 1, "generations/01A/input-1.png", "image/png", 10_485_760, "cat.png");
+    input.run("01A", 2, "generations/01A/input-2.jpg", "image/jpeg", 5, null);
+    expect(() => input.run("01A", 3, "generations/01A/input-3.png", "image/png", 10_485_761, null)).toThrow(/CHECK/);
+    expect(() => input.run("01A", 3, "generations/01A/input-3.heic", "image/heic", 5, null)).toThrow(/CHECK/);
+    expect(() => input.run("01A", 3, "generations/01A/input-1.png", "image/png", 5, null)).toThrow(/UNIQUE/);
+    expect(() => input.run("nope", 1, "generations/nope/input-1.png", "image/png", 5, null)).toThrow(/FOREIGN KEY/);
+    db.prepare("DELETE FROM generations WHERE id = '01A'").run();
+    expect(db.prepare("SELECT count(*) FROM generation_inputs").pluck().get()).toBe(0);
+
+    migrateDown(db);
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'generation_inputs%'").pluck().all()).toEqual([]);
   });
 
   it("0003 serves the image-by-path lookup from an index, not a table scan", () => {
@@ -63,6 +88,7 @@ describe("migration runner", () => {
     db.prepare("DELETE FROM generations WHERE id = '01A'").run();
     expect(db.prepare("SELECT count(*) FROM generation_images").pluck().get()).toBe(0);
 
+    migrateDown(db);
     migrateDown(db);
     migrateDown(db);
     const tables = db

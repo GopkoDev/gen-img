@@ -9,8 +9,8 @@ files_hint: ["docs/features/image-inputs-openrouter/migrations/01_create_generat
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Promote the generation_inputs migration
