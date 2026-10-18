@@ -31,7 +31,7 @@ The token file already defines light and dark values, with dark under a `.dark` 
 
 ## Decision outcome
 
-**Chosen:** Option 1, with two changes to the docs' version: every storage access is wrapped in try/catch (AC-12) and «system» follows live changes of the system appearance. Key `gen-img:theme` (the app's existing storage prefix), default `system`. The inline script shares the rule «stored light/dark wins, else the system» and is tested as a pure function exported from `src/web/lib/theme.ts` — the script in `index.html` is that function's body, checked by a test that compares them.
+**Chosen:** Option 1, with two changes to the docs' version: every storage access is wrapped in try/catch (AC-12) and «system» follows live changes of the system appearance. Key `gen-img:theme` (the app's existing storage prefix), default `system`. The inline script and the provider share the rule «stored light/dark wins, else the system»; a test runs the inline script taken from `index.html` in jsdom (stored light / dark / system / storage throwing) so the two can't drift.
 
 ## Consequences
 
