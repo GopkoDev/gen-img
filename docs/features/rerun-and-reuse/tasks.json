@@ -14,7 +14,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t1-promote-lineage-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

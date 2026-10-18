@@ -9,8 +9,8 @@ files_hint: ["docs/features/rerun-and-reuse/migrations/01_add_generation_source.
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T1 — Promote the lineage migration

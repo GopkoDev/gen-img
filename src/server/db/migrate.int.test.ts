@@ -23,6 +23,30 @@ describe("migration runner", () => {
     while (appliedVersions(db).at(-1) !== version) migrateDown(db);
   }
 
+  it("0007_add_generation_source records lineage without a foreign key and serves the derived list from an index", () => {
+    migrateUp(db);
+    const insert = db.prepare(
+      `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
+         cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response, source_id, source_relation, source_output)
+       VALUES (@id, 'openrouter', 'm', 'p', '{}', NULL, 1, NULL, 'unavailable', '2026-10-18T00:00:00.000Z', 1, '{}', '{}',
+         @src, @rel, @out)`,
+    );
+    insert.run({ id: "01A", src: null, rel: null, out: null });
+    insert.run({ id: "01B", src: "01A", rel: "rerun", out: null });
+    insert.run({ id: "01C", src: "01GONE", rel: "reuse", out: 2 }); // no FK: a deleted source stays recorded
+    expect(() => insert.run({ id: "01D", src: "01A", rel: "copy", out: null })).toThrow(/CHECK/);
+    expect(() => insert.run({ id: "01E", src: "01A", rel: "reuse", out: 0 })).toThrow(/CHECK/);
+    db.prepare("DELETE FROM generations WHERE id = '01A'").run();
+    expect(db.prepare("SELECT source_id FROM generations WHERE id = '01B'").pluck().get()).toBe("01A");
+    const plan = db
+      .prepare("EXPLAIN QUERY PLAN SELECT id FROM generations WHERE source_id = ? ORDER BY id DESC LIMIT 50")
+      .all("01A") as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/generations_source/);
+    downTo("0006");
+    const cols = db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all();
+    expect(cols).not.toContain("source_id");
+  });
+
   it("0006_create_generation_curation enforces comment/tag rules, cascades with the generation and reverts", () => {
     migrateUp(db);
     db.prepare(
@@ -65,10 +89,11 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0007");
     expect(migrateDown(db)?.version).toBe("0006");
     expect(migrateDown(db)?.version).toBe("0005");
     expect(migrateDown(db)?.version).toBe("0004");
@@ -78,7 +103,7 @@ describe("migration runner", () => {
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
   });
 
   it("0004_create_generation_inputs keeps input copies consistent and reverts cleanly", () => {
