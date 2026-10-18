@@ -23,10 +23,13 @@ import {
   type SourceRef,
   StartGenerationRequest,
 } from "../../../shared/generations";
+import { arrangeModels, pickModel } from "../../../shared/model-groups";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { type Attachment, InputImages } from "./InputImages";
 import { JOB_QUERY_KEY } from "./job";
+import { ModelPicker } from "./ModelPicker";
 import { EstimateLine, PriceLine } from "./PricePreview";
+import { useModelPreferences } from "./useModelPreferences";
 
 /** The env var that configures each provider's key — shown when a provider isn't configured. */
 const KEY_VARS: Record<ProviderId, string> = { openrouter: "OPENROUTER_API_KEY", vercel: "AI_GATEWAY_API_KEY" };
@@ -58,6 +61,7 @@ function sourceFromAddress(search: string): { id: string; relation: "rerun" | "r
 
 const excerpt = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
 const DEFAULT_ASPECT = "__default__";
+const PREFS_WAIT_MS = 1500;
 
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
   return (
@@ -132,6 +136,16 @@ export function GeneratePanel() {
     queryFn: () => api.models(providerId),
     enabled: provider?.configured === true,
   });
+  // Preferences steer the automatic model choices; unreadable → a plain list. Never blocks the panel: the first
+  // automatic pick waits for them only briefly.
+  const prefsQ = useModelPreferences(providerId, provider?.configured === true);
+  const prefs = prefsQ.isError ? null : (prefsQ.data?.preferences ?? null);
+  const [waitedFor, setWaitedFor] = useState<ProviderId | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaitedFor(providerId), PREFS_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [providerId]);
+  const prefsReady = !prefsQ.isPending || waitedFor === providerId;
   const jobQ = useQuery({
     queryKey: JOB_QUERY_KEY,
     queryFn: api.currentJob,
@@ -158,6 +172,8 @@ export function GeneratePanel() {
   const [modelNotice, setModelNotice] = useState<string | null>(null);
   const [removedNote, setRemovedNote] = useState<string | null>(null);
   const [carryOnLoad, setCarryOnLoad] = useState(false);
+  // Set when no visible model suited an automatic choice: the model stays empty until the Owner picks one.
+  const noAutoPick = useRef(false);
 
   // Thumbnails use object URLs; release the remaining ones when the panel goes away.
   const attachmentsRef = useRef(attachments);
@@ -301,21 +317,22 @@ export function GeneratePanel() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: carries over only when a new list arrives, not on each keystroke
   useEffect(() => {
     if (pending) return; // a draft source decides the model once the list is in
-    const first = models.data?.models[0];
-    if (!modelId && first) {
+    if (modelId || !models.data || !prefsReady || noAutoPick.current) return;
+    const first = pickModel(arrangeModels(models.data.models, prefs));
+    if (first) {
       setModelId(first.id);
       if (carryOnLoad) {
         setCarryOnLoad(false);
         carryTo(first);
       }
     }
-  }, [modelId, models.data, pending]);
+  }, [modelId, models.data, pending, prefsReady]);
 
   // Once the model list of the draft's provider is in, check the source's model (AC-10) or find one that takes inputs (AC-11).
   // biome-ignore lint/correctness/useExhaustiveDependencies: settles the pending source once per model list
   useEffect(() => {
     const list = models.data?.models;
-    if (!pending || !list) return;
+    if (!pending || !list || !prefsReady) return;
     setPending(null);
     if (pending.relation === "rerun") {
       if (pending.model && !list.some((x) => x.id === pending.model)) {
@@ -323,26 +340,31 @@ export function GeneratePanel() {
           `The original model ${pending.model} isn't available — choose another. The prompt, parameters and images are kept.`,
         );
         // Same rule as a manual switch: carry supported parameters over, name what was dropped (AC-05, AC-10).
-        const fallback = list[0];
+        const fallback = pickModel(arrangeModels(list, prefs));
         if (fallback) {
           setModelId(fallback.id);
           carryTo(fallback);
+        } else {
+          noAutoPick.current = true;
+          setModelId("");
         }
       }
       setCarryOnLoad(false); // the draft settled the model; a later list load must not re-carry
       return;
     }
-    const current = list.find((x) => x.id === modelId) ?? list[0];
+    const arranged = arrangeModels(list, prefs, modelId);
+    const current = list.find((x) => x.id === modelId);
     if (current?.params.inputs) return setModelId(current.id);
-    const withInputs = list.find((x) => x.params.inputs);
+    const withInputs = pickModel(arranged, (x) => x.params.inputs !== undefined);
     if (withInputs) {
       setModelId(withInputs.id);
       setModelNotice(`Switched to ${withInputs.name} — it takes input images.`);
     } else {
-      if (current) setModelId(current.id);
+      noAutoPick.current = true;
+      setModelId("");
       setModelNotice(`No ${provider?.name ?? "provider"} model takes input images — switch provider.`);
     }
-  }, [models.data, pending]);
+  }, [models.data, pending, prefsReady]);
 
   // When a generation finishes, the gallery has a new item.
   const lastStatus = useRef<Job["status"] | undefined>(undefined);
@@ -428,6 +450,7 @@ export function GeneratePanel() {
   }
 
   function selectModel(id: string) {
+    noAutoPick.current = false;
     setModelId(id);
     setErrors({});
     setRefused([]);
@@ -497,6 +520,15 @@ export function GeneratePanel() {
     );
   else {
     const disabled = running || start.isPending || models.isPending;
+    // The picker appears once the automatic choice is made, so it never shows a model that is about to change.
+    const choosing =
+      models.isPending ||
+      !prefsReady ||
+      pending !== null ||
+      (!modelId &&
+        !noAutoPick.current &&
+        models.data &&
+        pickModel(arrangeModels(models.data.models, prefs)) !== undefined);
     const inputRange = model?.params.inputs
       ? { min: model.params.inputs.min, max: Math.min(model.params.inputs.max, MAX_INPUT_IMAGES) }
       : undefined;
@@ -506,24 +538,20 @@ export function GeneratePanel() {
     body = (
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field id="model" label="Model" error={errors.model}>
-          <Select value={modelId} onValueChange={selectModel} disabled={disabled}>
-            <SelectTrigger id="model" className="w-full" {...invalid("model")}>
-              {/* The closed picker shows the name only; the open list shows name + id (AC-03). */}
-              <SelectValue placeholder={models.isPending ? "Loading models…" : "Choose a model"}>
-                {model?.name}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {models.data?.models.map((x) => (
-                <SelectItem key={x.id} value={x.id}>
-                  <span className="flex flex-col items-start">
-                    <span>{x.name}</span>
-                    <span className="text-muted-foreground text-xs">{x.id}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {choosing ? (
+            <p id="model" className="flex h-9 items-center rounded-md border px-3 text-muted-foreground text-sm">
+              Loading models…
+            </p>
+          ) : (
+            <ModelPicker
+              provider={providerId}
+              models={models.data?.models ?? []}
+              value={modelId}
+              onChange={selectModel}
+              disabled={disabled}
+              triggerProps={{ id: "model", ...invalid("model") }}
+            />
+          )}
           <PriceLine provider={providerId} model={modelId} />
           {removedNote && <p className="text-muted-foreground text-sm">{removedNote}</p>}
         </Field>

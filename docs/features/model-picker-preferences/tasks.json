@@ -95,7 +95,7 @@
         "src/web/AppShell.test.tsx"
       ],
       "file": "docs/features/model-picker-preferences/tasks/t6-generate-panel-wiring.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

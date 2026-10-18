@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, StarIcon } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { api } from "@/lib/api";
@@ -9,6 +9,7 @@ import { arrangeModels } from "../../../shared/model-groups";
 import type { ModelPreference } from "../../../shared/models";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { useShortPrice } from "./PricePreview";
+import { modelPreferencesKey, useModelPreferences } from "./useModelPreferences";
 
 type Props = {
   provider: ProviderId;
@@ -16,6 +17,8 @@ type Props = {
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
+  /** Extra attributes for the trigger button (the panel's label link and validation state). */
+  triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 };
 
 type Prefs = { preferences: ModelPreference[] };
@@ -69,20 +72,14 @@ function Row({
 }
 
 /** SCR-07: the model picker — a popover list with groups, short prices and a ★ toggle per row (ADR-0028). */
-export function ModelPicker({ provider, models, value, onChange, disabled }: Props) {
+export function ModelPicker({ provider, models, value, onChange, disabled, triggerProps }: Props) {
   const [open, setOpen] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const client = useQueryClient();
-  const key = ["model-preferences", provider];
+  const key = modelPreferencesKey(provider);
 
-  const prefsQuery = useQuery({
-    queryKey: key,
-    queryFn: () => api.modelPreferences(provider),
-    enabled: open,
-    staleTime: 0,
-    retry: false,
-  });
+  const prefsQuery = useModelPreferences(provider, open);
   const unreadable = prefsQuery.isError;
   const prefs = prefsQuery.data?.preferences ?? null;
   const ready = open && (unreadable || prefs !== null);
@@ -151,6 +148,7 @@ export function ModelPicker({ provider, models, value, onChange, disabled }: Pro
     >
       <PopoverTrigger asChild>
         <Button
+          {...triggerProps}
           type="button"
           variant="outline"
           disabled={disabled}
@@ -163,6 +161,7 @@ export function ModelPicker({ provider, models, value, onChange, disabled }: Pro
           }}
         >
           <span className="truncate">{selectedName}</span>
+          {arranged.hiddenSelected && <span className="text-muted-foreground text-xs">hidden</span>}
           <ChevronDownIcon className="size-4 opacity-50" aria-hidden />
         </Button>
       </PopoverTrigger>
