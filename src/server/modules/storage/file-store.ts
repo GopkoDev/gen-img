@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 const EXT: Record<string, string> = {
   "image/png": "png",
@@ -64,7 +64,7 @@ export function createFileStore(dataDir: string) {
 
     /** Absolute path of a path recorded in the DB; refuses anything outside the data dir (defense in depth). */
     resolveRecorded(relPath: string): string {
-      if (isAbsolute(relPath) || normalize(relPath).split(sep).includes("..")) throw new Error("Invalid file path");
+      if (isAbsolute(relPath) || relPath.split(/[\\/]/).includes("..")) throw new Error("Invalid file path");
       const abs = resolve(root, relPath);
       if (relative(root, abs).startsWith("..")) throw new Error("Invalid file path");
       return abs;
