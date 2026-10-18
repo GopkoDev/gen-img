@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 // Request bodies that carry input images as data URLs can reach ~110 MB (8 × 10 MB, base64). Building them
 // with one JSON.stringify pass over those strings costs ~100 ms; base64 and our media types never need JSON
 // escaping, so the URLs are spliced into a small stringified skeleton instead (spec §6, rerun-and-reuse NFR).
@@ -14,8 +16,6 @@ export function toDataUrl(img: { mediaType: string; bytes: Uint8Array }): string
   return `data:${img.mediaType};base64,${toBase64(img.bytes)}`;
 }
 
-const SLOT = /@@gen-img-image-(\d+)@@/; // cannot occur in base64, media types or JSON escapes
-
 /** `JSON.stringify({ ...base, [key]: urls.map(wrap) })`, without scanning the (huge, JSON-safe) data URLs. */
 export function jsonWithImageRefs(
   base: Record<string, unknown>,
@@ -23,9 +23,11 @@ export function jsonWithImageRefs(
   urls: string[],
   wrap: (url: string) => unknown,
 ): string {
-  const skeleton = JSON.stringify({ ...base, [key]: urls.map((_, i) => wrap(`@@gen-img-image-${i}@@`)) });
+  // A per-call nonce: user text (the prompt) can never spell a slot. Hex + digits need no JSON escaping.
+  const nonce = randomUUID().replaceAll("-", "");
+  const skeleton = JSON.stringify({ ...base, [key]: urls.map((_, i) => wrap(`@@${nonce}-${i}@@`)) });
   // split with a capture group alternates text, slot index, text, … — one join builds the body once.
-  const parts = skeleton.split(new RegExp(SLOT, "g"));
+  const parts = skeleton.split(new RegExp(`@@${nonce}-(\\d+)@@`, "g"));
   if (parts.length !== urls.length * 2 + 1) throw new Error("Image slots don't match the images");
   return parts.map((part, i) => (i % 2 === 1 ? (urls[Number(part)] ?? "") : part)).join("");
 }

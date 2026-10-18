@@ -159,6 +159,16 @@ describe("generations service — re-run and reuse from stored images", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("answers a stored row with an impossible path as an ordinary miss, not a server error", async () => {
+    const src = seedGeneration(t.db, t.dataDir, { id: id(6), images: 1 });
+    t.db.prepare("UPDATE generation_images SET path = '../outside.png' WHERE generation_id = ?").run(src.id);
+    const { svc, calls } = build();
+    await expect(svc.startGenerationChecked(body({ inputs: [stored(src.id, "output", 1)] }))).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
   it("refuses a reuse record that names an output the source doesn't have", async () => {
     const src = seedGeneration(t.db, t.dataDir, { id: id(5), images: 1 });
     const { svc, calls } = build();

@@ -109,7 +109,11 @@ export function createFileStore(dataDir: string) {
 
     /** Size of a recorded file, or `null` when it is gone — checked before reading (no 10 MB+ reads). */
     async sizeRecorded(relPath: string): Promise<number | null> {
-      return (await stat(this.resolveRecorded(relPath)).catch(() => null))?.size ?? null;
+      try {
+        return (await stat(this.resolveRecorded(relPath))).size; // resolveRecorded throws on an impossible path
+      } catch {
+        return null;
+      }
     },
 
     /** Bytes of a file whose relative path is recorded in the DB (stored-image reuse, ADR-0017). */

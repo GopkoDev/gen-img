@@ -338,25 +338,24 @@ export function GeneratePanel() {
     onError: (err) => {
       if (err instanceof ApiError && err.code === "VALIDATION_ERROR" && err.details?.fields) {
         const fields = err.details.fields as FieldErrors;
-        const gone =
-          fields.source === "The source generation no longer exists" ||
-          Object.values(fields).includes("The source generation no longer exists");
-        if (gone) {
-          setSourceGone(true);
-          // Its stored images can't be sent any more: take them off the draft and say so (sad §11).
-          const goneId = draftSource?.id;
-          const keep = attachments.filter((a) => !a.stored || a.stored.generationId !== goneId);
-          if (keep.length !== attachments.length) {
-            setAttachments(keep);
-            setRemovedNote("Images from the deleted source were removed.");
-          }
-          const rest = Object.fromEntries(
-            Object.entries(fields).filter(
-              ([k, v]) => !(k.startsWith("inputs.") && v === "The source generation no longer exists"),
-            ),
-          );
-          setErrors(rest);
-        } else setErrors(fields);
+        const GONE = "The source generation no longer exists";
+        if (fields.source === GONE) setSourceGone(true); // only a lineage claim makes the «source» notice
+        // Stored images whose generation is gone can't be sent any more: find their generations from the
+        // failing positions (the link may already be removed), take them off the draft and say so (sad §11).
+        const goneIds = new Set(
+          Object.entries(fields)
+            .filter(([k, v]) => k.startsWith("inputs.") && v === GONE)
+            .map(([k]) => attachments[Number(k.slice("inputs.".length)) - 1]?.stored?.generationId)
+            .filter((id): id is string => id !== undefined),
+        );
+        if (fields.source === GONE && draftSource) goneIds.add(draftSource.id);
+        if (goneIds.size) {
+          setAttachments(attachments.filter((a) => !a.stored || !goneIds.has(a.stored.generationId)));
+          setRemovedNote("Images from a deleted generation were removed.");
+        }
+        setErrors(
+          Object.fromEntries(Object.entries(fields).filter(([k, v]) => !(k.startsWith("inputs.") && v === GONE))),
+        );
       } else if (err instanceof ApiError && err.code === "GENERATION_IN_PROGRESS")
         qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
       else setRequestError(err instanceof Error ? err.message : String(err));

@@ -21,4 +21,11 @@ describe("request bodies with inline images", () => {
     expect(jsonWithImageRefs(base, "images", urls, plain)).toBe(JSON.stringify({ ...base, images: urls.map(plain) }));
     expect(jsonWithImageRefs({}, "images", urls, plain)).toBe(JSON.stringify({ images: urls.map(plain) }));
   });
+
+  it("is not confused by a prompt that looks like a slot", () => {
+    const base = { prompt: "draw @@gen-img-image-0@@ and @@gen-img-image-1@@" };
+    const urls = [toDataUrl(img)];
+    const plain = (url: string) => ({ image_url: url });
+    expect(jsonWithImageRefs(base, "images", urls, plain)).toBe(JSON.stringify({ ...base, images: urls.map(plain) }));
+  });
 });

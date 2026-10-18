@@ -164,6 +164,22 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     );
   });
 
+  it("drops only the stored images whose generation is gone, also after the link was removed", async () => {
+    setup([SEEDY], "/?rerun=01SRC");
+    await screen.findByText(/Re-run of/);
+    fireEvent.click(screen.getByRole("button", { name: "Remove the link to the source" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled());
+    m.startGeneration.mockImplementation(async () => {
+      throw new ApiError(400, "VALIDATION_ERROR", "Some fields need fixing", {
+        fields: { "inputs.1": "The source generation no longer exists" },
+      });
+    });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Generate" })));
+    expect(await screen.findByText(/Images from a deleted generation were removed/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove cat.png" })).not.toBeInTheDocument();
+    expect(screen.queryByText("The source generation no longer exists.")).not.toBeInTheDocument(); // no lineage claim
+  });
+
   it("says the source no longer exists when it can't be loaded", async () => {
     setup([SEEDY], "/?rerun=01GONE", async () => {
       throw new ApiError(404, "NOT_FOUND", "Generation not found");
@@ -185,7 +201,7 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     expect(await screen.findByText("The source generation no longer exists.")).toBeInTheDocument();
     // its stored images can't be sent any more — they are taken off the draft and that is said
     expect(screen.queryByRole("button", { name: "Remove cat.png" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Images from the deleted source were removed/)).toBeInTheDocument();
+    expect(screen.getByText(/Images from a deleted generation were removed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove the link" }));
     expect(screen.queryByText("The source generation no longer exists.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Re-run of/)).not.toBeInTheDocument();
