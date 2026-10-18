@@ -165,7 +165,109 @@ sequenceDiagram
     end
 ```
 
-Further flows (browse inputs, serve input copies, model switch) are added by `sequences`.
+### Attach inputs and switch models (US-02, UI-driven)
+
+```mermaid
+sequenceDiagram
+    actor User as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    Note over UI: SCR-01, catalog already loaded with each model's input range
+    User->>UI: picks a model
+    alt model takes no input images
+        UI-->>User: input area hidden (text-only, as in step 2)
+    else model takes input images
+        UI-->>User: input area with the allowed count (capped at 8)
+        User->>UI: attaches files
+        alt not a supported picture or over 10 MB
+            UI-->>User: that file refused with its reason, others kept
+        else accepted
+            UI-->>User: thumbnail in attach order
+        end
+        User->>UI: switches to another model
+        alt new model takes fewer or none
+            UI-->>User: extra attachments marked, generate blocked
+        end
+        User->>UI: clicks Generate
+        alt below the model minimum
+            UI-->>User: needs at least N input images
+        else above the model maximum
+            UI-->>User: takes at most N input images
+        else within range
+            UI->>Svc: start generation with files
+        end
+    end
+```
+
+The form reads each model's input range from the catalog. Text-only models hide the input area. Every attached file is checked for format and size on the spot. A model switch marks the attachments beyond the new range and blocks Generate. On Generate, too few or too many inputs are refused before anything is sent. The server repeats the same checks (Critical flow 1).
+
+### Browse and inspect inputs (US-03, UI-driven)
+
+```mermaid
+sequenceDiagram
+    actor User as <user>
+    participant UI as <ui>
+    participant Svc as <service>
+    participant DB as <data-store>
+    participant Files as <data-store>
+    User->>UI: opens the gallery
+    UI->>Svc: get a page of generations
+    Svc->>DB: reads generations with their input count
+    Svc-->>UI: tiles with inputs count
+    UI-->>User: tiles show «N inputs» when N > 0
+    User->>UI: opens a generation
+    UI->>Svc: get generation detail
+    Svc->>DB: reads generation, outputs and inputs (by position)
+    Svc-->>UI: detail with inputs in attach order
+    UI->>Svc: get an input file
+    Svc->>DB: is this path a recorded output or input?
+    alt recorded
+        Svc->>Files: read file
+        Svc-->>UI: image bytes
+    else not recorded
+        Svc-->>UI: not found
+    end
+```
+
+The gallery page carries each generation's input count. The detail view lists inputs in attach order. An input file is served only if its exact path is recorded as an input or output of a stored generation.
+
+### Contain attachments (US-04)
+
+```mermaid
+sequenceDiagram
+    participant Foreign as <client>
+    participant Svc as <service>
+    participant Ext as <external-system>
+    Foreign->>Svc: request an input file or start a generation with files
+    alt foreign Host, Origin or cross-site
+        Svc-->>Foreign: refused, nothing read or sent
+    else own page
+        Svc->>Ext: inputs sent only inside the generation request to the chosen provider
+        Note over Svc: stored raw request keeps input placeholders linked to stored copies, never the data
+    end
+```
+
+Foreign pages are refused by the request guard before any module runs. Inputs leave the machine only inside the generation request to the chosen provider. The stored raw request references the copies, not the data.
+
+### AC coverage (runtime view)
+
+| US / AC | Shown by |
+|---|---|
+| US-01 | Critical flow 1 |
+| US-02 | Attach inputs and switch models |
+| US-03 | Browse and inspect inputs |
+| US-04 | Contain attachments; Critical flow 1 (storage branch) |
+| AC-01 | Critical flow 1 → saved; Browse → detail with inputs |
+| AC-02 | Attach → model takes / takes no inputs |
+| AC-03 | Attach → refused file; Critical flow 1 → server-side refusal |
+| AC-04 | Attach → above maximum; Critical flow 1 → count out of range |
+| AC-05 | Attach → below minimum; Critical flow 1 → count out of range |
+| AC-06 | Critical flow 1 → storage fails |
+| AC-07 | Browse → not recorded; Contain attachments |
+| AC-08 | Attach → switch to a model with fewer |
+| AC-09 | Critical flow 1 → provider refuses or fails |
+| AC-10 | Browse → tiles with inputs count |
+| AC-11 | Attach → model takes no inputs; Critical flow 1 with zero inputs = step-2 flow |
 
 ## 7. Deployment view
 
