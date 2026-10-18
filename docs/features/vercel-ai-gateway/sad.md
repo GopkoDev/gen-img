@@ -350,7 +350,7 @@ Covers AC-05, AC-12.
 | Call-path choice | adapter-internal, from the gateway catalog: `type: image` → images API; `type: language` + tag `image-generation` → chat (`modalities: ["text","image"]`); any inputs → `/images/edits` with `images[].image_url` data URLs | ADR-0012 |
 | Parameters offered | Vercel: `n` ≤ 4 for image-only, 1 for chat models; inputs where catalog input modalities include image (≤ 8); never seed / aspect ratio | spec AC-03, D4 |
 | Money | `costStatus`: answer states a price → `known`; else cost reference present → `pending`; else `unavailable`. Lookup: non-BYOK → `total_cost`; BYOK → `upstream_inference_cost` if > 0 (D3), else `unavailable` | ADR-0013 |
-| Pending lifecycle | lookups at +5 s, doubling to 60 s, ≤ 8 attempts, deadline answer + 10 min; boot resumes, overdue rows get one last lookup | ADR-0013 |
+| Pending lifecycle | lookups at +5 s, doubling to 60 s, ≤ 8 attempts — the 8th at the deadline answer + 10 min; boot resumes, overdue rows get one last lookup | ADR-0013 |
 | Raw exchange | Vercel: `data[].b64_json` and chat `message.images[].image_url.url` → `{"$image": N}`; edit inputs → `{"$input": N}`; no `Authorization` | ADR-0008 |
 | Error handling | gateway errors `{error:{message,type}}` → `PROVIDER_ERROR` with `details.provider: "vercel"`, `upstreamStatus` | `lib/errors.ts` |
 | UI polling | detail view refetches every 5 s while its cost is `pending`; gallery every 10 s while any visible tile is `pending` | spec §6 |

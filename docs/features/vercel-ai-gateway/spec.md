@@ -171,7 +171,7 @@ Committed approach: add Vercel AI Gateway as a second provider the Owner can pic
 | Aspect | Target | Measurement |
 |---|---|---|
 | Pending cost resolution | ≥ 95 % of pending costs reach «known» or «unavailable» within 10 min 30 s of the generation | integration test with a fake clock + stubbed lookup; boot-resume test |
-| Price lookups per generation | ≤ 8 lookups, first one ≥ 5 s after the answer, backoff doubling to at most 60 s | unit test over the lookup schedule |
+| Price lookups per generation | ≤ 8 lookups, first one ≥ 5 s after the answer, backoff doubling to at most 60 s; the 8th lookup waits for the 10-minute deadline (AC-05) — review 2026-10-18 | unit test over the lookup schedule |
 | Pending cost visible in the UI | the detail view and gallery reflect a resolved cost within 15 s without a reload | web test with polling at ≤ 10 s while any visible cost is «pending» |
 | Gallery first page (24 items), 1 000 mixed-provider generations | ≤ 300 ms p95 server time (unchanged from step 2) | NFR test over a seeded data dir |
 | Provider request timeout | 180 s, then the failure path; nothing recorded (unchanged) | integration test with a hanging stub |
