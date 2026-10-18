@@ -9,8 +9,8 @@ files_hint: ["src/server/nfr.int.test.ts", "src/server/modules/generations/regre
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T10 — Prove OpenRouter is unchanged and the NFRs hold with two providers

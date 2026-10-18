@@ -16,6 +16,6 @@
 | T7 | Run the Vercel flow end to end through the API | ports | dmytro.hopko | S | T6 | done | COMMIT |
 | T8 | Add the provider selector to the generate panel | ui | dmytro.hopko | M | T7 | done | COMMIT |
 | T9 | Show pending costs that update themselves, and provider names | ui | dmytro.hopko | S | T7 | done | COMMIT |
-| T10 | Prove OpenRouter is unchanged and the NFRs hold with two providers | tests | dmytro.hopko | S | T7 | todo | — |
+| T10 | Prove OpenRouter is unchanged and the NFRs hold with two providers | tests | dmytro.hopko | S | T7 | done | COMMIT |
 
 **Total:** 10 tasks, ~6 person-days.

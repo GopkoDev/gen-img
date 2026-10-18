@@ -148,7 +148,7 @@
       "dod": "tests: OpenRouter request body and cost handling identical to before (fixture comparison); stored rows for all three Vercel paths contain neither the key nor base64; mixed 1 000-row gallery page \u2264 300 ms p95 (nfr project)",
       "files_hint": ["src/server/nfr.int.test.ts", "src/server/modules/generations/regression.int.test.ts"],
       "file": "docs/features/vercel-ai-gateway/tasks/t10-regression-and-nfr.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

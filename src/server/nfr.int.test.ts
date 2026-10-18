@@ -38,6 +38,22 @@ describe("NFRs", () => {
     expect(p95(detail)).toBeLessThanOrEqual(150);
   });
 
+  it("gallery first page stays ≤ 300 ms p95 with 1 000 generations from both providers, many still pending", async () => {
+    t = createTestApp();
+    t.db.transaction(() => {
+      for (let i = 0; i < 1000; i++)
+        seedGeneration(t.db, t.dataDir, {
+          id: `01MIXNFR${String(i).padStart(18, "0")}`,
+          provider: i % 2 ? "vercel" : "openrouter",
+          ...(i % 4 === 1 ? { costStatus: "pending" as const, costMicros: null, costRef: `gen_${i}` } : {}),
+        });
+    })();
+    const page = await timed(20, async () =>
+      expect((await t.app.request("/api/generations?limit=24")).status).toBe(200),
+    );
+    expect(p95(page)).toBeLessThanOrEqual(300);
+  });
+
   it("local overhead ≤ 500 ms p95 for 4 × 5 MB images, and the stored exchange holds no key and no image payload", async () => {
     const KEY = "sk-or-test-KEY";
     const big = new Uint8Array(5 * 1024 * 1024);
