@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/storage/file-store.ts", "src/server/modules/sto
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Stage and record input copies with the generation

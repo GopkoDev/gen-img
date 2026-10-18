@@ -67,6 +67,38 @@ describe("generations repo", () => {
     expect(t.db.prepare("SELECT count(*) FROM generation_images WHERE generation_id = ?").pluck().get(gen.id)).toBe(0);
   });
 
+  it("stores input copies with the generation and reads them back in order", () => {
+    const seeded = seedGeneration(t.db, t.dataDir, { inputs: 2 });
+    const plain = seedGeneration(t.db, t.dataDir);
+    const repo = createGenerationsRepo(t.db);
+    expect(repo.get(seeded.id)?.inputs).toEqual(seeded.inputs);
+    expect(seeded.inputs.map((i) => i.position)).toEqual([1, 2]);
+    expect(repo.get(plain.id)?.inputs).toEqual([]);
+    const page = repo.listPage({ limit: 24 });
+    expect(page.items.find((g) => g.id === seeded.id)?.inputsCount).toBe(2);
+    expect(page.items.find((g) => g.id === plain.id)?.inputsCount).toBe(0);
+    expect(repo.recordedImage(seeded.inputs[1]?.path ?? "")).toEqual({ mediaType: "image/png" });
+  });
+
+  it("rolls input rows back with the generation", () => {
+    const repo = createGenerationsRepo(t.db);
+    const seeded = seedGeneration(t.db, t.dataDir, { inputs: 1 });
+    const id = "01ROLLBACKIN00000000000000";
+    const swap = <T extends { path: string }>(xs: T[]) =>
+      xs.map((x) => ({ ...x, path: x.path.replace(seeded.id, id) }));
+    expect(() =>
+      repo.insertAtomic(
+        { ...seeded, id },
+        swap(seeded.images),
+        () => {
+          throw new Error("rename failed");
+        },
+        swap(seeded.inputs),
+      ),
+    ).toThrow("rename failed");
+    expect(t.db.prepare("SELECT count(*) FROM generation_inputs WHERE generation_id = ?").pluck().get(id)).toBe(0);
+  });
+
   it("knows which file paths are recorded and lists all ids", () => {
     const seeded = seedGeneration(t.db, t.dataDir);
     const repo = createGenerationsRepo(t.db);

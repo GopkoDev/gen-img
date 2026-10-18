@@ -24,18 +24,27 @@ export function createFileStore(dataDir: string) {
   const finalDir = (id: string) => join(root, GENERATIONS, id);
   mkdirSync(join(root, STAGING), { recursive: true });
 
+  async function writeStaged(id: string, kind: "output" | "input", images: StoredImageInput[]): Promise<string[]> {
+    const dir = stagingDir(id);
+    await mkdir(dir, { recursive: true });
+    const paths: string[] = [];
+    for (const [i, image] of images.entries()) {
+      const name = `${kind}-${i + 1}.${EXT[image.mediaType] ?? "bin"}`;
+      await writeFile(join(dir, name), image.bytes);
+      paths.push(`${GENERATIONS}/${id}/${name}`);
+    }
+    return paths;
+  }
+
   return {
-    /** Writes the images to staging; returns their final paths relative to the data dir, in order. */
-    async stage(id: string, images: StoredImageInput[]): Promise<string[]> {
-      const dir = stagingDir(id);
-      await mkdir(dir, { recursive: true });
-      const paths: string[] = [];
-      for (const [i, image] of images.entries()) {
-        const name = `output-${i + 1}.${EXT[image.mediaType] ?? "bin"}`;
-        await writeFile(join(dir, name), image.bytes);
-        paths.push(`${GENERATIONS}/${id}/${name}`);
-      }
-      return paths;
+    /** Writes the output images to staging; returns their final paths relative to the data dir, in order. */
+    stage(id: string, images: StoredImageInput[]): Promise<string[]> {
+      return writeStaged(id, "output", images);
+    },
+
+    /** Writes copies of the input images beside the outputs (`input-N.<ext>`), in attach order. */
+    stageInputs(id: string, images: StoredImageInput[]): Promise<string[]> {
+      return writeStaged(id, "input", images);
     },
 
     /** Moves a staged generation into place. Synchronous so it can run inside a SQLite transaction. */

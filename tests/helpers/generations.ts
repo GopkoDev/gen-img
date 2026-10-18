@@ -10,9 +10,13 @@ export const TINY_PNG = new Uint8Array(Buffer.from(PNG_B64, "base64")); // 4×3
 let seq = 0;
 
 /** Inserts a complete generation (rows + tiny PNG files on disk). No PII — test prompts only. */
-export function seedGeneration(db: Db, dataDir: string, overrides: Partial<NewGeneration> & { images?: number } = {}) {
+export function seedGeneration(
+  db: Db,
+  dataDir: string,
+  overrides: Partial<NewGeneration> & { images?: number; inputs?: number } = {},
+) {
   seq += 1;
-  const { images = 1, ...rest } = overrides;
+  const { images = 1, inputs = 0, ...rest } = overrides;
   const id = rest.id ?? `01SEED${String(seq).padStart(20, "0")}`;
   const gen: NewGeneration = {
     id,
@@ -43,6 +47,18 @@ export function seedGeneration(db: Db, dataDir: string, overrides: Partial<NewGe
       byteSize: TINY_PNG.byteLength,
     };
   });
-  createGenerationsRepo(db).insertAtomic(gen, rows, () => {});
-  return { ...gen, images: rows };
+  const inputRows = Array.from({ length: inputs }, (_, i) => {
+    writeFileSync(join(dir, `input-${i + 1}.png`), TINY_PNG);
+    return {
+      position: i + 1,
+      path: `generations/${id}/input-${i + 1}.png`,
+      mediaType: "image/png" as const,
+      width: 4,
+      height: 3,
+      byteSize: TINY_PNG.byteLength,
+      originalName: i === 0 ? "cat.png" : null,
+    };
+  });
+  createGenerationsRepo(db).insertAtomic(gen, rows, () => {}, inputRows);
+  return { ...gen, images: rows, inputs: inputRows };
 }

@@ -64,7 +64,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/image-inputs-openrouter/tasks/t4-store-input-copies.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

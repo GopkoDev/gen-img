@@ -25,6 +25,15 @@ describe("file store", () => {
     expect([...readFileSync(join(dir, "generations", "01ABC", "output-1.png"))]).toEqual([1, 1, 1]);
   });
 
+  it("stages input copies beside the outputs and moves them together", async () => {
+    const store = createFileStore(dir);
+    await store.stage("IN", [img(1)]);
+    const inputs = await store.stageInputs("IN", [img(7), { bytes: new Uint8Array([8]), mediaType: "image/webp" }]);
+    expect(inputs).toEqual(["generations/IN/input-1.png", "generations/IN/input-2.webp"]);
+    store.commitSync("IN");
+    expect(readdirSync(join(dir, "generations", "IN")).sort()).toEqual(["input-1.png", "input-2.webp", "output-1.png"]);
+  });
+
   it("discard removes the staging dir and an already-moved dir", async () => {
     const store = createFileStore(dir);
     await store.stage("A", [img(1)]);

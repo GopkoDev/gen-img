@@ -25,6 +25,27 @@ const ImageRow = z
   }));
 export type ImageRecord = z.infer<typeof ImageRow>;
 
+const InputRow = z
+  .object({
+    position: z.number().int(),
+    path: z.string(),
+    media_type: ImageMediaType,
+    width: z.number().int(),
+    height: z.number().int(),
+    byte_size: z.number().int(),
+    original_name: z.string().nullable(),
+  })
+  .transform((r) => ({
+    position: r.position,
+    path: r.path,
+    mediaType: r.media_type,
+    width: r.width,
+    height: r.height,
+    byteSize: r.byte_size,
+    originalName: r.original_name,
+  }));
+export type InputRecord = z.infer<typeof InputRow>;
+
 const GenerationRow = z
   .object({
     id: z.string(),
@@ -61,7 +82,7 @@ const GenerationRow = z
   }));
 
 export type NewGeneration = z.infer<typeof GenerationRow>;
-export type GenerationRecord = NewGeneration & { images: ImageRecord[] };
+export type GenerationRecord = NewGeneration & { images: ImageRecord[]; inputs: InputRecord[] };
 
 const SummaryRow = z
   .object({
@@ -74,6 +95,7 @@ const SummaryRow = z
     cost_status: CostStatus,
     images_requested: z.number().int(),
     images_received: z.number().int(),
+    inputs_count: z.number().int(),
   })
   .transform((r) => ({
     id: r.id,
@@ -85,6 +107,7 @@ const SummaryRow = z
     costStatus: r.cost_status,
     imagesRequested: r.images_requested,
     imagesReceived: r.images_received,
+    inputsCount: r.inputs_count,
   }));
 export type GenerationSummaryRecord = z.infer<typeof SummaryRow> & { thumbnail: ImageRecord };
 
@@ -104,7 +127,8 @@ export function createGenerationsRepo(db: Db) {
     "SELECT position, path, media_type, width, height, byte_size FROM generation_images WHERE generation_id = ? ORDER BY position",
   );
   const summaryCols = `g.id, g.provider, g.model, g.prompt, g.created_at, g.cost_micros, g.cost_status, g.images_requested,
-    (SELECT count(*) FROM generation_images i WHERE i.generation_id = g.id) AS images_received`;
+    (SELECT count(*) FROM generation_images i WHERE i.generation_id = g.id) AS images_received,
+    (SELECT count(*) FROM generation_inputs n WHERE n.generation_id = g.id) AS inputs_count`;
   const selectPage = db.prepare(`SELECT ${summaryCols} FROM generations g ORDER BY g.id DESC LIMIT ?`);
   const selectPageAfter = db.prepare(
     `SELECT ${summaryCols} FROM generations g WHERE g.id < ? ORDER BY g.id DESC LIMIT ?`,
@@ -112,31 +136,47 @@ export function createGenerationsRepo(db: Db) {
   const selectFirstImage = db.prepare(
     "SELECT position, path, media_type, width, height, byte_size FROM generation_images WHERE generation_id = ? ORDER BY position LIMIT 1",
   );
-  const selectRecorded = db.prepare("SELECT media_type FROM generation_images WHERE path = ?");
+  const insertInput = db.prepare(
+    `INSERT INTO generation_inputs (generation_id, position, path, media_type, width, height, byte_size, original_name)
+     VALUES (@generationId, @position, @path, @mediaType, @width, @height, @byteSize, @originalName)`,
+  );
+  const selectInputs = db.prepare(
+    "SELECT position, path, media_type, width, height, byte_size, original_name FROM generation_inputs WHERE generation_id = ? ORDER BY position",
+  );
+  const selectRecorded = db.prepare(
+    "SELECT media_type FROM generation_images WHERE path = ? UNION ALL SELECT media_type FROM generation_inputs WHERE path = ?",
+  );
   const selectIds = db.prepare("SELECT id FROM generations ORDER BY id").pluck();
 
-  const insertAll = db.transaction((gen: NewGeneration, images: ImageRecord[], commitFiles: () => void) => {
-    insertGen.run({
-      ...gen,
-      requestedParams: JSON.stringify(gen.requestedParams),
-      acceptedParams: gen.acceptedParams === null ? null : JSON.stringify(gen.acceptedParams),
-      rawRequest: JSON.stringify(gen.rawRequest),
-      rawResponse: JSON.stringify(gen.rawResponse),
-    });
-    for (const image of images) insertImage.run({ generationId: gen.id, ...image });
-    commitFiles(); // last step: if it throws, the transaction rolls back (ADR-0006)
-  });
+  const insertAll = db.transaction(
+    (gen: NewGeneration, images: ImageRecord[], inputs: InputRecord[], commitFiles: () => void) => {
+      insertGen.run({
+        ...gen,
+        requestedParams: JSON.stringify(gen.requestedParams),
+        acceptedParams: gen.acceptedParams === null ? null : JSON.stringify(gen.acceptedParams),
+        rawRequest: JSON.stringify(gen.rawRequest),
+        rawResponse: JSON.stringify(gen.rawResponse),
+      });
+      for (const image of images) insertImage.run({ generationId: gen.id, ...image });
+      for (const input of inputs) insertInput.run({ generationId: gen.id, ...input });
+      commitFiles(); // last step: if it throws, the transaction rolls back (ADR-0006)
+    },
+  );
 
   return {
-    /** Inserts a generation + its images in one transaction whose last step moves the files into place. */
-    insertAtomic(gen: NewGeneration, images: ImageRecord[], commitFiles: () => void): void {
-      insertAll(gen, images, commitFiles);
+    /** Inserts a generation, its outputs and input copies in one transaction whose last step moves the files into place. */
+    insertAtomic(gen: NewGeneration, images: ImageRecord[], commitFiles: () => void, inputs: InputRecord[] = []): void {
+      insertAll(gen, images, inputs, commitFiles);
     },
 
     get(id: string): GenerationRecord | undefined {
       const row = selectGen.get(id);
       if (!row) return undefined;
-      return { ...GenerationRow.parse(row), images: selectImages.all(id).map((r) => ImageRow.parse(r)) };
+      return {
+        ...GenerationRow.parse(row),
+        images: selectImages.all(id).map((r) => ImageRow.parse(r)),
+        inputs: selectInputs.all(id).map((r) => InputRow.parse(r)),
+      };
     },
 
     /** Newest first; `cursor` is the last id of the previous page. */
@@ -152,7 +192,7 @@ export function createGenerationsRepo(db: Db) {
 
     /** The stored image at this exact relative path, if one is recorded. */
     recordedImage(path: string): { mediaType: string } | undefined {
-      const row = selectRecorded.get(path) as { media_type: string } | undefined;
+      const row = selectRecorded.get(path, path) as { media_type: string } | undefined;
       return row ? { mediaType: row.media_type } : undefined;
     },
 
