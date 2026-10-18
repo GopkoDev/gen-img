@@ -1,6 +1,14 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { ErrorResponse } from "../../shared/errors";
+import {
+  CurrentJobResponse,
+  Generation,
+  GenerationPage,
+  JobResponse,
+  type StartGenerationRequest,
+} from "../../shared/generations";
 import { HealthResponse } from "../../shared/health";
+import { ModelsResponse, ProvidersResponse } from "../../shared/providers";
 
 export class ApiError extends Error {
   constructor(
@@ -16,7 +24,7 @@ export class ApiError extends Error {
 
 async function request<S extends z.ZodType>(schema: S, path: string, init?: RequestInit): Promise<z.infer<S>> {
   const res = await fetch(`/api${path}`, init);
-  const body: unknown = await res.json().catch(() => null);
+  const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const parsed = ErrorResponse.safeParse(body);
     if (parsed.success) {
@@ -28,6 +36,20 @@ async function request<S extends z.ZodType>(schema: S, path: string, init?: Requ
   return schema.parse(body);
 }
 
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: body === undefined ? undefined : { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
 export const api = {
   health: () => request(HealthResponse, "/health"),
+  providers: () => request(ProvidersResponse, "/providers"),
+  models: (providerId: string) => request(ModelsResponse, `/providers/${encodeURIComponent(providerId)}/models`),
+  startGeneration: (body: StartGenerationRequest) => request(JobResponse, "/generations", json("POST", body)),
+  currentJob: () => request(CurrentJobResponse, "/generation-job"),
+  dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
+  generations: (cursor?: string) =>
+    request(GenerationPage, `/generations${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  generation: (id: string) => request(Generation, `/generations/${encodeURIComponent(id)}`),
 };

@@ -165,7 +165,7 @@
         "src/web/lib/format.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t11-web-client-router.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T12",

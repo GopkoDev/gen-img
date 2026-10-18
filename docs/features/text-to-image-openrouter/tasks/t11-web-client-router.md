@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/api.ts", "src/web/lib/router.tsx", "src/web/lib/router
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T11 — Add the typed web API client and the two-route router
