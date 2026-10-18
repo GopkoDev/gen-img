@@ -135,3 +135,38 @@ describe("Vercel adapter — generate", () => {
     expect(fetch.calls).toHaveLength(0);
   });
 });
+
+describe("Vercel adapter — price lookup", () => {
+  const lookup = (reply: Reply, apiKey: string | null = KEY) => {
+    const { p, fetch } = provider(() => reply, apiKey);
+    return { run: () => p.lookupCost?.("gen_01CHATREF00000000000000000", signal()), fetch };
+  };
+
+  it("returns the gateway's total cost with the key, server-side", async () => {
+    const { run, fetch } = lookup({ body: fixture("vercel/generation-lookup.json") });
+    expect(await run()).toEqual({ status: "known", costUsd: 0.067 });
+    expect(fetch.calls[0]?.url).toBe(`${BASE}/generation?id=gen_01CHATREF00000000000000000`);
+    expect(new Headers(fetch.calls[0]?.init.headers).get("authorization")).toBe(`Bearer ${KEY}`);
+  });
+
+  it("uses the upstream price for own-key requests and is unavailable when it is zero (D3)", async () => {
+    expect(await lookup({ body: fixture("vercel/generation-lookup-byok.json") }).run()).toEqual({
+      status: "known",
+      costUsd: 0.04,
+    });
+    const zero = { data: { id: "gen_x", total_cost: 0, upstream_inference_cost: 0, is_byok: true } };
+    expect(await lookup({ body: zero }).run()).toEqual({ status: "unavailable" });
+  });
+
+  it("treats «not found yet» and network trouble as not yet, and refusals or junk as unavailable", async () => {
+    expect(await lookup({ status: 404, body: fixture("vercel/generation-not-found.json") }).run()).toEqual({
+      status: "not-yet",
+    });
+    expect(await lookup("network-error").run()).toEqual({ status: "not-yet" });
+    expect(await lookup({ status: 401, body: { error: { message: "Invalid API key" } } }).run()).toEqual({
+      status: "unavailable",
+    });
+    expect(await lookup({ body: { unexpected: true } }).run()).toEqual({ status: "unavailable" });
+    expect(await lookup({ body: {} }, null).run()).toEqual({ status: "unavailable" });
+  });
+});

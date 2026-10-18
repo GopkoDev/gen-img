@@ -1,6 +1,7 @@
 import type { Config } from "../../lib/config";
 import { createOpenRouterProvider } from "./openrouter";
 import type { ImageProvider } from "./port";
+import { createVercelProvider } from "./vercel";
 
 export type ProviderRegistry = {
   list(): ImageProvider[];
@@ -14,5 +15,8 @@ export function registryOf(providers: ImageProvider[]): ProviderRegistry {
 
 /** The adapters gen-img ships with, keyed by provider id. `fetch` is injectable so tests stub provider HTTP. */
 export function createProviderRegistry(config: Config, fetchImpl: typeof fetch = fetch): ProviderRegistry {
-  return registryOf([createOpenRouterProvider({ apiKey: config.openRouterApiKey, fetch: fetchImpl })]);
+  return registryOf([
+    createOpenRouterProvider({ apiKey: config.openRouterApiKey, fetch: fetchImpl }),
+    createVercelProvider({ apiKey: config.aiGatewayApiKey, fetch: fetchImpl }),
+  ]);
 }

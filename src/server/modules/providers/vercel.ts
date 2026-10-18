@@ -3,6 +3,7 @@ import { MAX_IMAGES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { sniffImage } from "./image-sniff";
 import {
+  type CostLookup,
   type GenerateInput,
   type GenerationResult,
   type ImageProvider,
@@ -41,6 +42,13 @@ const ChatAnswer = z.looseObject({
     .default([]),
 });
 const ErrorBody = z.object({ error: z.object({ message: z.string() }) });
+const Lookup = z.object({
+  data: z.looseObject({
+    total_cost: z.number().optional(),
+    upstream_inference_cost: z.number().optional(),
+    is_byok: z.boolean().optional(),
+  }),
+});
 
 function kindOf(entry: z.infer<typeof CatalogEntry>): ModelKind | null {
   if (entry.type === "image") return "images";
@@ -107,11 +115,38 @@ export function createVercelProvider(opts: { apiKey: string | undefined; fetch: 
     return { $image: sniffed ? images.length : null };
   }
 
+  /** One price lookup (ADR-0013). «Not found yet», throttling, server or network trouble → try again later. */
+  async function lookupCost(costRef: string, signal: AbortSignal): Promise<CostLookup> {
+    if (!opts.apiKey) return { status: "unavailable" };
+    let body: unknown;
+    try {
+      body = (
+        await call(`${BASE}/generation?id=${encodeURIComponent(costRef)}`, {
+          headers: { authorization: `Bearer ${opts.apiKey}` },
+          signal,
+        })
+      ).body;
+    } catch (err) {
+      const status = err instanceof ProviderError ? err.upstreamStatus : null;
+      const retry = status === null || status === 404 || status === 408 || status === 429 || status >= 500;
+      return retry ? { status: "not-yet" } : { status: "unavailable" };
+    }
+    const parsed = Lookup.safeParse(body);
+    if (!parsed.success) return { status: "unavailable" };
+    const { total_cost, upstream_inference_cost, is_byok } = parsed.data.data;
+    // Own-key (BYOK) requests: the gateway's total excludes the request; use the upstream price (spec §8 D3).
+    const usd = is_byok ? upstream_inference_cost : total_cost;
+    if (typeof usd !== "number" || !Number.isFinite(usd) || usd < 0 || (is_byok && usd === 0))
+      return { status: "unavailable" };
+    return { status: "known", costUsd: usd };
+  }
+
   return {
     id: "vercel",
     name: "Vercel AI Gateway",
     configured: Boolean(opts.apiKey),
     listModels,
+    lookupCost,
 
     async generate(input: GenerateInput, signal: AbortSignal): Promise<GenerationResult> {
       if (!opts.apiKey) throw fail(null, "Vercel AI Gateway is not configured");

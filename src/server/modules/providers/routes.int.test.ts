@@ -12,7 +12,10 @@ describe("providers routes", () => {
     t = createTestApp({ openRouterApiKey: "sk-or-test-KEY" });
     const res = await t.app.request("/api/providers");
     expect(ProvidersResponse.parse(await res.json())).toEqual({
-      providers: [{ id: "openrouter", name: "OpenRouter", configured: true }],
+      providers: [
+        { id: "openrouter", name: "OpenRouter", configured: true },
+        { id: "vercel", name: "Vercel AI Gateway", configured: false },
+      ],
     });
     const bare = createTestApp();
     const body = ProvidersResponse.parse(await (await bare.app.request("/api/providers")).json());

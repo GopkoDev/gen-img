@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/vercel.ts", "src/server/modules/provi
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Look up Vercel prices and register the adapter
