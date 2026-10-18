@@ -15,6 +15,8 @@ vi.mock("@/lib/api", async (orig) => ({
     startGeneration: vi.fn(),
     dismissJob: vi.fn(),
     generation: vi.fn(),
+    price: vi.fn(),
+    costHistory: vi.fn(),
   },
 }));
 const m = vi.mocked(api);
@@ -226,5 +228,19 @@ describe("GeneratePanel (SCR-01)", () => {
     await screen.findByRole("combobox", { name: "Model" });
     await waitFor(() => expect(m.generation).toHaveBeenCalledWith("01GONE"));
     await waitFor(() => expect(screen.queryByText("Saved to gallery")).not.toBeInTheDocument());
+  });
+
+  it("shows the selected model's price and an estimate that follows the number of images (step 7)", async () => {
+    configured();
+    m.price.mockResolvedValue({
+      price: { kind: "per-image", output: { minUsd: 0.0184, maxUsd: 0.0184 }, input: null },
+      fetchedAt: new Date().toISOString(),
+    });
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText("$0.0184 / image")).toBeInTheDocument();
+    expect(screen.getByText("Estimate ≈ $0.02 for 1 image")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Images"), { target: { value: "3" } });
+    expect(await screen.findByText("Estimate ≈ $0.06 for 3 images")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
   });
 });

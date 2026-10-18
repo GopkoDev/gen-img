@@ -25,6 +25,7 @@ import {
 } from "../../../shared/generations";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { type Attachment, InputImages } from "./InputImages";
+import { EstimateLine, PriceLine } from "./PricePreview";
 
 /** The env var that configures each provider's key — shown when a provider isn't configured. */
 const KEY_VARS: Record<ProviderId, string> = { openrouter: "OPENROUTER_API_KEY", vercel: "AI_GATEWAY_API_KEY" };
@@ -497,6 +498,7 @@ export function GeneratePanel() {
               ))}
             </SelectContent>
           </Select>
+          <PriceLine provider={providerId} model={modelId} />
           {removedNote && <p className="text-muted-foreground text-sm">{removedNote}</p>}
         </Field>
         <Field id="prompt" label="Prompt" error={errors.prompt}>
@@ -590,6 +592,12 @@ export function GeneratePanel() {
         )}
         {requestError && <Notice title="Couldn't start the generation">{requestError}</Notice>}
 
+        <EstimateLine
+          provider={providerId}
+          model={modelId}
+          images={Math.max(1, Number(n) || 1)}
+          inputs={attachments.length}
+        />
         <Button type="submit" disabled={disabled || overLimit}>
           {running || start.isPending ? (
             <>

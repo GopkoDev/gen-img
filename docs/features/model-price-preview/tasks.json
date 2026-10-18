@@ -88,7 +88,7 @@
         "src/web/features/generate/GeneratePanel.tsx"
       ],
       "file": "docs/features/model-price-preview/tasks/t6-price-preview-ui.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

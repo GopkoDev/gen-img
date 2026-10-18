@@ -9,6 +9,7 @@ import {
   type StartGenerationRequest,
 } from "../../shared/generations";
 import { HealthResponse } from "../../shared/health";
+import { CostHistory, PriceResponse } from "../../shared/pricing";
 import { ModelsResponse, ProvidersResponse } from "../../shared/providers";
 
 export class ApiError extends Error {
@@ -47,6 +48,13 @@ export const api = {
   health: () => request(HealthResponse, "/health"),
   providers: () => request(ProvidersResponse, "/providers"),
   models: (providerId: string) => request(ModelsResponse, `/providers/${encodeURIComponent(providerId)}/models`),
+  price: (providerId: string, model: string) =>
+    request(PriceResponse, `/providers/${encodeURIComponent(providerId)}/price?model=${encodeURIComponent(model)}`),
+  costHistory: (provider: string, model: string) =>
+    request(
+      CostHistory,
+      `/generations/cost-history?provider=${encodeURIComponent(provider)}&model=${encodeURIComponent(model)}`,
+    ),
   /** JSON for text-only; multipart (`request` JSON part + `inputs` files, in order) when images are attached (ADR-0010). */
   startGeneration: (body: StartGenerationRequest, files: File[] = []) => {
     if (files.length === 0) return request(JobResponse, "/generations", json("POST", body));

@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/api.ts", "src/web/features/generate/PricePreview.tsx",
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Show the price and the estimate in the generate panel (SCR-01)
