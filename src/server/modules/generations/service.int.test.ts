@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TINY_PNG } from "../../../../tests/helpers/generations";
 import { createTestApp } from "../../../../tests/helpers/test-app";
 import type { ImageModel } from "../../../shared/providers";
@@ -85,6 +85,7 @@ describe("generations service", () => {
       repo: createGenerationsRepo(t.db),
       files,
       jobs: createJobSlot(t.dataDir),
+      costSync: { track: () => {} },
       timeoutMs: opts.timeoutMs ?? 180_000,
     });
   }
@@ -288,5 +289,70 @@ describe("generations service", () => {
     const gens = join(t.dataDir, "generations");
     expect(existsSync(gens) ? readdirSync(gens) : []).toEqual([]);
     expect(readdirSync(join(t.dataDir, ".staging"))).toEqual([]);
+  });
+});
+
+describe("generations service — second provider and deferred costs", () => {
+  let t: ReturnType<typeof createTestApp>;
+  beforeEach(() => {
+    t = createTestApp();
+  });
+  afterEach(() => t.cleanup());
+
+  function build(vercel: Behaviour, openrouter: Behaviour = async () => ok(1)) {
+    const or = fakeProvider(openrouter);
+    const vc = { ...fakeProvider(vercel), id: "vercel" as const, name: "Vercel AI Gateway" };
+    const registry = registryOf([or, vc]);
+    const track = vi.fn();
+    const svc = createGenerationsService({
+      providers: registry,
+      catalog: createModelCatalog(registry),
+      repo: createGenerationsRepo(t.db),
+      files: createFileStore(t.dataDir),
+      jobs: createJobSlot(t.dataDir),
+      costSync: { track },
+      timeoutMs: 180_000,
+    });
+    return { svc, track, vc };
+  }
+
+  it("saves a generation whose price comes later as pending and hands it to the cost resolver", async () => {
+    const { svc, track } = build(async () => ({ ...ok(1, null), costRef: "gen_01REF" }));
+    svc.startGeneration(body({ provider: "vercel" }));
+    await svc.whenIdle();
+    const gen = svc.get(svc.getJob()?.generationId ?? "");
+    expect(gen).toMatchObject({ provider: "vercel", costStatus: "pending", costMicros: null, costRef: "gen_01REF" });
+    expect(track).toHaveBeenCalledWith({
+      id: gen?.id,
+      provider: "vercel",
+      costRef: "gen_01REF",
+      answeredAt: Date.parse(gen?.createdAt ?? "") + (gen?.durationMs ?? 0),
+    });
+  });
+
+  it("does not involve the resolver when the price is stated or will never come", async () => {
+    const { svc, track } = build(async () => ok(1, null));
+    svc.startGeneration(body({ provider: "vercel" }));
+    await svc.whenIdle();
+    expect(svc.get(svc.getJob()?.generationId ?? "")).toMatchObject({ costStatus: "unavailable", costRef: null });
+    svc.startGeneration(body());
+    await svc.whenIdle();
+    expect(svc.get(svc.getJob()?.generationId ?? "")).toMatchObject({ costStatus: "known", costMicros: 40000 });
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it("runs one generation at a time across both providers", async () => {
+    let release: (r: GenerationResult) => void = () => {};
+    const { svc, vc } = build(
+      async () => ok(1),
+      () => new Promise((r) => (release = r)),
+    );
+    svc.startGeneration(body());
+    expect(() => svc.startGeneration(body({ provider: "vercel" }))).toThrow(
+      expect.objectContaining({ code: "GENERATION_IN_PROGRESS" }),
+    );
+    expect(vc.calls).toHaveLength(0);
+    release(ok(1));
+    await svc.whenIdle();
   });
 });

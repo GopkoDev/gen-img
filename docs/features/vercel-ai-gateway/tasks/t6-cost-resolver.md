@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/cost-sync.ts", "src/server/modules/
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Resolve pending costs in the background and resume them on boot

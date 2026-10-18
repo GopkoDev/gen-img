@@ -92,7 +92,7 @@
         "src/server/app.ts"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t6-cost-resolver.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

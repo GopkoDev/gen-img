@@ -18,15 +18,33 @@ export function createTestApp(overrides: Partial<Config> = {}, deps: Omit<Partia
   };
   const db = openDb(dataDir);
   migrateUp(db);
+  // Background price lookups must not outlive the test's DB: track them and cancel on cleanup.
+  const live = new Set<ReturnType<typeof setTimeout>>();
+  const timers = deps.timers ?? {
+    set: (fn: () => void, ms: number) => {
+      const h = setTimeout(() => {
+        live.delete(h);
+        fn();
+      }, ms);
+      live.add(h);
+      return h;
+    },
+    clear: (h: unknown) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+      live.delete(h as ReturnType<typeof setTimeout>);
+    },
+  };
   const handle = {
-    app: createApp({ config, db, ...deps }),
+    app: createApp({ config, db, ...deps, timers }),
     db,
     dataDir,
     /** Builds a fresh app over the same DB + data dir, like a server restart. */
     restart() {
-      handle.app = createApp({ config, db, ...deps });
+      handle.app = createApp({ config, db, ...deps, timers });
     },
     cleanup() {
+      for (const h of live) clearTimeout(h);
+      live.clear();
       db.close();
       rmSync(dataDir, { recursive: true, force: true });
     },

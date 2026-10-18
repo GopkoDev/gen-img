@@ -4,6 +4,7 @@ import type { Db } from "./db/client";
 import { type Config, DEV_UI_PORT } from "./lib/config";
 import { notFound, onError } from "./lib/errors";
 import { requestGuard } from "./lib/request-guard";
+import { createCostSync, type Timers } from "./modules/generations/cost-sync";
 import { createJobSlot } from "./modules/generations/jobs";
 import { createGenerationsRepo } from "./modules/generations/repo";
 import { registerGenerationsRoutes } from "./modules/generations/routes";
@@ -20,8 +21,10 @@ export type AppDeps = {
   db: Db;
   /** Outbound HTTP for provider adapters — tests pass a fixture-backed fake. */
   fetch?: typeof fetch;
-  /** Clock (epoch ms) for caches. */
+  /** Clock (epoch ms) for caches and the cost resolver. */
   now?: () => number;
+  /** Timers for background price lookups — tests pass controllable ones. */
+  timers?: Timers;
   /** Provider request timeout; spec §6: 180 s. */
   generationTimeoutMs?: number;
 };
@@ -43,15 +46,19 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
   registerProvidersRoutes(api, { providers, catalog });
 
   const files = createFileStore(deps.config.dataDir);
+  const repo = createGenerationsRepo(deps.db);
+  const costSync = createCostSync({ repo, providers, now: deps.now, timers: deps.timers });
   const service = createGenerationsService({
     providers,
     catalog,
-    repo: createGenerationsRepo(deps.db),
+    repo,
     files,
     jobs: createJobSlot(deps.config.dataDir),
+    costSync,
     timeoutMs: deps.generationTimeoutMs ?? GENERATION_TIMEOUT_MS,
   });
   service.sweepOnBoot(); // drop leftovers of an interrupted save (ADR-0006)
+  costSync.resume(); // pending costs survive restarts (ADR-0013)
   registerGenerationsRoutes(api, { service, files });
 
   const app = new Hono();

@@ -6,7 +6,8 @@ import type { ModelCatalog } from "../providers/catalog";
 import { ProviderError } from "../providers/port";
 import type { ProviderRegistry } from "../providers/registry";
 import type { FileStore } from "../storage/file-store";
-import { checkAgainstModel, type FieldErrors, parseStartRequest, toCost } from "./domain";
+import type { CostSync } from "./cost-sync";
+import { checkAgainstModel, costFromResult, type FieldErrors, parseStartRequest } from "./domain";
 import type { JobSlot, JobState } from "./jobs";
 import type { GenerationsRepo, ImageRecord, InputRecord } from "./repo";
 
@@ -26,6 +27,8 @@ export type GenerationsServiceDeps = {
   repo: GenerationsRepo;
   files: FileStore;
   jobs: JobSlot;
+  /** Resolves `pending` costs in the background (ADR-0013). */
+  costSync: Pick<CostSync, "track">;
   timeoutMs: number;
 };
 
@@ -100,6 +103,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
       clearTimeout(timer);
     }
     const durationMs = Math.round(performance.now() - sentAt);
+    const cost = costFromResult(result.costUsd, result.costRef);
 
     try {
       const paths = await deps.files.stage(id, result.images);
@@ -130,7 +134,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
           requestedParams: req.params,
           acceptedParams: result.acceptedParams,
           imagesRequested: req.params.n,
-          ...toCost(result.costUsd),
+          ...cost,
           createdAt: job.startedAt,
           durationMs,
           rawRequest: linkFiles(result.rawRequest, paths, inputPaths),
@@ -149,6 +153,13 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
       return;
     }
     deps.jobs.succeed(id);
+    if (cost.costStatus === "pending")
+      deps.costSync.track({
+        id,
+        provider: provider.id,
+        costRef: cost.costRef,
+        answeredAt: Date.parse(job.startedAt) + durationMs,
+      });
   }
 
   /** Validates and starts a job; `model` (when known) narrows the parameters and input count to what it supports. */
