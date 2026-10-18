@@ -15,7 +15,7 @@
         "src/server/modules/generations/nfr.int.test.ts"
       ],
       "file": "docs/features/gallery-grid/tasks/t1-summary-duration.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T2",
@@ -26,7 +26,7 @@
       "dod": "unit tests: cost badge for known/pending/unavailable (never $0 when unknown), size with ×, count rules incl. partial; badge token contrast ≥ 4.5:1 in both themes",
       "files_hint": ["src/web/lib/format.ts", "src/web/lib/format.test.ts", "src/web/theme-tokens.test.ts"],
       "file": "docs/features/gallery-grid/tasks/t2-badge-wording.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

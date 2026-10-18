@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/format.ts", "src/web/lib/format.test.ts", "src/web/the
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

@@ -8,6 +8,22 @@ export function formatCost(micros: number | null, status: CostStatus): string {
   return `$${whole}.${frac.padEnd(2, "0")}`;
 }
 
+/** Cost badge on a gallery card: the amount when known, otherwise «cost pending» / «cost unavailable» — never `$0`. */
+export function formatCostBadge(micros: number | null, status: CostStatus): string {
+  return status === "known" && micros !== null ? formatCost(micros, status) : `cost ${status}`;
+}
+
+/** `1024×1024` (× = U+00D7). */
+export function formatSize(width: number, height: number): string {
+  return `${width}\u00d7${height}`;
+}
+
+/** «N images» when more than one came back, «R of Q images» when fewer than requested, otherwise null. */
+export function formatCount(received: number, requested: number): string | null {
+  if (received < requested) return `${received} of ${requested} images`;
+  return received > 1 ? `${received} images` : null;
+}
+
 export function formatDuration(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
