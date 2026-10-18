@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/vercel-flow.int.test.ts", "src/serv
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T7 — Run the Vercel flow end to end through the API

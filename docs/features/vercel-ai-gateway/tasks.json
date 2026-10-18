@@ -107,7 +107,7 @@
         "tests/helpers/test-app.ts"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t7-vercel-routes-flow.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",

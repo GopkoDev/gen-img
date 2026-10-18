@@ -53,7 +53,8 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     catalog,
     repo,
     files,
-    jobs: createJobSlot(deps.config.dataDir),
+    // One clock for the job's timestamps and the cost resolver's deadline (ADR-0013).
+    jobs: createJobSlot(deps.config.dataDir, deps.now ? () => new Date(deps.now?.() ?? Date.now()) : undefined),
     costSync,
     timeoutMs: deps.generationTimeoutMs ?? GENERATION_TIMEOUT_MS,
   });
