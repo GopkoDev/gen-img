@@ -175,3 +175,27 @@ Committed approach: a new «Models» section lists every image model of each con
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | rows + parameters + every short-price state; «…» while loading; lookups only for rows in view, once per visit | unit (params) + component | T3, T4 |
+| AC-02 | «show in picker» off/on marks the row, row stays, kept across reload | component | T4 |
+| AC-03 | ★ toggles favorite, hidden unchanged | component + hook | T2, T4 |
+| AC-04 | change on the page shows in the generate form without reload; Owner-chosen model stays selected and marked | component | T2, T5 |
+| AC-05 | a failed toggle reverts only itself; sibling toggle keeps its state; no refetch overwrites an in-flight sibling | hook + component | T2, T4 |
+| AC-06 | one provider's list fails → its message + Try again, the other table renders | component | T4 |
+| AC-07 | not configured note; none configured explains how to add a key | component | T4 |
+| AC-08 | «No longer offered» lists kept preferences of unlisted models; Forget removes them (also if the list failed after load) | component + integration | T1, T4 |
+| AC-09 | no «No longer offered» list from a failed list | component | T4 |
+| AC-10 | re-run of a hidden model still selects it; gallery unchanged | component | T5 |
+| AC-11 | foreign page refused, incl. an off-write | integration | T1 |
+| AC-12 | off-writes succeed without the catalog / key; turn-on keeps step 9 refusals; unknown provider refused | integration | T1 |
+| AC-13 | hidden-suitable notice links to the Models page | unit + component | T5 |
+| AC-14 | preferences unreadable → rows listed, toggles disabled, notice, no retired list | component | T4 |
+
+- **NFR:** rows ≤ 300 ms p95 with 100 models — serial `nfr-web` project (T6); price limits — step 9 unit tests + «asked once per visit» (T4); saving ≤ 50 ms p95 — `nfr` incl. off-writes (T1).
+- **Test data:** api mocked per the existing web tests; IntersectionObserver test double in `tests/helpers/setup-dom.ts`; `seedModelPreference` for integration.
