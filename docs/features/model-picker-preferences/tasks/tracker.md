@@ -7,7 +7,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | Promote the model_preferences migration | migration | dmytro.hopko | S | — | todo | — |
+| T1 | Promote the model_preferences migration | migration | dmytro.hopko | S | — | done | COMMIT |
 | T2 | Read and set model preferences through a models module | ports | dmytro.hopko | M | T1 | todo | — |
 | T3 | Share in-flight price lookups, cap them at 4 and cache failures for a minute | infra | dmytro.hopko | M | — | todo | — |
 | T4 | Arrange models into favorites and others and pick models for automatic choices | domain | dmytro.hopko | S | — | todo | — |
