@@ -87,13 +87,13 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 
 **Given** a generation has just succeeded
 **When** the Owner opens its detail view
-**Then** the Owner sees the output images, provider, image model, prompt, the parameters the Owner set, created-at, duration, the cost with its cost status, and the raw request and response the provider exchanged
+**Then** the Owner sees the output images, provider, image model, prompt, the parameters the Owner set, created-at (the moment the Owner submitted; the gallery orders by it), duration (from sending the request to the provider until its answer arrived), the cost with its cost status, and the raw request and response the provider exchanged
 
 ### AC-03 (US-01) — happy path
 
 **Given** the Owner opens the generate form
 **When** the Owner opens the model picker
-**Then** the system lists the image models OpenRouter currently offers (by name and model id), so the Owner never has to type a model id from memory
+**Then** the system lists the models OpenRouter offers for image output (by name and model id), no older than 10 minutes, so the Owner never has to type a model id from memory; after choosing a model, the form offers only the optional parameters (aspect ratio, seed, number of images) that this model is listed as supporting, with the allowed values the provider lists
 
 ### AC-04 (US-03) — happy path
 
@@ -104,20 +104,20 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 ### AC-05 (US-01) — error
 
 **Given** the Owner is on the generate form
-**When** the Owner tries to generate with an empty or whitespace-only prompt, no model selected, or a number of images outside 1–4
+**When** the Owner tries to generate with an empty or whitespace-only prompt, no model selected, or a number of images outside 1–4 (or above what the model supports)
 **Then** the system does not send anything to the provider and tells the Owner which field must be fixed and how
 
 ### AC-06 (US-05) — error
 
 **Given** the Owner submits a valid request
-**When** the provider refuses or fails it (e.g. insufficient credits, content moderation, model unavailable, timeout), or answers without a single usable image
+**When** the provider refuses or fails it (e.g. insufficient credits, content moderation, model unavailable, timeout), or answers without a single usable image (an image that decodes to a non-empty PNG, JPEG, WebP or GIF picture)
 **Then** the system shows the Owner the provider's reason in plain language, keeps the prompt and settings in the form, and saves nothing to the gallery
 
 ### AC-07 (US-04) — domain invariant
 
 **Given** the provider's answer for a successful generation does not state a price
 **When** the generation is saved and the Owner opens it
-**Then** the cost is shown as «unavailable», never as zero — an unknown price is never presented as free
+**Then** the cost status is «unavailable» and the cost is shown as «unavailable», never as zero — an unknown price is never presented as free; when the answer states a price, the status is «known» with that exact amount (this slice never marks a cost «pending»)
 
 ### AC-08 (US-02) — domain invariant
 
@@ -129,7 +129,7 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 
 **Given** the Owner set a seed, an aspect ratio or a number of images
 **When** the generation is saved
-**Then** the detail view shows the parameters exactly as they were sent, labelled «requested», next to what actually came back (number of images received, each image's real dimensions) and the parameters the provider reports it accepted, or «not reported» where it reports none — the system never claims a requested parameter was applied or that the result is pixel-reproducible
+**Then** the detail view shows the parameters exactly as they were sent to the provider (the values the Owner chose), labelled «requested», next to what actually came back (number of images received, each image's real dimensions) and the parameters the provider reports it accepted — the provider reports none today, so this slice shows «not reported» — the system never claims a requested parameter was applied or that the result is pixel-reproducible
 
 ### AC-10 (US-06) — authorization
 
@@ -177,7 +177,7 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 
 **Given** a generation is in progress
 **When** the Owner closes or reloads the page before it finishes
-**Then** the generation still completes and appears in the gallery; while it is in progress the generate form cannot be submitted again, so one click never spends twice
+**Then** the generation still completes and appears in the gallery; only one generation can be in progress in gen-img at a time — any open or reloaded generate form shows «in progress» and cannot submit another until it ends, so one click never spends twice; if that generation fails or cannot be stored while no page is watching, the reason is shown the next time the Owner opens the generate form, until the Owner dismisses it
 
 ### AC-18 (US-04) — cross-context
 
@@ -188,8 +188,8 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 ### AC-19 (US-06) — authorization
 
 **Given** a page from another site is open in the Owner's browser while gen-img runs
-**When** that page tries to start a generation or read the gallery through gen-img
-**Then** nothing is sent to the provider, no balance is spent and no gallery data is handed to that page
+**When** that page tries to start a generation, read the gallery or a generation, or load a stored image through gen-img
+**Then** gen-img refuses: nothing is sent to the provider, no balance is spent and no gallery data or image is handed to that page — gen-img only answers its own pages, opened by the address of the Owner's machine
 
 ## 6. Non-functional requirements
 
@@ -198,8 +198,8 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 | Gallery first page (24 items) with 1 000 saved generations | ≤ 300 ms p95 server time | integration test over a seeded data dir |
 | Detail view load | ≤ 150 ms p95 server time | integration test over a seeded data dir |
 | Local overhead on a generation (excluding provider time) | ≤ 500 ms p95 for up to 4 output images of ≤ 5 MB each | integration test with a stubbed provider |
-| Provider request timeout | 180 s, then the AC-06 failure path | integration test with a hanging stub |
-| Durability | 0 successful generations lost or half-saved after a crash/kill mid-save | AC-08 test + restart test on a temp data dir |
+| Provider request timeout | 180 s, then the request is cancelled and the AC-06 failure path runs; nothing is recorded and it is not a «lost generation» (the provider bills only finished generations — fact-check 2026-10-18) | integration test with a hanging stub |
+| Durability | 0 half-saved generations after a crash/kill mid-save — after restart the data dir holds only complete generations (leftover partial files are cleaned up on start). A generation in flight when the process dies may be lost (accepted; the provider bills only finished generations) | AC-08 test + restart test on a temp data dir |
 | Cost precision | a known cost is kept exactly to 1 micro-USD (fractions of a cent never rounded to 0) | unit test over fractional-cent fixtures |
 | Raw response size in metadata | 0 bytes of embedded image payload in the stored raw response (images replaced by references to the stored files) | integration test asserts stored raw response has no base64 image payload |
 
@@ -210,7 +210,7 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 - **AuthZ/AuthN impact:** no accounts by design (single owner); the boundary is «same machine only» — the app is reachable only from the owner's machine; the provider key stays server-side and is stripped from stored raw requests; file serving is limited to stored generation images.
 - **Abuse cases:**
   - Another device on the LAN tries to generate (spend the balance): unreachable — the app is not exposed beyond the machine.
-  - A malicious web page in the owner's browser tries to trigger generations against the local app: the app only accepts generate requests that come from its own UI origin; others are refused without effect.
+  - A malicious web page in the owner's browser (incl. a hostname that re-points to the owner's machine) tries to trigger generations or read data from the local app: every gen-img action, read and stored image is answered only for gen-img's own pages, addressed by the machine's local name/address; anything else is refused without effect (AC-19).
   - Path tricks in an image link to read arbitrary files: only stored generation images are served; anything else is reported as not found.
   - Key leak through stored metadata or logs: the key is removed from the stored raw request and never logged.
   - Accidental double-submit spending twice: while a generation is in progress the form cannot be submitted again.
@@ -224,5 +224,5 @@ Committed approach: a text-to-image flow through OpenRouter only, end to end —
 
 ## 8. Open questions
 
-- [ ] Does OpenRouter's image response carry a generation id usable for a later stats lookup (upstream latency, cost cross-check)? Default now: store whatever id the response carries in the raw response; no follow-up lookup in this slice. — owner: dmytro.hopko, due: first real call during implement (roadmap D1)
-- [ ] Which parameters does each image model actually accept (seed, aspect ratio, number of images)? Default now: send what the Owner set, record exactly what was sent, and surface a provider refusal via AC-06. — owner: dmytro.hopko, due: before sdd:api
+- [x] ~~Does OpenRouter's image response carry a generation id usable for a later stats lookup?~~ Resolved (clarify 2026-10-18): the documented image response carries no generation id (openrouter.ai/docs/features/multimodal/image-generation, fact-check 2026-10-18) — no follow-up lookup in this slice; the raw response is stored as received, so an id would be kept if one appears. Confirm on the first real call. — owner: dmytro.hopko, due: first real call during implement (roadmap D1)
+- [x] ~~Which parameters does each image model actually accept?~~ Resolved (clarify 2026-10-18): the provider's image-model catalog lists supported parameters per model; the form offers only those (AC-03), and a provider refusal still goes through AC-06. — owner: dmytro.hopko, due: —
