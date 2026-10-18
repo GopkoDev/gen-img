@@ -3,7 +3,7 @@ status: Living
 tool: code               # figma | pencil | code — the single committed source of the design-tool choice (never sdd.local.md: that file is per-developer + gitignored)
 figma_file: ""           # tool: figma → the Figma file URL/key the canon lives in; else ""
 pen_file: ""             # tool: pencil → the .pen library path (e.g. docs/design/library.pen); else ""
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 ---
 
 # Design system — Ukiyo
@@ -27,7 +27,8 @@ updated_at: "2026-10-18"
 
 ## Token source
 
-- **Colors:** shadcn/ui theme CSS variables (light + dark) — `src/web/index.css:6`
+- **Colors:** shadcn/ui theme CSS variables (light + dark, neutral base) incl. the `--sidebar-*` set — `src/web/index.css:6`
+- **Theme:** light / dark / system (default system) via `ThemeProvider` (`src/web/components/theme-provider.tsx`): the `.dark` class on `<html>`, choice kept in `localStorage` (`gen-img:theme`, wrapped in try/catch); an inline script in `index.html` applies it before first paint
 - **Spacing / sizing:** Tailwind v4 default scale + `--radius` — `src/web/index.css:7`
 - **Typography:** Tailwind v4 defaults (system font stack) — `src/web/index.css:1`
 
@@ -42,14 +43,21 @@ updated_at: "2026-10-18"
 | Input | `src/web/components/ui/input.tsx:20` | default / focus / disabled / invalid (`aria-invalid`) | |
 | Select | `src/web/components/ui/select.tsx:150` | closed / open / disabled / invalid | short fixed option lists |
 | Textarea | `src/web/components/ui/textarea.tsx:17` | default / focus / disabled / invalid (`aria-invalid`) | prompt entry |
-| NavBar | `src/web/components/NavBar.tsx:9` | default / current entry (`aria-current`) / section indicator (generation running, failed) / narrow (top row below `md`) | app frame; entries come from `SECTIONS` |
+| Sidebar (block `sidebar-08`, inset variant) | `src/web/components/ui/sidebar.tsx` | expanded / collapsed (icon rail, `Ctrl/⌘+B` or the trigger) / mobile sheet (below `md`) | the app frame's primitives: `SidebarProvider`, `Sidebar`, `SidebarInset`, `SidebarTrigger`, `SidebarMenu*` |
+| AppSidebar | `src/web/components/app-sidebar.tsx` | default / current entry (`isActive` + `aria-current`) / section indicator (generation running, failed) / collapsed (tooltips) | brand + one entry per `SECTIONS` item + footer (theme toggle, server status); no demo user/teams/projects |
+| ModeToggle | `src/web/components/mode-toggle.tsx` | light / dark / system (DropdownMenu) | in the sidebar footer |
+| DropdownMenu | `src/web/components/ui/dropdown-menu.tsx` | closed / open | menus (theme toggle) |
+| Sheet | `src/web/components/ui/sheet.tsx` | open / closed | the sidebar on narrow windows |
+| Tooltip | `src/web/components/ui/tooltip.tsx` | hidden / shown | collapsed-sidebar labels; app wrapped in `TooltipProvider` |
+| Separator · Skeleton · Breadcrumb | `src/web/components/ui/{separator,skeleton,breadcrumb}.tsx` | default | inset header (trigger · separator · breadcrumb); skeletons used by the sidebar only |
 | NotFound | `src/web/components/NotFound.tsx:5` | default | unknown in-app address |
 
 ## Interaction & writing conventions
 
 - **Errors:** inline — a field error under its field; a request-level error as a destructive-tinted panel above the form's submit button. No toasts.
 - **Empty states:** plain text + one call-to-action button.
-- **Navigation:** a left navigation bar lists the sections (≥ `md`; a top row below); the current section is marked with `aria-current="page"` + accent background; the tab title is «<Section> · Ukiyo».
+- **Navigation:** the inset sidebar lists the sections (≥ `md`; a sheet opened from the header trigger below); the current section is marked with `aria-current="page"` + the sidebar's active style; the inset header shows a breadcrumb of where you are; the tab title is «<Section> · Ukiyo».
+- **Theme:** every screen is designed for both themes using tokens only (no raw colours); the default follows the system.
 - **Loading:** a muted «Loading…» line for lists/details; an in-button spinner + disabled form for in-flight actions.
 - **Validation:** on submit; errors attach to fields via `aria-invalid` + a message line under the field.
 - **Microcopy tone:** short, plain, no exclamation marks; say what happened and what to do next.
