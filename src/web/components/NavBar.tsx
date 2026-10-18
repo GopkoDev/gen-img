@@ -18,6 +18,7 @@ export function NavBar({ sections, current }: { sections: readonly Section[]; cu
       <nav aria-label="Sections" className="flex gap-1 md:flex-col">
         {sections.map((s) => {
           const Icon = s.icon;
+          const Indicator = s.indicator;
           const isCurrent = s === current;
           return (
             <Link
@@ -31,6 +32,7 @@ export function NavBar({ sections, current }: { sections: readonly Section[]; cu
             >
               <Icon className="size-4" aria-hidden />
               {s.label}
+              {Indicator && <Indicator />}
             </Link>
           );
         })}

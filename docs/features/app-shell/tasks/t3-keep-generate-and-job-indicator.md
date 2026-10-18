@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/job.ts", "src/web/features/generate/Gene
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T3 — Keep the draft across sections and show the running generation in the bar

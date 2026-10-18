@@ -47,7 +47,7 @@
         "src/web/AppShell.test.tsx"
       ],
       "file": "docs/features/app-shell/tasks/t3-keep-generate-and-job-indicator.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

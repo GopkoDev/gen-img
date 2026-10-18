@@ -1,7 +1,8 @@
 import { Images, type LucideIcon, Sparkles } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Gallery } from "@/features/gallery/Gallery";
 import { GeneratePanel } from "@/features/generate/GeneratePanel";
+import { JobIndicator } from "@/features/generate/job";
 import type { Route } from "@/lib/router";
 
 /** One top-level area of Ukiyo (CONTEXT: Section). Adding a section = one entry here (ADR-0022). */
@@ -13,6 +14,8 @@ export type Section = {
   page: () => ReactNode;
   /** Stays rendered (hidden) while another page shows, so its state survives (ADR-0023). */
   keepMounted?: boolean;
+  /** Shown after the label in the navigation bar, e.g. a running generation on Generate. */
+  indicator?: ComponentType;
   /** Claims addresses outside its own path, e.g. Gallery owns a generation's detail page. */
   owns?: (route: Route) => boolean;
 };
@@ -35,7 +38,15 @@ function GeneratePage() {
 }
 
 export const SECTIONS: readonly Section[] = [
-  { id: "generate", path: "/", label: "Generate", icon: Sparkles, page: GeneratePage, keepMounted: true },
+  {
+    id: "generate",
+    path: "/",
+    label: "Generate",
+    icon: Sparkles,
+    page: GeneratePage,
+    keepMounted: true,
+    indicator: JobIndicator,
+  },
   {
     id: "gallery",
     path: "/gallery",
