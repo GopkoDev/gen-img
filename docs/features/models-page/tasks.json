@@ -14,7 +14,7 @@
         "src/server/modules/models/nfr.int.test.ts"
       ],
       "file": "docs/features/models-page/tasks/t1-off-writes-skip-the-catalog.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T2",
@@ -32,7 +32,7 @@
         "src/web/features/generate/PricePreview.tsx"
       ],
       "file": "docs/features/models-page/tasks/t2-shared-preference-hooks.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T3",
@@ -43,7 +43,7 @@
       "dod": "unit tests: every parameter supported / unsupported, input ranges, max images default 1",
       "files_hint": ["src/web/features/models/params.ts", "src/web/features/models/params.test.ts"],
       "file": "docs/features/models-page/tasks/t3-describe-model-parameters.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",
