@@ -106,7 +106,7 @@
       "dod": "nfr test: listing 100 preferences ≤ 100 ms p95 and saving a ★ ≤ 50 ms p95 with a warm catalog",
       "files_hint": ["src/server/modules/models/nfr.int.test.ts"],
       "file": "docs/features/model-picker-preferences/tasks/t7-preferences-nfr.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

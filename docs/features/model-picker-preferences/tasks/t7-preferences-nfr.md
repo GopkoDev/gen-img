@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/models/nfr.int.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or
