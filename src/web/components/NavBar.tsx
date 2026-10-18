@@ -11,10 +11,10 @@ export function NavBar({ sections, current }: { sections: readonly Section[]; cu
   const label = health.isPending ? "checking…" : health.isSuccess ? "server ok" : "server unreachable";
 
   return (
-    <header className="flex items-center gap-4 border-b px-4 py-3 md:sticky md:top-0 md:h-screen md:w-56 md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-6">
-      <Link to="/" className="font-semibold text-lg md:px-3">
-        Ukiyo
-      </Link>
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 md:sticky md:top-0 md:h-screen md:w-56 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:border-r md:border-b-0 md:py-6">
+      <h1 className="font-semibold text-lg md:px-3">
+        <Link to="/">Ukiyo</Link>
+      </h1>
       <nav aria-label="Sections" className="flex gap-1 md:flex-col">
         {sections.map((s) => {
           const Icon = s.icon;

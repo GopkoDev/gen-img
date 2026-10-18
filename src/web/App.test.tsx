@@ -97,11 +97,13 @@ describe("App frame (SCR-04, SCR-05)", () => {
     const bar = screen.getByRole("banner");
     expect(bar.className).toMatch(/\bmd:w-56\b/);
     expect(bar.className).toMatch(/\bmd:flex-col\b/);
+    expect(bar.className).toMatch(/\bflex-wrap\b/); // no horizontal scroll on a narrow window
     expect(bar.parentElement?.className).toMatch(/\bflex-col\b.*\bmd:flex-row\b/);
   });
 
   it("reports the server as ok, or unreachable when health fails", async () => {
     at("/");
+    expect(screen.getByRole("heading", { name: "Ukiyo" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ukiyo" })).toHaveAttribute("href", "/");
     expect(await screen.findByText("server ok")).toBeInTheDocument();
   });
