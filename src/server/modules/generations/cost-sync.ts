@@ -99,19 +99,21 @@ export function createCostSync(deps: CostSyncDeps) {
     scheduled.set(entry.id, handle);
   }
 
+  /** Start resolving a freshly saved pending cost. */
+  function track(entry: PendingCost): void {
+    if (entry.costRef && deps.providers.get(entry.provider)?.lookupCost) schedule(entry, plan(entry));
+    else finish(entry.id, null);
+  }
+
   return {
-    /** Start resolving a freshly saved pending cost. */
-    track(entry: PendingCost): void {
-      if (entry.costRef && deps.providers.get(entry.provider)?.lookupCost) schedule(entry, plan(entry));
-      else finish(entry.id, null);
-    },
+    track,
 
     /** Boot: young pending costs continue; overdue ones get one last lookup, then «unavailable». */
     resume(): void {
       for (const entry of deps.repo.listPendingCosts()) {
         if (!entry.costRef) finish(entry.id, null);
         else if (now() >= entry.answeredAt + COST_DEADLINE_MS) schedule(entry, [now()]);
-        else this.track(entry);
+        else track(entry);
       }
     },
 
