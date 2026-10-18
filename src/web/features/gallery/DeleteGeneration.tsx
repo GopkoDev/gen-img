@@ -29,7 +29,7 @@ export function DeleteGeneration({ g, onFailed }: { g: Generation; onFailed: (me
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["generation-job"] }); // the panel's latest result may be this one
       setOpen(false);
-      navigate("/?deleted=1");
+      navigate("/gallery?deleted=1");
     },
     onError: (err) => {
       setOpen(false);

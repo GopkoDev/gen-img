@@ -193,7 +193,7 @@ export function GenerationDetail({ id }: { id: string }) {
   });
   const back = (
     <Button variant="link" asChild className="px-0">
-      <Link to="/">
+      <Link to="/gallery">
         <ArrowLeft /> Gallery
       </Link>
     </Button>

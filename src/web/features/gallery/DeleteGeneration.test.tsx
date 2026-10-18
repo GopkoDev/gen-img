@@ -78,7 +78,7 @@ describe("Delete a generation (SCR-03)", () => {
     renderWithQuery(<GenerationDetail id="01X" />);
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Delete generation" })));
-    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    await waitFor(() => expect(window.location.pathname).toBe("/gallery"));
     expect(m.deleteGeneration).toHaveBeenCalledWith("01X");
     expect(window.location.search).toBe("?deleted=1");
   });
@@ -110,9 +110,9 @@ describe("Delete a generation (SCR-03)", () => {
 
   it("the gallery shows a one-off «deleted» notice and cleans the address", async () => {
     m.generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
-    window.history.replaceState(null, "", "/?deleted=1");
+    window.history.replaceState(null, "", "/gallery?deleted=1");
     renderWithQuery(<Gallery />);
     expect(await screen.findByText("Generation deleted.")).toBeInTheDocument();
-    expect(window.location.search).toBe("");
+    expect(window.location.pathname + window.location.search).toBe("/gallery");
   });
 });

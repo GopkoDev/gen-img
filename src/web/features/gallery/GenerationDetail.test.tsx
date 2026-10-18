@@ -63,7 +63,7 @@ describe("GenerationDetail (SCR-03)", () => {
     expect(row("Accepted")).toHaveTextContent("not reported");
     expect(screen.getByText("Raw exchange (redacted)")).toBeInTheDocument();
     expect(screen.getByText(/"\$file": "generations\/01X\/output-1.png"/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Gallery/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /Gallery/ })).toHaveAttribute("href", "/gallery");
   });
 
   it("shows the input images in attach order with their names", async () => {

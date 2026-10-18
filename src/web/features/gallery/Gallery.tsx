@@ -104,7 +104,9 @@ export function Gallery() {
       <div className="flex flex-col items-start gap-3">
         {notice}
         <p className="text-muted-foreground">No generations yet.</p>
-        <Button onClick={() => document.getElementById("prompt")?.focus()}>Write a prompt</Button>
+        <Button asChild>
+          <Link to="/?focus=prompt">Write a prompt</Link>
+        </Button>
       </div>
     );
 

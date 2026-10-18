@@ -12,14 +12,14 @@ describe("Gallery (SCR-02)", () => {
     generations.mockReset();
   });
 
-  it("shows an empty state that points to the generate form", async () => {
+  it("shows an empty state whose call to action goes to Generate with the prompt focused", async () => {
     generations.mockResolvedValue({ items: [], nextCursor: null });
-    document.body.insertAdjacentHTML("beforeend", '<textarea id="prompt"></textarea>');
+    window.history.replaceState(null, "", "/gallery");
     renderWithQuery(<Gallery />);
     expect(await screen.findByText("No generations yet.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Write a prompt" }));
-    expect(document.activeElement?.id).toBe("prompt");
-    document.getElementById("prompt")?.remove();
+    fireEvent.click(screen.getByRole("link", { name: "Write a prompt" }));
+    expect(window.location.pathname + window.location.search).toBe("/?focus=prompt");
+    window.history.replaceState(null, "", "/");
   });
 
   it("shows tiles newest first with prompt, provider · model and time, and loads more on demand", async () => {

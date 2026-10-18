@@ -179,6 +179,20 @@ describe("App shell — draft, job and carried sources across sections", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("«Write a prompt» on the empty gallery lands on Generate with the prompt focused (AC-07)", async () => {
+    at("/gallery");
+    fireEvent.click(await screen.findByRole("link", { name: "Write a prompt" }));
+    expect(entry("Generate")).toHaveAttribute("aria-current", "page");
+    await waitFor(() => expect(prompt()).toHaveFocus());
+  });
+
+  it("the detail page's «Gallery» link returns to the Gallery section (AC-02)", async () => {
+    at("/generations/01SRC");
+    fireEvent.click(await within(screen.getByRole("main")).findByRole("link", { name: /Gallery/ }));
+    expect(window.location.pathname).toBe("/gallery");
+    expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
+  });
+
   it("applies nothing carried on a detail deep link (the panel is hidden there)", async () => {
     at("/generations/01SRC?rerun=01SRC");
     await waitFor(() =>

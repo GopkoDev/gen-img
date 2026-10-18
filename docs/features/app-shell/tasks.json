@@ -62,7 +62,7 @@
         "src/web/features/gallery/DeleteGeneration.tsx"
       ],
       "file": "docs/features/app-shell/tasks/t4-gallery-and-detail-targets.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",
