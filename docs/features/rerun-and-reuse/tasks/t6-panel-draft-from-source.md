@@ -9,8 +9,8 @@ files_hint: ["src/web/features/generate/GeneratePanel.tsx", "src/web/features/ge
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Fill the generate panel from a re-run or reuse source

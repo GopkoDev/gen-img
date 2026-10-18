@@ -13,9 +13,12 @@ import {
   checkAgainstModel,
   checkInputFile,
   type FieldErrors,
+  type Generation,
+  type InputSlot,
   type Job,
   MAX_INPUT_BYTES,
   MAX_INPUT_IMAGES,
+  type SourceRef,
   StartGenerationRequest,
 } from "../../../shared/generations";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
@@ -34,6 +37,23 @@ function rememberedProvider(): ProviderId | null {
   }
 }
 const JOB_QUERY_KEY = ["generation-job"] as const;
+
+/** The draft's source (ADR-0019): what «Started from …» shows and the lineage the request carries. */
+type DraftSource = SourceRef & { prompt: string };
+type PendingSource = { relation: "rerun" | "reuse"; model?: string };
+
+/** `/?rerun=<id>` or `/?reuse=<id>&output=<n>` — read once when the panel mounts. */
+function sourceFromAddress(): { id: string; relation: "rerun" | "reuse"; output?: number } | null {
+  const q = new URLSearchParams(window.location.search);
+  const rerun = q.get("rerun");
+  if (rerun) return { id: rerun, relation: "rerun" };
+  const reuse = q.get("reuse");
+  const output = Number(q.get("output"));
+  if (reuse && Number.isInteger(output) && output >= 1) return { id: reuse, relation: "reuse", output };
+  return null;
+}
+
+const excerpt = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
 const DEFAULT_ASPECT = "__default__";
 
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
@@ -128,16 +148,87 @@ export function GeneratePanel() {
   const [dismissError, setDismissError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [refused, setRefused] = useState<string[]>([]);
+  const [draftSource, setDraftSource] = useState<DraftSource | null>(null);
+  const [sourceGone, setSourceGone] = useState(false);
+  const [loadingSource, setLoadingSource] = useState(false);
+  const [pending, setPending] = useState<PendingSource | null>(null);
+  const [modelNotice, setModelNotice] = useState<string | null>(null);
 
   // Thumbnails use object URLs; release the remaining ones when the panel goes away.
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
   useEffect(
     () => () => {
-      for (const a of attachmentsRef.current) URL.revokeObjectURL(a.url);
+      for (const a of attachmentsRef.current) if (a.file) URL.revokeObjectURL(a.url);
     },
     [],
   );
+
+  function replaceAttachments(next: Attachment[]) {
+    for (const a of attachmentsRef.current) if (a.file) URL.revokeObjectURL(a.url);
+    setAttachments(next);
+  }
+
+  /** Re-run: same provider, model, prompt, parameters and stored inputs; reuse: one output, empty prompt (ADR-0019). */
+  function applySource(g: Generation, relation: "rerun" | "reuse", output?: number) {
+    setSourceGone(false);
+    setModelNotice(null);
+    setErrors({});
+    setRefused([]);
+    if (relation === "rerun") {
+      setChosen(g.provider);
+      setModelId(g.model);
+      setPrompt(g.prompt);
+      setAspectRatio(g.requestedParams.aspectRatio ?? DEFAULT_ASPECT);
+      setSeed(g.requestedParams.seed === undefined ? "" : String(g.requestedParams.seed));
+      setN(String(g.requestedParams.n));
+      replaceAttachments(
+        g.inputs.map((i) => ({
+          id: crypto.randomUUID(),
+          url: i.url,
+          name: i.originalName ?? `input-${i.position}`,
+          stored: { generationId: g.id, kind: "input", position: i.position },
+        })),
+      );
+      setDraftSource({ id: g.id, relation, prompt: g.prompt });
+      setPending({ relation, model: g.model });
+      return;
+    }
+    const img = g.images.find((i) => i.position === output);
+    if (!img || output === undefined) return setSourceGone(true);
+    setPrompt("");
+    setAspectRatio(DEFAULT_ASPECT);
+    setSeed("");
+    setN("1");
+    replaceAttachments([
+      {
+        id: crypto.randomUUID(),
+        url: img.url,
+        name: `output-${img.position}`,
+        stored: { generationId: g.id, kind: "output", position: img.position },
+      },
+    ]);
+    setDraftSource({ id: g.id, relation, output, prompt: g.prompt });
+    setPending({ relation });
+  }
+
+  // Apply a re-run / reuse source carried in the address once, then clean the address (ADR-0019).
+  const qcRef = useRef(qc);
+  qcRef.current = qc;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount; applySource reads the latest state
+  useEffect(() => {
+    const src = sourceFromAddress();
+    if (!src) return;
+    setLoadingSource(true);
+    qcRef.current
+      .fetchQuery({ queryKey: ["generation", src.id], queryFn: () => api.generation(src.id) })
+      .then((g) => applySource(g, src.relation, src.output))
+      .catch(() => setSourceGone(true))
+      .finally(() => {
+        setLoadingSource(false);
+        window.history.replaceState(null, "", "/");
+      });
+  }, []);
 
   async function addFiles(files: File[]) {
     const accepted: Attachment[] = [];
@@ -148,7 +239,7 @@ export function GeneratePanel() {
         file.size > MAX_INPUT_BYTES
           ? ({ ok: false, message: `${file.name} — larger than 10 MB` } as const)
           : checkInputFile(new Uint8Array(await file.arrayBuffer()), file.name);
-      if (checked.ok) accepted.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
+      if (checked.ok) accepted.push({ id: crypto.randomUUID(), file, name: file.name, url: URL.createObjectURL(file) });
       else reasons.push(checked.message);
     }
     setRefused(reasons);
@@ -159,7 +250,7 @@ export function GeneratePanel() {
   function removeAttachment(id: string) {
     setAttachments((prev) => {
       const gone = prev.find((a) => a.id === id);
-      if (gone) URL.revokeObjectURL(gone.url);
+      if (gone?.file) URL.revokeObjectURL(gone.url);
       return prev.filter((a) => a.id !== id);
     });
   }
@@ -179,8 +270,36 @@ export function GeneratePanel() {
 
   const model: ImageModel | undefined = models.data?.models.find((x) => x.id === modelId);
   useEffect(() => {
+    if (pending) return; // a draft source decides the model once the list is in
     if (!modelId && models.data?.models[0]) setModelId(models.data.models[0].id);
-  }, [modelId, models.data]);
+  }, [modelId, models.data, pending]);
+
+  // Once the model list of the draft's provider is in, check the source's model (AC-10) or find one that takes inputs (AC-11).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: settles the pending source once per model list
+  useEffect(() => {
+    const list = models.data?.models;
+    if (!pending || !list) return;
+    setPending(null);
+    if (pending.relation === "rerun") {
+      if (pending.model && !list.some((x) => x.id === pending.model)) {
+        setModelNotice(
+          `The original model ${pending.model} isn't available — choose another. The prompt, parameters and images are kept.`,
+        );
+        if (list[0]) setModelId(list[0].id);
+      }
+      return;
+    }
+    const current = list.find((x) => x.id === modelId) ?? list[0];
+    if (current?.params.inputs) return setModelId(current.id);
+    const withInputs = list.find((x) => x.params.inputs);
+    if (withInputs) {
+      setModelId(withInputs.id);
+      setModelNotice(`Switched to ${withInputs.name} — it takes input images.`);
+    } else {
+      if (current) setModelId(current.id);
+      setModelNotice(`No ${provider?.name ?? "provider"} model takes input images — switch provider.`);
+    }
+  }, [models.data, pending]);
 
   // When a generation finishes, the gallery has a new item.
   const lastStatus = useRef<Job["status"] | undefined>(undefined);
@@ -198,9 +317,11 @@ export function GeneratePanel() {
       qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.code === "VALIDATION_ERROR" && err.details?.fields)
-        setErrors(err.details.fields as FieldErrors);
-      else if (err instanceof ApiError && err.code === "GENERATION_IN_PROGRESS")
+      if (err instanceof ApiError && err.code === "VALIDATION_ERROR" && err.details?.fields) {
+        const fields = err.details.fields as FieldErrors;
+        if (fields.source) setSourceGone(true);
+        setErrors(fields);
+      } else if (err instanceof ApiError && err.code === "GENERATION_IN_PROGRESS")
         qc.invalidateQueries({ queryKey: JOB_QUERY_KEY });
       else setRequestError(err instanceof Error ? err.message : String(err));
     },
@@ -252,7 +373,18 @@ export function GeneratePanel() {
     else if (model) Object.assign(fields, checkAgainstModel(parsed.data.params, model, attachments.length));
     setErrors(fields);
     if (Object.keys(fields).length > 0 || !parsed.success) return;
-    start.mutate({ body: parsed.data, files: attachments.map((a) => a.file) });
+    // Stored images ride as references, uploads as upload slots, in the order shown (ADR-0017).
+    const files = attachments.flatMap((a) => (a.file ? [a.file] : []));
+    let upload = 0;
+    const inputs: InputSlot[] | undefined = attachments.some((a) => a.stored)
+      ? attachments.map((a) => (a.stored ? { stored: a.stored } : { upload: ++upload }))
+      : undefined;
+    const source: SourceRef | undefined = draftSource
+      ? draftSource.relation === "reuse"
+        ? { id: draftSource.id, relation: "reuse", output: draftSource.output }
+        : { id: draftSource.id, relation: "rerun" }
+      : undefined;
+    start.mutate({ body: { ...parsed.data, ...(source ? { source } : {}), ...(inputs ? { inputs } : {}) }, files });
   }
 
   let body: ReactNode;
@@ -443,6 +575,52 @@ export function GeneratePanel() {
             </Select>
           </Field>
         )}
+        {loadingSource && <p className="text-muted-foreground text-sm">Loading the source generation…</p>}
+        {draftSource && (
+          <div className="flex flex-col gap-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">
+                Started from:{" "}
+                <Link to={`/generations/${draftSource.id}`} className="underline underline-offset-4">
+                  {draftSource.relation === "rerun"
+                    ? `Re-run of «${excerpt(draftSource.prompt)}»`
+                    : `Made from output ${draftSource.output} of «${excerpt(draftSource.prompt)}»`}
+                </Link>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Remove the link to the source"
+                onClick={() => setDraftSource(null)}
+              >
+                ×
+              </Button>
+            </div>
+            {draftSource.relation === "rerun" && (
+              <p className="text-muted-foreground">Sends the same inputs again — results can differ.</p>
+            )}
+          </div>
+        )}
+        {sourceGone && (
+          <Notice
+            title="The source generation no longer exists."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSourceGone(false);
+                  setDraftSource(null);
+                  setErrors(({ source: _drop, ...rest }) => rest);
+                }}
+              >
+                Remove the link
+              </Button>
+            }
+          />
+        )}
+        {modelNotice && <Notice title={modelNotice} />}
         {body}
       </CardContent>
     </Card>

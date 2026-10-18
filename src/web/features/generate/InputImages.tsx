@@ -4,7 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type Attachment = { id: string; file: File; url: string };
+/** An input image of the draft: a file the Owner attached, or an image gen-img already stores (ADR-0017). */
+export type Attachment = {
+  id: string;
+  url: string;
+  name: string;
+  file?: File;
+  stored?: { generationId: string; kind: "input" | "output"; position: number };
+};
 
 type Props = {
   attachments: Attachment[];
@@ -52,7 +59,7 @@ export function InputImages({ attachments, range, refused, error, disabled, onAd
           {attachments.map((a, i) => {
             const notSent = i >= max;
             return (
-              <li key={a.id} aria-label={a.file.name} className="relative flex flex-col items-center gap-1">
+              <li key={a.id} aria-label={a.name} className="relative flex flex-col items-center gap-1">
                 <img
                   src={a.url}
                   alt=""
@@ -64,7 +71,7 @@ export function InputImages({ attachments, range, refused, error, disabled, onAd
                   variant="ghost"
                   size="icon"
                   className="absolute -top-2 -right-2 size-6 rounded-full bg-background"
-                  aria-label={`Remove ${a.file.name}`}
+                  aria-label={`Remove ${a.name}`}
                   disabled={disabled}
                   onClick={() => onRemove(a.id)}
                 >

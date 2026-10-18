@@ -85,7 +85,7 @@
         "src/web/features/generate/DraftSource.test.tsx"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t6-panel-draft-from-source.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",
