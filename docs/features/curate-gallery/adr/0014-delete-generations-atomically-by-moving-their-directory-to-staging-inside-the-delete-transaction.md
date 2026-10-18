@@ -42,6 +42,7 @@ Deletion is the first destructive action. A generation is spread over SQLite row
 **Negative**
 - A generation whose directory is already missing (corrupt state) must still be deletable: a missing source directory is treated as «nothing to move», not as a failure.
 - Purge failures after commit only log; the files wait in `.staging` until the next start.
+- The move happens before COMMIT, so a rolled-back deletion (failed COMMIT, crash) leaves a recorded generation's files in staging. The service restores them on failure, and the boot sweep returns any `.staging/<id>.deleted` whose row still exists before clearing staging — added after the independent review found the images could otherwise be lost.
 
 **Neutral**
 - The service also cancels the generation's pending cost lookup and forgets it as the job slot's latest result (SAD §4, choice 4) — outside the transaction, both idempotent.
