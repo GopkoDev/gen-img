@@ -160,3 +160,35 @@ Committed approach: extend the existing generation flow — the generate form ga
 
 - [ ] May the prompt be empty when input images are attached (pure img→img)? Default now: the prompt stays required — the provider's documentation lists it as required; img→img means images + a short instruction. — owner: dmytro.hopko, due: first real call with a key (outside this pipeline run)
 - [ ] Should gen-img strip location metadata from photos before sending/storing them? Default now: no — inputs are sent and stored byte-for-byte; the Owner decides what to attach. — owner: dmytro.hopko, due: before roadmap step 6
+
+## Test plan
+
+Levels: unit (shared validation, adapter on fixtures), integration (real SQLite file + temp data dir per test, `createTestApp()`, provider HTTP stubbed from recorded fixtures, cleanup per test), component (generate panel, gallery tile, detail). e2e-through-UI is N/A for this local tool — the UI flows from `ux-flows.md` are covered by component tests over a mocked API client plus integration tests of the same operations.
+
+| AC | Test | Level | Task |
+|---|---|---|---|
+| AC-01 | generation with two inputs is saved with input copies in attach order | integration | T4, T5 |
+| AC-01 | detail page lists inputs in attach order before outputs | component | T7 |
+| AC-02 | catalog maps the input range; text-only model has none | unit | T3 |
+| AC-02 | input area hidden for text-only models, shows the range otherwise | component | T6 |
+| AC-03 | non-image and over-10-MiB files are refused with a per-file reason | unit | T2 |
+| AC-03 | server refuses a bad file part without calling the provider | integration | T5 |
+| AC-03 | refused file explained in the panel, other attachments kept | component | T6 |
+| AC-04 | more inputs than the model max is refused | unit | T2 |
+| AC-04 | nine files are refused by the server | integration | T5 |
+| AC-05 | edit-only model without inputs is refused | unit | T2 |
+| AC-05 | panel blocks Generate below the minimum | component | T6 |
+| AC-06 | storage failure after staging inputs leaves no rows and no files | integration | T4, T5 |
+| AC-07 | unrecorded input path is not served; foreign page refused | integration | T5, T8 |
+| AC-07 | stored raw request holds input references, never data | unit + integration | T3, T8 |
+| AC-08 | switching to a smaller model marks extras and disables Generate | component | T6 |
+| AC-09 | provider refusal keeps prompt and attachments | component | T6 |
+| AC-10 | tile shows «N inputs» only when inputs exist | component | T7 |
+| AC-10 | gallery page carries the inputs count | integration | T4 |
+| AC-11 | zero inputs sends no input field and stores nothing extra | unit + integration | T3, T5 |
+
+Edge cases: same file attached twice counts twice; original name missing → «input N»; restart with leftover staged inputs → swept.
+
+Load (in-process, no external load tool): local overhead ≤ 1 000 ms p95 over 5 runs for 4 × 10 MB inputs + 4 × 5 MB outputs with a stubbed provider; detail ≤ 150 ms p95 over 20 runs — T8.
+
+CI placement: no CI — everything runs in the local gate (`pnpm typecheck && pnpm lint && pnpm test`).
