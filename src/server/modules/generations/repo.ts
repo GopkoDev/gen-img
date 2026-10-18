@@ -60,6 +60,7 @@ const GenerationRow = z
     images_requested: z.number().int(),
     cost_micros: z.number().int().nullable(),
     cost_status: CostStatus,
+    cost_ref: z.string().nullable(),
     created_at: z.string(),
     duration_ms: z.number().int(),
     raw_request: json(z.unknown()),
@@ -75,14 +76,20 @@ const GenerationRow = z
     imagesRequested: r.images_requested,
     costMicros: r.cost_micros,
     costStatus: r.cost_status,
+    costRef: r.cost_ref,
     createdAt: r.created_at,
     durationMs: r.duration_ms,
     rawRequest: r.raw_request,
     rawResponse: r.raw_response,
   }));
 
-export type NewGeneration = z.infer<typeof GenerationRow>;
-export type GenerationRecord = NewGeneration & { images: ImageRecord[]; inputs: InputRecord[] };
+type StoredGeneration = z.infer<typeof GenerationRow>;
+/** A generation to insert; `costRef` is only set when the price will be looked up later (ADR-0013). */
+export type NewGeneration = Omit<StoredGeneration, "costRef"> & { costRef?: string | null };
+export type GenerationRecord = StoredGeneration & { images: ImageRecord[]; inputs: InputRecord[] };
+
+/** A generation whose price is still to be looked up; `answeredAt` (epoch ms) starts its 10-minute deadline. */
+export type PendingCost = { id: string; provider: string; costRef: string | null; answeredAt: number };
 
 const SummaryRow = z
   .object({
@@ -114,9 +121,9 @@ export type GenerationSummaryRecord = z.infer<typeof SummaryRow> & { thumbnail: 
 export function createGenerationsRepo(db: Db) {
   const insertGen = db.prepare(
     `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
-       cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response)
+       cost_micros, cost_status, cost_ref, created_at, duration_ms, raw_request, raw_response)
      VALUES (@id, @provider, @model, @prompt, @requestedParams, @acceptedParams, @imagesRequested,
-       @costMicros, @costStatus, @createdAt, @durationMs, @rawRequest, @rawResponse)`,
+       @costMicros, @costStatus, @costRef, @createdAt, @durationMs, @rawRequest, @rawResponse)`,
   );
   const insertImage = db.prepare(
     `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
@@ -147,11 +154,25 @@ export function createGenerationsRepo(db: Db) {
     "SELECT media_type FROM generation_images WHERE path = ? UNION ALL SELECT media_type FROM generation_inputs WHERE path = ?",
   );
   const selectIds = db.prepare("SELECT id FROM generations ORDER BY id").pluck();
+  const selectPending = db.prepare(
+    "SELECT id, provider, cost_ref, created_at, duration_ms FROM generations WHERE cost_status = 'pending' ORDER BY id",
+  );
+  const PendingRow = z.object({
+    id: z.string(),
+    provider: z.string(),
+    cost_ref: z.string().nullable(),
+    created_at: z.string(),
+    duration_ms: z.number().int(),
+  });
+  const updateCost = db.prepare(
+    "UPDATE generations SET cost_status = @status, cost_micros = @micros WHERE id = @id AND cost_status = 'pending'",
+  );
 
   const insertAll = db.transaction(
     (gen: NewGeneration, images: ImageRecord[], inputs: InputRecord[], commitFiles: () => void) => {
       insertGen.run({
         ...gen,
+        costRef: gen.costRef ?? null,
         requestedParams: JSON.stringify(gen.requestedParams),
         acceptedParams: gen.acceptedParams === null ? null : JSON.stringify(gen.acceptedParams),
         rawRequest: JSON.stringify(gen.rawRequest),
@@ -198,6 +219,24 @@ export function createGenerationsRepo(db: Db) {
 
     allIds(): string[] {
       return selectIds.all() as string[];
+    },
+
+    listPendingCosts(): PendingCost[] {
+      return selectPending.all().map((raw) => {
+        const r = PendingRow.parse(raw);
+        return {
+          id: r.id,
+          provider: r.provider,
+          costRef: r.cost_ref,
+          answeredAt: Date.parse(r.created_at) + r.duration_ms,
+        };
+      });
+    },
+
+    /** Final price for a pending generation: micro-USD → `known`, `null` → `unavailable`. No-op unless still pending. */
+    resolveCost(id: string, micros: number | null): boolean {
+      const status = micros === null ? "unavailable" : "known";
+      return updateCost.run({ id, status, micros }).changes === 1;
     },
   };
 }

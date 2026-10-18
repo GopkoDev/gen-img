@@ -106,4 +106,31 @@ describe("generations repo", () => {
     expect(repo.recordedImage("generations/x/output-1.png")).toBeUndefined();
     expect(repo.allIds()).toEqual([seeded.id]);
   });
+
+  it("keeps the cost reference, lists pending costs with their answer time, and resolves only pending ones", () => {
+    const pending = seedGeneration(t.db, t.dataDir, {
+      provider: "vercel",
+      costMicros: null,
+      costStatus: "pending",
+      costRef: "gen_01REF",
+      createdAt: "2026-10-18T12:00:00.000Z",
+      durationMs: 9000,
+    });
+    seedGeneration(t.db, t.dataDir); // a known OpenRouter cost is never listed
+    const repo = createGenerationsRepo(t.db);
+    expect(repo.get(pending.id)).toMatchObject({ costRef: "gen_01REF", costStatus: "pending", costMicros: null });
+    expect(repo.listPendingCosts()).toEqual([
+      { id: pending.id, provider: "vercel", costRef: "gen_01REF", answeredAt: Date.parse("2026-10-18T12:00:09.000Z") },
+    ]);
+
+    expect(repo.resolveCost(pending.id, 67000)).toBe(true);
+    expect(repo.get(pending.id)).toMatchObject({ costStatus: "known", costMicros: 67000, costRef: "gen_01REF" });
+    expect(repo.resolveCost(pending.id, null)).toBe(false); // late or duplicate lookup: no-op
+    expect(repo.get(pending.id)).toMatchObject({ costStatus: "known", costMicros: 67000 });
+    expect(repo.listPendingCosts()).toEqual([]);
+
+    const other = seedGeneration(t.db, t.dataDir, { costMicros: null, costStatus: "pending", costRef: null });
+    expect(repo.resolveCost(other.id, null)).toBe(true);
+    expect(repo.get(other.id)).toMatchObject({ costStatus: "unavailable", costMicros: null });
+  });
 });

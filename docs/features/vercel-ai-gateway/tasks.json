@@ -75,7 +75,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t5-repo-pending-costs.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

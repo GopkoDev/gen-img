@@ -28,6 +28,7 @@ export function seedGeneration(
     imagesRequested: images,
     costMicros: 40000,
     costStatus: "known",
+    costRef: null,
     createdAt: new Date(Date.UTC(2026, 9, 18, 12, 0, seq % 60)).toISOString(),
     durationMs: 1234,
     rawRequest: { method: "POST", url: "https://openrouter.ai/api/v1/images", body: { prompt: "A test prompt" } },

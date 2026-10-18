@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/repo.ts", "src/server/modules/gener
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T5 — Store cost references and resolve pending costs in the repo
