@@ -146,3 +146,23 @@ Committed approach: when the Owner picks a model, the generate panel shows that 
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | exact per-image price → «$X / image» + estimate for n; estimate follows n | unit (estimate) + component | T1, T6 |
+| AC-02 | input images billed per image are added and named | unit + component | T1, T6 |
+| AC-03 | several prices (variants / endpoints) → range + range estimate | unit (mapping, estimate) + component | T1, T2, T3, T6 |
+| AC-04 | no published price / lookup failure → «price unknown» («couldn't load»), never $0, Generate enabled | unit (mapping) + integration (502 not cached) + component | T2, T3, T4, T6 |
+| AC-05 | per-token → «priced per token» + history estimate or «no estimate before generating» | unit + integration + component | T1, T2, T3, T5, T6 |
+| AC-06 | history uses only known costs of the same provider + model, last ≤ 20 | integration | T5 |
+| AC-07 | switching provider/model shows the new model's price; step-6 carry-over tests stay green | component | T6 |
+| AC-08 | detail/gallery show the recorded cost; no estimate is sent or stored | component (no request carries an estimate) | T6 |
+| AC-09 | foreign page → refused for price and history | integration | T4, T5 |
+| AC-10 | unknown model → not found, no price request | integration | T4 |
+
+- **NFR:** price cache (≤ 1 provider request per model per 10 min, injected clock) — unit/integration; history ≤ 50 ms p95 over 1 000 generations and cached price ≤ 50 ms p95 — serial `nfr` project.
+- **Test data:** pricing fixtures trimmed from real public responses (2026-10-18) under `tests/fixtures/openrouter/` and `tests/fixtures/vercel/`; seeded generations via `seedGeneration`.
