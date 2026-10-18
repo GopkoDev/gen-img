@@ -265,7 +265,7 @@ sequenceDiagram
     Note over Svc,Files: every remaining generation is complete
 ```
 
-Before commit a crash rolls the transaction back (generation intact); after commit the trash dir is in staging and the existing boot sweep removes it (AC-09).
+Before commit a crash or a failed COMMIT rolls the transaction back; the generation is intact because its moved directory is put back — at once by the service (`restoreSync`), or on the next start by the boot sweep, which returns every `.staging/<id>.deleted` whose row still exists before clearing staging (independent review, 2026-10-18). After commit the trash dir is in staging and the existing boot sweep removes it (AC-09).
 
 ### Foreign page refused (US-06)
 
