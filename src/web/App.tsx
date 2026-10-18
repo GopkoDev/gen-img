@@ -1,39 +1,96 @@
-import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Gallery } from "@/features/gallery/Gallery";
+import { useEffect } from "react";
+import { AppSidebar } from "@/components/app-sidebar";
+import { NotFound } from "@/components/NotFound";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { GenerationDetail } from "@/features/gallery/GenerationDetail";
-import { GeneratePanel } from "@/features/generate/GeneratePanel";
-import { api } from "@/lib/api";
-import { Link, useRoute } from "@/lib/router";
+import { Link, type Route, useRoute } from "@/lib/router";
+import { SECTIONS, type Section, sectionFor } from "@/sections";
 
-export function App() {
-  const health = useQuery({ queryKey: ["health"], queryFn: api.health });
-  const label = health.isPending ? "checking…" : health.isSuccess ? "server ok" : "server unreachable";
+/** Where the Owner is: the section, then «Generation» on a detail page; «Page not found» otherwise. */
+function Crumbs({ route, current }: { route: Route; current: Section | undefined }) {
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        {current && route.name === "detail" ? (
+          <>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={current.path}>{current.label}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Generation</BreadcrumbPage>
+            </BreadcrumbItem>
+          </>
+        ) : (
+          <BreadcrumbItem>
+            <BreadcrumbPage>{current?.label ?? "Page not found"}</BreadcrumbPage>
+          </BreadcrumbItem>
+        )}
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+/** On a narrow window the sidebar is a closed sheet, so its entries' indicators show next to the menu button. */
+function HeaderIndicators({ sections }: { sections: readonly Section[] }) {
+  const { isMobile } = useSidebar();
+  if (!isMobile) return null;
+  return sections.map((s) => {
+    const Indicator = s.indicator;
+    return Indicator && <Indicator key={s.id} />;
+  });
+}
+
+/** The app frame — the `sidebar-08` block: sidebar + inset with the current page (ADR-0022). Kept-mounted
+ * sections stay rendered, hidden (ADR-0023). */
+export function App({ sections = SECTIONS }: { sections?: readonly Section[] }) {
   const route = useRoute();
+  const current = sectionFor(route, sections);
+
+  useEffect(() => {
+    document.title = current ? `${current.label} · Ukiyo` : "Page not found · Ukiyo";
+  }, [current]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="font-semibold text-lg">
-          <Link to="/">Ukiyo</Link>
-        </h1>
-        <Badge variant={health.isError ? "destructive" : "secondary"}>{label}</Badge>
-      </header>
-      {route.name === "detail" ? (
-        <main className="p-6">
-          <GenerationDetail id={route.id} />
-        </main>
-      ) : (
-        <main className="grid gap-6 p-6 lg:grid-cols-[380px_1fr]">
-          <section aria-label="Generate">
-            <GeneratePanel />
-          </section>
-          <section aria-label="Gallery" className="flex flex-col gap-4">
-            <h2 className="font-semibold">Gallery</h2>
-            <Gallery />
-          </section>
-        </main>
-      )}
-    </div>
+    <SidebarProvider>
+      <AppSidebar sections={sections} current={current} />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 px-4">
+          <h1 className="sr-only">Ukiyo</h1>
+          <SidebarTrigger className="-ml-1" />
+          <HeaderIndicators sections={sections} />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+          <Crumbs route={route} current={current} />
+        </header>
+        <div className="min-w-0 flex-1 px-4 pb-6 md:px-6">
+          {/* Kept-mounted pages sit at a fixed place in the tree, so showing or hiding them never remounts them. */}
+          {sections
+            .filter((s) => s.keepMounted)
+            .map((s) => (
+              <div key={s.id} hidden={s !== current || route.name === "detail"}>
+                <s.page />
+              </div>
+            ))}
+          {route.name === "detail" ? (
+            <GenerationDetail id={route.id} />
+          ) : !current ? (
+            <NotFound />
+          ) : (
+            !current.keepMounted && <current.page />
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

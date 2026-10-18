@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
-import { Link } from "@/lib/router";
+import { Link, replace, useRoute } from "@/lib/router";
 import {
   carryParams,
   checkAgainstModel,
@@ -25,6 +25,7 @@ import {
 } from "../../../shared/generations";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { type Attachment, InputImages } from "./InputImages";
+import { JOB_QUERY_KEY } from "./job";
 import { EstimateLine, PriceLine } from "./PricePreview";
 
 /** The env var that configures each provider's key — shown when a provider isn't configured. */
@@ -39,15 +40,14 @@ function rememberedProvider(): ProviderId | null {
     return null;
   }
 }
-const JOB_QUERY_KEY = ["generation-job"] as const;
 
 /** The draft's source (ADR-0019): what «Started from …» shows and the lineage the request carries. */
 type DraftSource = SourceRef & { prompt: string };
 type PendingSource = { relation: "rerun" | "reuse"; model?: string };
 
-/** `/?rerun=<id>` or `/?reuse=<id>&output=<n>` — read once when the panel mounts. */
-function sourceFromAddress(): { id: string; relation: "rerun" | "reuse"; output?: number } | null {
-  const q = new URLSearchParams(window.location.search);
+/** `/?rerun=<id>` or `/?reuse=<id>&output=<n>` — applied on each arrival at Generate (ADR-0019, ADR-0023). */
+function sourceFromAddress(search: string): { id: string; relation: "rerun" | "reuse"; output?: number } | null {
+  const q = new URLSearchParams(search);
   const rerun = q.get("rerun");
   if (rerun) return { id: rerun, relation: "rerun" };
   const reuse = q.get("reuse");
@@ -218,23 +218,46 @@ export function GeneratePanel() {
     setPending({ relation });
   }
 
-  // Apply a re-run / reuse source carried in the address once, then clean the address (ADR-0019).
+  // Apply what the address carries on each arrival at Generate — a re-run / reuse source or a request to focus
+  // the prompt — then clean the address (ADR-0019, ADR-0023). The page stays mounted, so this is not a mount effect.
+  const route = useRoute();
+  const onGenerate = route.name === "page" && route.pathname === "/";
+  const carried = onGenerate ? route.search : "";
+  const [focusPrompt, setFocusPrompt] = useState(false);
+  // Each arrival (and each departure) gets a new number; a source load only applies if its arrival is still current.
+  const arrival = useRef(0);
   const qcRef = useRef(qc);
   qcRef.current = qc;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount; applySource reads the latest state
   useEffect(() => {
-    const src = sourceFromAddress();
+    if (onGenerate) return;
+    arrival.current++;
+    setFocusPrompt(false);
+    setLoadingSource(false);
+  }, [onGenerate]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the carried address; applySource reads the latest state
+  useEffect(() => {
+    if (!carried) return;
+    const mine = ++arrival.current;
+    replace("/"); // taken from the address at once, so Back never applies it again
+    if (new URLSearchParams(carried).get("focus") === "prompt") return setFocusPrompt(true);
+    const src = sourceFromAddress(carried);
     if (!src) return;
+    const current = () => arrival.current === mine;
     setLoadingSource(true);
     qcRef.current
       .fetchQuery({ queryKey: ["generation", src.id], queryFn: () => api.generation(src.id) })
-      .then((g) => applySource(g, src.relation, src.output))
-      .catch(() => setSourceGone(true))
-      .finally(() => {
-        setLoadingSource(false);
-        window.history.replaceState(null, "", "/");
-      });
-  }, []);
+      .then((g) => current() && applySource(g, src.relation, src.output))
+      .catch(() => current() && setSourceGone(true))
+      .finally(() => current() && setLoadingSource(false));
+  }, [carried]);
+  // Focus the prompt once the panel has settled (providers, and the model list of a configured provider);
+  // if the prompt can't take focus then (no key, a generation running), drop the request rather than jump later.
+  const settling = providers.isPending || (provider?.configured === true && models.isPending);
+  useEffect(() => {
+    if (!focusPrompt || settling) return;
+    document.getElementById("prompt")?.focus();
+    setFocusPrompt(false);
+  });
 
   async function addFiles(files: File[]) {
     const accepted: Attachment[] = [];
@@ -326,6 +349,7 @@ export function GeneratePanel() {
   useEffect(() => {
     if (lastStatus.current === "running" && job?.status === "succeeded") {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["generation"] }); // a source's detail lists its new derived generation
       qc.invalidateQueries({ queryKey: ["cost-history"] }); // a new known cost refines per-token estimates
     }
     lastStatus.current = job?.status;

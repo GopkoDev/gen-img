@@ -23,3 +23,8 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
 export function formatDateTime(iso: string): string {
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
+
+/** A short label from a long text (e.g. a prompt as an image's alt text): ~80 characters, then «…». */
+export function excerpt(text: string, max = 80): string {
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+}

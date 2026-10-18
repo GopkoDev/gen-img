@@ -13,7 +13,7 @@ updated_at: "2026-10-18"
 
 ## Destination
 
-The single owner, on one machine, generates images from text and/or input images through both OpenRouter and Vercel AI Gateway, and every result lives in a local gallery with enough metadata to re-run it, switch its model, or feed it into the next generation.
+The single owner, on one machine, generates images from text and/or input images through both OpenRouter and Vercel AI Gateway, and every result lives in a local gallery with enough metadata to re-run it, switch its model, or feed it into the next generation, organised by folder, model and prompt in a paged grid, with a curated model catalog one click away.
 
 ## Steps
 
@@ -26,21 +26,32 @@ The single owner, on one machine, generates images from text and/or input images
 | 5 | Curate the gallery — add a comment, tag, delete a generation | idea-brief.md §7 Recommendation | M | shipped → [`features/curate-gallery`](./features/curate-gallery/spec.md) |
 | 6 | Re-run & reuse — re-run with the same inputs (same or another model) via a pre-filled form, and use an output as the next input in one click with parent→child lineage | idea-brief.md §7 Recommendation | M | shipped → [`features/rerun-and-reuse`](./features/rerun-and-reuse/spec.md) |
 | 7 | Model price preview — show each model's price in the model picker and a pre-run estimate («≈ $0.04 for 2 images»); exact for per-image pricing, approximate for per-token. Source: public `GET /api/v1/images/models/{author}/{slug}/endpoints` → `pricing[]` (`billable`, `unit`, `cost_usd`, `variant`), no key needed (checked 2026-10-18) | owner request 2026-10-18 | S | shipped → [`features/model-price-preview`](./features/model-price-preview/spec.md) |
+| 8 | App shell — a left navbar with client-side routing, so each section (Generate, Gallery, Folders, Models) is its own page and new sections plug in without a redesign; light/dark/system theme; the ten latest generations next to the generate form (amendment 2026-10-19) | owner request (V1.1) | S | shipped → [`features/app-shell`](./features/app-shell/spec.md) |
+| 9 | Model picker preferences — the price on every dropdown entry, a ★ favorite toggle, favorites grouped on top; introduces the per-model preference store (favorite, hidden) | owner request (V2) | S | idea |
+| 10 | Models page — a table of every model from both providers with its prices and parameters; toggle favorite and «hide from the picker» per model | owner request (V2) | S | idea |
+| 11 | Gallery grid — a paged grid of cards (cursor by id), each card with cost, duration and image size as badges over the preview | owner request (V2) · idea-brief.md §7 Recommendation | S | idea |
+| 12 | Generation detail as a modal — image on the left, metadata on the right, ← → to step through neighbouring generations; the deep link keeps working | owner request (V2) | S | idea |
+| 13 | Gallery by model — filter the grid to one model, and a «group by model» view with a section per model | owner request (V2) · idea-brief.md §5 Out of scope | S | idea |
+| 14 | Gallery by prompt — group generations that share an identical prompt; one group card opens every image made from it | owner request (V2) | S | idea |
+| 15 | Folders — create a folder for an idea / test flow / job; the selected folder sticks in the generate panel so new generations land in it; one folder per generation, move between folders | owner request (V2) | M | idea |
+| 16 | Bulk generation — many generations from one submit (prompt × model × variants) | owner request (V3) | fog | idea |
+| 17 | Canvas image editor — edit an image on a canvas and feed the result back as an input | owner request (V3) | fog | idea |
 
 ## Not yet specified
 
-Nothing is in fog right now: every step's question can be stated precisely. The remaining
-unknowns are lookups or prototypes, listed under [Open decisions](#open-decisions).
+Two V3 areas are in scope but not yet formulated: the owner has no flow for them yet.
 
 | Area | What we'd have to learn | Blocks | How it gets sharpened |
 |---|---|:---:|---|
-| — | — | — | — |
+| Bulk generation | What one «bulk» submit means (prompt variants, model matrix, N repeats?), how it is capped by budget, how progress and partial failures show, whether results land in a folder | 16 | `/sdd:interview bulk-generation` once the owner has a flow in mind |
+| Canvas image editor | Which operations matter (crop, mask for inpainting, draw, layers?), whether the result is a new input or a new generation, how much editor is enough | 17 | `/sdd:interview canvas-editor`, then a throwaway prototype of the minimum tool set |
 
 ## Out of scope
 
 - Multiple users, accounts, cross-device sync — the product is «me, one machine» (idea-brief §3, §5).
 - Native desktop wrapper in v1 — local web app first (server on localhost + browser UI).
-- Gallery search and filters — not chosen for v1; bringing them back is an explicit owner scope change.
+- Free-text gallery search — still out. Filtering and grouping by model and by identical prompt came back into scope by owner decision (steps 13, 14).
+- Similar-prompt grouping (embeddings / fuzzy match) — step 14 groups identical prompts only.
 - Guaranteed pixel-identical reproduction — «reproduce» means resending the same inputs.
 
 ## Open decisions
@@ -61,6 +72,7 @@ unknowns are lookups or prototypes, listed under [Open decisions](#open-decision
 - Both providers in v1 and all three modes; «reproduce» means resending the same inputs → [`idea-brief.md §7`](./idea-brief.md)
 - API keys live server-only in `.env.local`; the server binds `127.0.0.1` → [`architecture-map.md` Conventions](./architecture-map.md)
 - Vercel image-only and chat-modalities paths are one step; re-run and use-as-input are one step → this roadmap (owner review)
+- V2 scope: «by model» means both a filter and a group view; a generation belongs to one folder at most; the «model resets after a generation» bug goes through `/sdd:fix`, not a roadmap step → this roadmap (owner review)
 
 ## Dependency graph
 
@@ -72,6 +84,17 @@ flowchart LR
   s2 -->|generation rows + detail view| s5["5 · Curate"]
   s3 -->|re-run and reuse resend stored input images| s6["6 · Re-run & reuse"]
   s3 -->|both change the generate panel and the model catalog| s7["7 · Model price preview"]
+  s7 -->|per-model prices to show on each entry| s9["9 · Model picker preferences"]
+  s8["8 · App shell"] -->|Models is a new routed section| s10["10 · Models page"]
+  s9 -->|per-model preference store, favorite + hidden| s10
+  s8 -->|gallery becomes its own routed page| s11["11 · Gallery grid"]
+  s11 -->|neighbour order for ← → comes from the paged list| s12["12 · Detail modal"]
+  s11 -->|filters and groups the paged grid query| s13["13 · Gallery by model"]
+  s13 -->|same gallery list query and view switcher| s14["14 · Gallery by prompt"]
+  s8 -->|Folders is a new routed section| s15["15 · Folders"]
+  s14 -->|folder view reuses the grid with its filters| s15
+  s16["16 · Bulk generation (fog)"]
+  s17["17 · Canvas editor (fog)"]
 ```
 
 ## Execution path
@@ -84,6 +107,13 @@ flowchart LR
 | 4 | 5 | `src/server/modules/generations/` + `src/web/features/gallery/` (new). Can start while step 4 is still running, since 4 stays inside its Vercel adapter | — |
 | 5 | 6 | `src/web/features/generate/` + `src/web/features/gallery/` + `src/server/modules/generations/` lineage (new). It shares the gallery and generations with step 5, so it runs after it | — |
 | 6 | 7 | `src/server/modules/providers/` catalog + `src/web/features/generate/`. Runs after step 3 (both edit the generate panel and catalog); independent of 4–6 otherwise, so it can move earlier once 3 ships | — |
+| 7 | 8 ∥ 9 | 8: `src/web/App.tsx` + layout shell (new) · 9: `src/web/features/generate/` model picker + `src/server/modules/models/` preference store (new). The shell only mounts the panel, it does not edit it | 10, 11, 15 |
+| 8 | 10 ∥ 11 | 10: `src/web/features/models/` (new) + `src/server/modules/models/` (new) · 11: `src/web/features/gallery/` + `src/server/modules/generations/` list query. Disjoint modules | 12, 13 |
+| 9 | 12 | `src/web/features/gallery/` detail modal. Alone because 13 edits the same gallery view | — |
+| 10 | 13 | `src/web/features/gallery/` + `src/server/modules/generations/` list query | 14 |
+| 11 | 14 | `src/web/features/gallery/` + `src/server/modules/generations/` (prompt-group key) | 15 |
+| 12 | 15 | `src/server/modules/folders/` (new) + `src/web/features/folders/` (new) + `src/web/features/generate/` folder picker | — |
+| — | 16, 17 | fog: waved once their recon pass sizes them | — |
 
 ## Shipped
 
@@ -95,3 +125,4 @@ flowchart LR
 | 5 · Curate the gallery | 2026-10-18 | [changelog](./features/curate-gallery/CHANGELOG.md) · merged into `main` (fast-forward from `feature/curate-gallery`), independent review passed |
 | 6 · Re-run & reuse | 2026-10-18 | [changelog](./features/rerun-and-reuse/CHANGELOG.md) · merged into `main` (fast-forward from `feature/rerun-and-reuse`), independent review passed |
 | 7 · Model price preview | 2026-10-18 | [changelog](./features/model-price-preview/CHANGELOG.md) · merged into `main` (fast-forward from `feature/model-price-preview`), independent review passed |
+| 8 · App shell | 2026-10-18 | [changelog](./features/app-shell/CHANGELOG.md) · on `feature/app-shell`, independent review passed (findings fixed); amended 2026-10-19 (sidebar-08 shell, theme, recent strip) — [PR #1](https://github.com/GopkoDev/ukiyo/pull/1), awaiting merge |

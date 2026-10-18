@@ -143,7 +143,8 @@ All cited files are *(target)* — created by the scaffold task in brackets.
 ## Frontend / UI foundation
 
 - **Component library / design system:** shadcn/ui components generated into
-  `src/web/components/ui/` (Button, Input, Textarea, Card, Dialog, Badge, Select seeded by scaffold);
+  `src/web/components/ui/` (Button, Input, Textarea, Card, Dialog, Badge, Select seeded by scaffold;
+  Sidebar, Sheet, Tooltip, DropdownMenu, Separator, Skeleton, Breadcrumb from the `sidebar-08` block);
   run `/sdd:design-system` before the first UI feature to fix tokens + inventory.
 - **Design tokens:** CSS variables in `src/web/index.css` (shadcn theme vars, light + dark) consumed
   by Tailwind v4 `@theme`. — `src/web/index.css` [S1]
@@ -151,8 +152,15 @@ All cited files are *(target)* — created by the scaffold task in brackets.
 - **Shared primitives:** see component library above. — `src/web/components/ui/` [S1]
 - **State / data-fetching:** TanStack Query; a typed `api` client in `src/web/lib/api.ts` built on
   `fetch` + the `src/shared/` zod schemas. — `src/web/lib/api.ts` [S1]
-- **Closest UI precedent:** the scaffold's `App.tsx` shell (header + health indicator) is the only
-  screen until the first feature lands. — `src/web/App.tsx` [S1]
+- **Routing / app frame:** a hand-written History API router (`src/web/lib/router.tsx`) and one
+  section registry (`src/web/sections.tsx`) drive the sidebar (shadcn block `sidebar-08`, inset:
+  `src/web/components/app-sidebar.tsx`), each section's page and address, the breadcrumb, the
+  document title and the not-found page; Generate stays mounted while other sections show.
+  — ADR-0022, ADR-0023 (`docs/features/app-shell/adr/`)
+- **Theme:** light / dark / system via `ThemeProvider` + `ModeToggle` (`src/web/components/`), `.dark`
+  on `<html>`, pre-paint script in `index.html`. — ADR-0024
+- **Closest UI precedent:** `src/web/features/gallery/` and `src/web/features/generate/` pages mounted
+  through `SECTIONS`; the frame is `src/web/App.tsx` + `src/web/components/app-sidebar.tsx`.
 
 ## Where things live / closest precedents
 
@@ -164,6 +172,8 @@ All cited files are *(target)* — created by the scaffold task in brackets.
 - A new table / column → a new `migrations/NNNN_*.up.sql` + `.down.sql` pair (via `/sdd:data-model`).
 - A new HTTP contract → zod schema in `src/shared/`, consumed by both route and web client.
 - A new screen / UI component → `src/web/features/<feature>/`, composed from `src/web/components/ui/`.
+- A new top-level section (Models, Folders) → one entry in `SECTIONS` (`src/web/sections.tsx`) + its
+  page under `src/web/features/<feature>/`; the navigation bar and the address follow (ADR-0022).
 
 ## Constraints & known tech-debt
 

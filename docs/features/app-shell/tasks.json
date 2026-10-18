@@ -1,0 +1,148 @@
+{
+  "slug": "app-shell",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Parse addresses into pages and declare sections in one registry",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-01", "AC-03", "AC-04"],
+      "dod": "unit tests: parseRoute → detail | page(pathname); sectionFor: `/` → generate, `/gallery` (+ trailing slash) → gallery, detail → gallery, unknown → none; `replace()` notifies subscribers; registry order Generate, Gallery",
+      "files_hint": [
+        "src/web/lib/router.tsx",
+        "src/web/lib/router.test.tsx",
+        "src/web/sections.tsx",
+        "src/web/sections.test.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t1-section-registry-and-router.md",
+      "status": "done"
+    },
+    {
+      "id": "T2",
+      "title": "Render the app frame, the navigation bar and the not-found page (SCR-04, SCR-05)",
+      "layer": "ui",
+      "deps": ["T1"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-10"],
+      "dod": "web tests over `App`: bar lists Generate, Gallery in order with `aria-current` on the owning entry (detail → Gallery); click switches page without reload; popstate back/forward; unknown address → «Page not found.» + «Go to Generate», no entry current; document title per page; bar is a top row below `md` (class contract); server status texts unchanged",
+      "files_hint": [
+        "src/web/App.tsx",
+        "src/web/App.test.tsx",
+        "src/web/components/NavBar.tsx",
+        "src/web/components/NotFound.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t2-app-frame-and-navbar.md",
+      "status": "done"
+    },
+    {
+      "id": "T3",
+      "title": "Keep the draft across sections and show the running generation in the bar",
+      "layer": "ui",
+      "deps": ["T2"],
+      "acs": ["AC-05", "AC-06", "AC-07"],
+      "dod": "web tests over `App`: prompt, settings and attachments survive Generate → Gallery → Generate (bar and back); running job → indicator on Generate entry while on Gallery, saved → gallery refetched without reload, failed → flag until dismissed; job polled by one observer only; `/?rerun=` and `/?reuse=&output=` applied on every arrival (twice in one visit), `/?focus=prompt` focuses the prompt; existing panel tests green",
+      "files_hint": [
+        "src/web/features/generate/job.ts",
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/components/NavBar.tsx",
+        "src/web/AppShell.test.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t3-keep-generate-and-job-indicator.md",
+      "status": "done"
+    },
+    {
+      "id": "T4",
+      "title": "Point gallery and detail navigation at the sections",
+      "layer": "ui",
+      "deps": ["T3"],
+      "acs": ["AC-02", "AC-07", "AC-08"],
+      "dod": "web tests: «← Gallery» links to `/gallery`; delete lands on `/gallery?deleted=1` with «Generation deleted.»; empty-gallery «Write a prompt» goes to `/?focus=prompt`; existing gallery/detail tests green",
+      "files_hint": [
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/DeleteGeneration.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t4-gallery-and-detail-targets.md",
+      "status": "done"
+    },
+    {
+      "id": "T5",
+      "title": "Prove section addresses get the app page and the API stays guarded",
+      "layer": "ports",
+      "deps": ["T1"],
+      "acs": ["AC-03", "AC-09"],
+      "dod": "integration tests with a temp web dir: `/gallery`, `/generations/<id>`, an unknown path → the app page; unknown `/api/*` → error envelope; a cross-site request to `/api/*` still refused",
+      "files_hint": ["src/server/spa-fallback.int.test.ts", "src/server/app.ts"],
+      "file": "docs/features/app-shell/tasks/t5-spa-fallback-for-sections.md",
+      "status": "done"
+    },
+    {
+      "id": "T6",
+      "title": "Vendor the sidebar-08 block and its primitives, trimmed and on the project conventions",
+      "layer": "infra",
+      "deps": ["T2"],
+      "acs": ["AC-10", "AC-16"],
+      "dod": "block primitives under `src/web/components/ui/` import `cn` from `@/lib/utils`; no `cn` npm package; demo parts (user, teams, projects, secondary) removed; sidebar tokens on the neutral palette (light + dark); `matchMedia` available in jsdom; typecheck + lint + existing tests green",
+      "files_hint": [
+        "src/web/components/ui/sidebar.tsx",
+        "src/web/components/ui/sheet.tsx",
+        "src/web/components/ui/tooltip.tsx",
+        "src/web/components/ui/dropdown-menu.tsx",
+        "src/web/hooks/use-mobile.ts",
+        "src/web/index.css",
+        "tests/helpers/setup-dom.ts"
+      ],
+      "file": "docs/features/app-shell/tasks/t6-vendor-sidebar-block.md",
+      "status": "done"
+    },
+    {
+      "id": "T7",
+      "title": "Put the app frame on the sidebar block (SCR-04)",
+      "layer": "ui",
+      "deps": ["T6"],
+      "acs": ["AC-01", "AC-02", "AC-04", "AC-06", "AC-10", "AC-16"],
+      "dod": "web tests over `App`: `AppSidebar` entries from `SECTIONS` with `aria-current`; job spinner / failure dot on Generate; breadcrumb names the section (› Generation on detail; «Page not found»); trigger collapses to the icon rail with entries still links; below `md` the trigger opens a sheet and choosing an entry closes it and navigates; all earlier App/AppShell/sections tests green; NavBar removed",
+      "files_hint": [
+        "src/web/App.tsx",
+        "src/web/components/app-sidebar.tsx",
+        "src/web/App.test.tsx",
+        "src/web/AppShell.test.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t7-sidebar-frame.md",
+      "status": "done"
+    },
+    {
+      "id": "T8",
+      "title": "Follow the system theme with a Light / Dark / System toggle (ADR-0024)",
+      "layer": "ui",
+      "deps": ["T7"],
+      "acs": ["AC-11", "AC-12"],
+      "dod": "unit/web tests: provider default system → `.dark` iff the system prefers dark and follows its change; Light/Dark/System from the toggle set the class and storage; storage throwing → still works, no error; the inline script in `index.html` (run in jsdom) applies stored light/dark, else system, and survives throwing storage",
+      "files_hint": [
+        "src/web/components/theme-provider.tsx",
+        "src/web/components/mode-toggle.tsx",
+        "src/web/components/theme.test.tsx",
+        "index.html",
+        "src/web/main.tsx"
+      ],
+      "file": "docs/features/app-shell/tasks/t8-theme.md",
+      "status": "done"
+    },
+    {
+      "id": "T9",
+      "title": "Show the ten latest generations next to the generate form (SCR-06, ADR-0025)",
+      "layer": "ui",
+      "deps": ["T7"],
+      "acs": ["AC-09", "AC-13", "AC-14", "AC-15"],
+      "dod": "web tests: list asked with limit 10 under `[\"generations\",\"recent\"]`; up to ten thumbnails newest first linking to detail; loading / empty / error + Retry; a finished generation and a deletion refresh it once; revisiting Generate makes no request; Generate page lays out two columns at `lg` (class contract); integration test: `limit=10` returns the ten newest and a cross-site request is refused",
+      "files_hint": [
+        "src/web/lib/api.ts",
+        "src/web/features/generate/RecentGenerations.tsx",
+        "src/web/features/generate/RecentGenerations.test.tsx",
+        "src/web/sections.tsx",
+        "src/server/modules/generations/routes.int.test.ts"
+      ],
+      "file": "docs/features/app-shell/tasks/t9-recent-generations.md",
+      "status": "done"
+    }
+  ]
+}

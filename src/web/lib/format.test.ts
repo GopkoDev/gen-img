@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatRelative } from "./format";
+import { excerpt, formatCost, formatDuration, formatRelative } from "./format";
 
 describe("formatters", () => {
   it("formats micro-USD with at least two decimals and never shows an unknown price as $0", () => {
@@ -19,5 +19,16 @@ describe("formatters", () => {
     expect(formatRelative("2026-10-18T11:58:00Z", now)).toBe("2 min ago");
     expect(formatRelative("2026-10-18T09:00:00Z", now)).toBe("3 h ago");
     expect(formatRelative("2026-10-10T09:00:00Z", now)).toBe("2026-10-10");
+  });
+});
+
+describe("excerpt", () => {
+  it("keeps short text and cuts long text at ~80 characters with an ellipsis", () => {
+    expect(excerpt("A cat")).toBe("A cat");
+    const long = "word ".repeat(40).trim();
+    const cut = excerpt(long);
+    expect(cut.endsWith("…")).toBe(true);
+    expect(cut.length).toBeLessThanOrEqual(81);
+    expect(long.startsWith(cut.slice(0, -1).trimEnd())).toBe(true);
   });
 });
