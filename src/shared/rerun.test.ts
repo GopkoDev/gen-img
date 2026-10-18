@@ -39,10 +39,12 @@ describe("StartGenerationRequest — source and ordered inputs", () => {
 describe("lineage DTO parts", () => {
   it("carries the source (or null) and the derived list with its total", () => {
     expect(LineageSource.nullable().safeParse(null).success).toBe(true);
-    expect(LineageSource.safeParse({ id: "01S", relation: "reuse", output: 2, exists: false }).success).toBe(true);
+    expect(
+      LineageSource.safeParse({ id: "01S", relation: "reuse", output: 2, exists: false, prompt: null }).success,
+    ).toBe(true);
     expect(
       DerivedList.safeParse({
-        items: [{ id: "01D", relation: "rerun", output: null, createdAt: "2026-10-18T00:00:00.000Z" }],
+        items: [{ id: "01D", relation: "rerun", output: null, createdAt: "2026-10-18T00:00:00.000Z", prompt: "p" }],
         total: 1,
       }).success,
     ).toBe(true);

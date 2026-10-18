@@ -318,6 +318,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     list: (q: { cursor?: string; limit: number }) => deps.repo.listPage(q),
     get: (id: string) => deps.repo.get(id),
     exists: (id: string) => deps.repo.exists(id),
+    promptOf: (id: string) => deps.repo.promptOf(id),
     derivedOf: (id: string) => deps.repo.derivedOf(id),
     recordedImage: (path: string) => deps.repo.recordedImage(path),
     sweepOnBoot: () => deps.files.sweep(new Set(deps.repo.allIds())),

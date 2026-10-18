@@ -102,7 +102,13 @@ export type NewGeneration = Omit<StoredGeneration, "costRef" | "sourceId" | "sou
 
 /** A recorded image a start request may name (ADR-0017): where it lives and the name to show/send. */
 export type StoredImage = { path: string; mediaType: string; name: string };
-export type DerivedRecord = { id: string; relation: "rerun" | "reuse"; output: number | null; createdAt: string };
+export type DerivedRecord = {
+  id: string;
+  relation: "rerun" | "reuse";
+  output: number | null;
+  createdAt: string;
+  prompt: string;
+};
 export type CommentRecord = { body: string; updatedAt: string };
 export type GenerationRecord = StoredGeneration & {
   images: ImageRecord[];
@@ -211,7 +217,7 @@ export function createGenerationsRepo(db: Db) {
   );
   const StoredRow = z.object({ path: z.string(), media_type: z.string(), original_name: z.string().nullish() });
   const selectDerived = db.prepare(
-    "SELECT id, source_relation, source_output, created_at FROM generations WHERE source_id = ? ORDER BY id DESC LIMIT ?",
+    "SELECT id, source_relation, source_output, created_at, prompt FROM generations WHERE source_id = ? ORDER BY id DESC LIMIT ?",
   );
   const countDerived = db.prepare("SELECT count(*) FROM generations WHERE source_id = ?").pluck();
   const DerivedRow = z
@@ -220,8 +226,16 @@ export function createGenerationsRepo(db: Db) {
       source_relation: z.enum(["rerun", "reuse"]),
       source_output: z.number().int().nullable(),
       created_at: z.string(),
+      prompt: z.string(),
     })
-    .transform((r) => ({ id: r.id, relation: r.source_relation, output: r.source_output, createdAt: r.created_at }));
+    .transform((r) => ({
+      id: r.id,
+      relation: r.source_relation,
+      output: r.source_output,
+      createdAt: r.created_at,
+      prompt: r.prompt,
+    }));
+  const selectPrompt = db.prepare("SELECT prompt FROM generations WHERE id = ?").pluck();
   const selectComment = db.prepare("SELECT body, updated_at FROM generation_comments WHERE generation_id = ?");
   const upsertComment = db.prepare(
     `INSERT INTO generation_comments (generation_id, body, updated_at) VALUES (@id, @body, @updatedAt)
@@ -372,6 +386,11 @@ export function createGenerationsRepo(db: Db) {
 
     exists(id: string): boolean {
       return Boolean(genExists.get(id));
+    },
+
+    /** The prompt of a generation, or `null` when it no longer exists (lineage text). */
+    promptOf(id: string): string | null {
+      return (selectPrompt.get(id) as string | undefined) ?? null;
     },
 
     /** A recorded output/input image of a generation, or `undefined` — the only way a request reaches stored files. */

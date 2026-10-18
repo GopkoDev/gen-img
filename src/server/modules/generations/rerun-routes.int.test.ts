@@ -54,19 +54,19 @@ describe("re-run / reuse routes", () => {
     expect(job?.status).toBe("succeeded");
 
     const child = Generation.parse(await (await t.app.request(`/api/generations/${job?.generationId}`)).json());
-    expect(child.source).toEqual({ id: src.id, relation: "reuse", output: 2, exists: true });
+    expect(child.source).toEqual({ id: src.id, relation: "reuse", output: 2, exists: true, prompt: src.prompt });
     expect(child.inputs).toHaveLength(1);
     expect(child.derived).toEqual({ items: [], total: 0 });
     const parent = Generation.parse(await (await t.app.request(`/api/generations/${src.id}`)).json());
     expect(parent.source).toBeNull();
     expect(parent.derived).toEqual({
-      items: [{ id: child.id, relation: "reuse", output: 2, createdAt: child.createdAt }],
+      items: [{ id: child.id, relation: "reuse", output: 2, createdAt: child.createdAt, prompt: "Make it blue" }],
       total: 1,
     });
 
     expect((await t.app.request(`/api/generations/${src.id}`, { method: "DELETE" })).status).toBe(204);
     const after = Generation.parse(await (await t.app.request(`/api/generations/${child.id}`)).json());
-    expect(after.source).toEqual({ id: src.id, relation: "reuse", output: 2, exists: false });
+    expect(after.source).toEqual({ id: src.id, relation: "reuse", output: 2, exists: false, prompt: null });
     expect((await t.app.request(after.inputs[0]?.url ?? "")).status).toBe(200);
   });
 

@@ -122,6 +122,11 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
     } satisfies GenerationPage);
   });
 
+  const lineageSource = (id: string, relation: "rerun" | "reuse", output: number | null) => {
+    const prompt = service.promptOf(id);
+    return { id, relation, output, exists: prompt !== null, prompt };
+  };
+
   app.get("/generations/:id", (c) => {
     const g = service.get(c.req.param("id"));
     if (!g) throw new AppError("NOT_FOUND", "Generation not found", 404);
@@ -131,10 +136,7 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
       provider: ProviderId.parse(g.provider),
       images: g.images.map(toImage),
       inputs: g.inputs.map(toInput),
-      source:
-        sourceId && sourceRelation
-          ? { id: sourceId, relation: sourceRelation, output: sourceOutput, exists: service.exists(sourceId) }
-          : null,
+      source: sourceId && sourceRelation ? lineageSource(sourceId, sourceRelation, sourceOutput) : null,
       derived: service.derivedOf(g.id),
     } satisfies Generation);
   });

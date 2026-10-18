@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/GenerationDetail.tsx", "src/web/features/
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Add Re-run, Use as input and the lineage card to the detail view

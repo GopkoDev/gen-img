@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ImagePlus, RotateCcw } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, api } from "@/lib/api";
 import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
-import { Link } from "@/lib/router";
-import type { Generation, RequestedParams } from "../../../shared/generations";
+import { Link, navigate } from "@/lib/router";
+import { type Generation, MAX_INPUT_BYTES, type RequestedParams } from "../../../shared/generations";
 import { DeleteGeneration } from "./DeleteGeneration";
+import { Lineage } from "./Lineage";
 import { Notes } from "./Notes";
 
 const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter", vercel: "Vercel AI Gateway" };
@@ -73,11 +74,36 @@ function Inputs({ g }: { g: Generation }) {
   );
 }
 
+/** «Use as input» for one output: refused in place when it can't be an input (spec AC-09), else open the panel. */
+function UseAsInput({ g, position, byteSize }: { g: Generation; position: number; byteSize: number }) {
+  const [refused, setRefused] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          if (byteSize > MAX_INPUT_BYTES) return setRefused("Can't be used as an input: larger than 10 MB");
+          navigate(`/?reuse=${encodeURIComponent(g.id)}&output=${position}`);
+        }}
+      >
+        <ImagePlus /> Use as input
+      </Button>
+      {refused && <p className="text-destructive text-xs">{refused}</p>}
+    </div>
+  );
+}
+
 function Detail({ g }: { g: Generation }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" asChild>
+          <Link to={`/?rerun=${encodeURIComponent(g.id)}`}>
+            <RotateCcw /> Re-run
+          </Link>
+        </Button>
         <DeleteGeneration g={g} onFailed={setDeleteError} />
       </div>
       {deleteError && (
@@ -89,15 +115,19 @@ function Detail({ g }: { g: Generation }) {
       <Inputs g={g} />
       <div className="flex gap-4 overflow-x-auto">
         {g.images.map((img) => (
-          <a key={img.position} href={img.url} target="_blank" rel="noreferrer" className="shrink-0">
-            <img
-              src={img.url}
-              alt={`Output ${img.position} of: ${g.prompt}`}
-              className="max-h-[60vh] rounded-lg border object-contain"
-            />
-          </a>
+          <div key={img.position} className="flex shrink-0 flex-col gap-1">
+            <a href={img.url} target="_blank" rel="noreferrer">
+              <img
+                src={img.url}
+                alt={`Output ${img.position} of: ${g.prompt}`}
+                className="max-h-[60vh] rounded-lg border object-contain"
+              />
+            </a>
+            <UseAsInput g={g} position={img.position} byteSize={img.byteSize} />
+          </div>
         ))}
       </div>
+      <Lineage g={g} />
       <Notes g={g} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

@@ -201,6 +201,8 @@ export const LineageSource = z.object({
   relation: Relation,
   output: z.number().int().nullable(),
   exists: z.boolean(),
+  /** The source's prompt for the «Started from» / lineage text; `null` once the source is deleted. */
+  prompt: z.string().nullable(),
 });
 export type LineageSource = z.infer<typeof LineageSource>;
 export const DerivedItem = z.object({
@@ -208,6 +210,7 @@ export const DerivedItem = z.object({
   relation: Relation,
   output: z.number().int().nullable(),
   createdAt: z.string(),
+  prompt: z.string(),
 });
 export type DerivedItem = z.infer<typeof DerivedItem>;
 export const MAX_DERIVED_LISTED = 50;

@@ -111,7 +111,7 @@
         "src/web/features/gallery/Lineage.test.tsx"
       ],
       "file": "docs/features/rerun-and-reuse/tasks/t8-detail-actions-and-lineage.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",
