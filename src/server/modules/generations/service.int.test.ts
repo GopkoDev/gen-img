@@ -146,6 +146,16 @@ describe("generations service", () => {
     expect(existsSync(join(t.dataDir, "generations", gen?.id ?? "", "input-1.png"))).toBe(true);
   });
 
+  it("keeps at most 255 characters of an attached file's name", async () => {
+    const MODEL_IN: ImageModel = { ...MODEL, params: { ...MODEL.params, inputs: { min: 0, max: 2 } } };
+    const provider = fakeProvider(async () => ok(1));
+    provider.listModels = async () => [MODEL_IN];
+    const svc = build(provider);
+    await svc.startGenerationChecked(body(), [{ bytes: TINY_PNG, name: `${"x".repeat(300)}.png` }]);
+    await svc.whenIdle();
+    expect(svc.get(svc.getJob()?.generationId ?? "")?.inputs[0]?.originalName).toHaveLength(255);
+  });
+
   it("leaves no input copies when storing fails", async () => {
     const MODEL_IN: ImageModel = { ...MODEL, params: { ...MODEL.params, inputs: { min: 0, max: 2 } } };
     const provider = fakeProvider(async () => ok(1));

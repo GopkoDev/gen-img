@@ -111,7 +111,7 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
         width: img.width,
         height: img.height,
         byteSize: img.bytes.byteLength,
-        originalName: img.name || null,
+        originalName: img.name.slice(0, 255) || null, // client-supplied: bounded, display-only
       }));
       const images: ImageRecord[] = result.images.map((img, i) => ({
         position: i + 1,

@@ -199,6 +199,7 @@ export function GeneratePanel() {
     setSeed("");
     setN("1");
     setErrors({});
+    setRefused([]);
   }
 
   function submit(e: FormEvent) {

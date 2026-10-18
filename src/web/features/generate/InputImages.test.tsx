@@ -73,6 +73,9 @@ describe("GeneratePanel — input images (SCR-01)", () => {
     expect(await screen.findByText("photo.heic — not a supported image")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove cat.png" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove photo.heic" })).not.toBeInTheDocument();
+
+    await pickModel("Edit only");
+    expect(screen.queryByText("photo.heic — not a supported image")).not.toBeInTheDocument();
   });
 
   it("marks attachments beyond the maximum, also after switching models, and blocks Generate", async () => {
