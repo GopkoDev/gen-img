@@ -115,7 +115,7 @@
         "src/server/app.int.test.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t8-request-guard.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",

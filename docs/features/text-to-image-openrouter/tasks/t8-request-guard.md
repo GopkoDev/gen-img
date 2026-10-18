@@ -9,8 +9,8 @@ files_hint: ["src/server/lib/request-guard.ts", "src/server/lib/request-guard.te
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Guard every API request by Host, Origin and Fetch Metadata

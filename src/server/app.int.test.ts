@@ -16,6 +16,12 @@ describe("app boot smoke test", () => {
     expect(HealthResponse.parse(await res.json())).toEqual({ status: "ok" });
   });
 
+  it("refuses a cross-site request before any route runs", async () => {
+    const res = await t.app.request("/api/health", { headers: { "sec-fetch-site": "cross-site" } });
+    expect(res.status).toBe(403);
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe("FORBIDDEN");
+  });
+
   it("unknown /api route → 404 in the unified error envelope", async () => {
     const res = await t.app.request("/api/does-not-exist");
     expect(res.status).toBe(404);

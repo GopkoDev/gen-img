@@ -3,9 +3,7 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { openDb } from "./db/client";
 import { migrateUp } from "./db/migrate";
-import { loadConfig } from "./lib/config";
-
-const HOST = "127.0.0.1"; // local-only by design: the API holds the provider keys' spending power
+import { HOST, loadConfig } from "./lib/config";
 
 const config = loadConfig();
 const db = openDb(config.dataDir);

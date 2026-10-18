@@ -1,8 +1,9 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import type { Db } from "./db/client";
-import type { Config } from "./lib/config";
+import { type Config, DEV_UI_PORT } from "./lib/config";
 import { notFound, onError } from "./lib/errors";
+import { requestGuard } from "./lib/request-guard";
 import { registerSystemRoutes } from "./modules/system/routes";
 
 /** Everything a module needs is passed in explicitly — no global singletons, so tests build an app with fakes. */
@@ -18,6 +19,7 @@ export type CreateAppOptions = {
 
 export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
   const api = new Hono();
+  api.use("*", requestGuard([deps.config.port, DEV_UI_PORT]));
   registerSystemRoutes(api, deps);
 
   const app = new Hono();

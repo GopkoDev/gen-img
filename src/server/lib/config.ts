@@ -2,6 +2,12 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 
+/** The only address the server binds — the API holds the provider keys' spending power (CLAUDE.md hard rule). */
+export const HOST = "127.0.0.1";
+
+/** Dev UI (Vite) port whose pages proxy to the API; allowed by the request guard alongside `PORT`. */
+export const DEV_UI_PORT = 5173;
+
 const EnvSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
