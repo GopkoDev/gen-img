@@ -9,8 +9,8 @@ files_hint: ["src/server/nfr-inputs.int.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Verify the input-image NFRs

@@ -20,7 +20,7 @@ Vitest · Biome.
 | `pnpm dev` | server (`tsx watch`, :8787) + Vite (:5173, proxies `/api` → :8787) |
 | `pnpm build` | `tsc --noEmit` + `vite build` → `dist/web/` |
 | `pnpm start` | one process: API + built SPA on `127.0.0.1:8787` |
-| `pnpm test` | Vitest — projects `unit`, `integration`, `web` |
+| `pnpm test` | Vitest — projects `unit`, `integration`, `web`, `nfr` (timing tests, run last and alone) |
 | `pnpm typecheck` | `tsc --noEmit` (the "vet" gate) |
 | `pnpm lint` / `pnpm format` | Biome check / Biome write |
 | `pnpm db:migrate` / `pnpm db:rollback` | apply pending migrations / revert the latest one |

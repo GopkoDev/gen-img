@@ -20,6 +20,17 @@ export default defineConfig({
           name: "integration",
           environment: "node",
           include: ["src/**/*.int.test.ts"],
+          exclude: ["src/**/nfr.int.test.ts"],
+        },
+      },
+      {
+        // Timing NFRs run last and alone, so other suites can't skew the measurements.
+        test: {
+          name: "nfr",
+          environment: "node",
+          include: ["src/**/nfr.int.test.ts"],
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
         },
       },
       {

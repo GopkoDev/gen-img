@@ -115,7 +115,7 @@
       "dod": "NFR tests pass: local overhead \u2264 1 000 ms p95 for 4 \u00d7 10 MB inputs + 4 \u00d7 5 MB outputs (stubbed provider); detail with inputs \u2264 150 ms p95; stored raw request holds 0 bytes of input data; unrecorded input path \u2192 404",
       "files_hint": ["src/server/nfr-inputs.int.test.ts"],
       "file": "docs/features/image-inputs-openrouter/tasks/t8-inputs-nfr-tests.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }
