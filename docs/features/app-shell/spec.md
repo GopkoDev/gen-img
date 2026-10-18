@@ -148,3 +148,22 @@ Committed approach: a left navigation bar lists Ukiyo's sections — today Gener
 
 <!-- none — all decisions resolved during specify (see §1 assumptions ledger and the AC). -->
 
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | nav lists Generate, Gallery in order; current entry has `aria-current`; click switches page, no reload | unit (section match) + component | T1, T2 |
+| AC-02 | detail marks Gallery current; «Gallery» link → Gallery; document title per page | component | T2, T4 |
+| AC-03 | each address renders its page on a fresh render; back/forward via popstate; server serves the app page for every section address | unit + component + integration | T1, T2, T5 |
+| AC-04 | unknown address → «Page not found.» + link to Generate, nav kept | unit + component | T1, T2 |
+| AC-05 | prompt, settings and attachments survive Generate → Gallery → Generate | component | T3 |
+| AC-06 | running job → indicator on Generate entry while on Gallery; finish → gallery refetched; failed notice → flag until dismissed; no extra job polling | component | T3 |
+| AC-07 | re-run / reuse from detail fill the draft on Generate, twice in one visit; «Write a prompt» focuses the prompt | component | T3, T4 |
+| AC-08 | delete → Gallery section with «Generation deleted.» | component | T4 |
+| AC-09 | section addresses serve the app page; guarded API unchanged | integration | T5 |
+| AC-10 | nav renders as a top bar below `md` (class contract) + manual check at ship | component + manual | T2 |
+
+- **NFR:** draft survival and one-poller-only in component tests; «one declaration adds a section» as a unit test rendering a registry with an extra entry; section switch timing checked manually at ship (jsdom has no paint timing).
+- **Test data:** existing `summary()` / `renderWithQuery` helpers; stubbed `fetch` per endpoint; no provider calls.
