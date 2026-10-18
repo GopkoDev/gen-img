@@ -8,7 +8,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
 | T1 | Promote the generation_inputs migration | migration | dmytro.hopko | S | — | done | COMMIT |
-| T2 | Validate input images and model input ranges in shared code | domain | dmytro.hopko | S | — | todo | — |
+| T2 | Validate input images and model input ranges in shared code | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Send input images through the OpenRouter adapter | infra | dmytro.hopko | S | T2 | todo | — |
 | T4 | Stage and record input copies with the generation | infra | dmytro.hopko | S | T1 | todo | — |
 | T5 | Accept multipart starts with input images and expose inputs in the API | ports | dmytro.hopko | M | T3, T4 | todo | — |

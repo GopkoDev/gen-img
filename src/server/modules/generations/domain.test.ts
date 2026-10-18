@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { checkInputFile, MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { checkAgainstModel, parseStartRequest, toCost } from "./domain";
 
@@ -75,5 +76,51 @@ describe("toCost", () => {
     for (const missing of [undefined, null, Number.NaN, -1, "0.04"]) {
       expect(toCost(missing)).toEqual({ costMicros: null, costStatus: "unavailable" });
     }
+  });
+});
+
+describe("input images", () => {
+  const withInputs = (min: number, max: number): ImageModel => ({
+    ...model,
+    params: { ...model.params, inputs: { min, max } },
+  });
+  const png = new Uint8Array([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 2, 0, 0, 0, 3,
+  ]);
+
+  it("accepts a count inside the model's input range", () => {
+    expect(checkAgainstModel({ n: 1 }, withInputs(0, 4), 4)).toEqual({});
+    expect(checkAgainstModel({ n: 1 }, withInputs(1, 4), 1)).toEqual({});
+  });
+
+  it("refuses inputs on a text-only model, too few for an edit model and too many", () => {
+    expect(checkAgainstModel({ n: 1 }, model, 1)).toEqual({ inputs: "This model does not accept input images" });
+    expect(checkAgainstModel({ n: 1 }, withInputs(1, 4), 0)).toEqual({
+      inputs: "This model needs at least 1 input image",
+    });
+    expect(checkAgainstModel({ n: 1 }, withInputs(0, 4), 5)).toEqual({
+      inputs: "This model takes at most 4 input images",
+    });
+  });
+
+  it("caps any model at 8 input images", () => {
+    expect(MAX_INPUT_IMAGES).toBe(8);
+    expect(checkAgainstModel({ n: 1 }, withInputs(0, 20), 9)).toEqual({
+      inputs: "This model takes at most 8 input images",
+    });
+  });
+
+  it("checks each file: a supported picture of at most 10 MiB", () => {
+    expect(checkInputFile(png, "a.png")).toEqual({ ok: true, image: { mediaType: "image/png", width: 2, height: 3 } });
+    expect(checkInputFile(new TextEncoder().encode("not an image"), "photo.heic")).toEqual({
+      ok: false,
+      message: "photo.heic — not a supported image",
+    });
+    const big = new Uint8Array(MAX_INPUT_BYTES + 1);
+    big.set(png);
+    expect(checkInputFile(big, "big.png")).toEqual({ ok: false, message: "big.png — larger than 10 MB" });
+    const exact = new Uint8Array(MAX_INPUT_BYTES);
+    exact.set(png);
+    expect(checkInputFile(exact, "ok.png").ok).toBe(true);
   });
 });

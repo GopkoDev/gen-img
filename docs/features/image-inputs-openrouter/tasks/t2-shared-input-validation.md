@@ -9,8 +9,8 @@ files_hint: ["src/shared/generations.ts", "src/shared/providers.ts", "src/shared
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Validate input images and model input ranges in shared code

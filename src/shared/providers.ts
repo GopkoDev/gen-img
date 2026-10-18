@@ -16,6 +16,8 @@ export const ImageModel = z.object({
     aspectRatio: z.object({ values: z.array(z.string()) }).optional(),
     seed: z.object({ min: z.number().int().optional(), max: z.number().int().optional() }).optional(),
     n: z.object({ max: z.number().int().min(1).max(4) }).optional(),
+    /** Input-image range from the catalog (max capped at 8); absent = the model takes no input images. */
+    inputs: z.object({ min: z.number().int().min(0), max: z.number().int().min(1).max(8) }).optional(),
   }),
 });
 export type ImageModel = z.infer<typeof ImageModel>;

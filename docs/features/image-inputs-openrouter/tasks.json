@@ -31,7 +31,7 @@
         "src/server/modules/generations/domain.test.ts"
       ],
       "file": "docs/features/image-inputs-openrouter/tasks/t2-shared-input-validation.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

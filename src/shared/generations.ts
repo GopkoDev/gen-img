@@ -1,7 +1,13 @@
 import { z } from "zod";
+import { type SniffedImage, sniffImage } from "./image-sniff";
 import { type ImageModel, ProviderId } from "./providers";
 
 export const MAX_IMAGES = 4;
+
+/** gen-img's cap on input images per generation, whatever the model lists (spec AC-02). */
+export const MAX_INPUT_IMAGES = 8;
+/** 10 MiB per input image (spec AC-03). */
+export const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 
 export const RequestedParams = z.object({
   aspectRatio: z.string().min(1).optional(),
@@ -28,8 +34,17 @@ export type StartGenerationRequest = z.infer<typeof StartGenerationRequest>;
 export type FieldErrors = Record<string, string>;
 
 /** Checks requested parameters against what the chosen model lists as supported. Empty result = ok. */
-export function checkAgainstModel(params: RequestedParams, model: ImageModel): FieldErrors {
+export function checkAgainstModel(params: RequestedParams, model: ImageModel, inputCount = 0): FieldErrors {
   const fields: FieldErrors = {};
+  const inputs = model.params.inputs;
+  const plural = (k: number) => `${k} input image${k === 1 ? "" : "s"}`;
+  if (!inputs) {
+    if (inputCount > 0) fields.inputs = "This model does not accept input images";
+  } else {
+    const max = Math.min(inputs.max, MAX_INPUT_IMAGES);
+    if (inputCount < inputs.min) fields.inputs = `This model needs at least ${plural(inputs.min)}`;
+    else if (inputCount > max) fields.inputs = `This model takes at most ${plural(max)}`;
+  }
   const maxN = model.params.n?.max ?? 1;
   if (params.n > maxN)
     fields["params.n"] = `This model makes at most ${maxN} image${maxN === 1 ? "" : "s"} per request`;
@@ -114,3 +129,13 @@ export const Generation = z.object({
   rawResponse: z.unknown(),
 });
 export type Generation = z.infer<typeof Generation>;
+
+/** One attached file: a usable PNG/JPEG/WebP/GIF of at most 10 MiB, or a plain-language reason. */
+export function checkInputFile(
+  bytes: Uint8Array,
+  name: string,
+): { ok: true; image: SniffedImage } | { ok: false; message: string } {
+  if (bytes.byteLength > MAX_INPUT_BYTES) return { ok: false, message: `${name} — larger than 10 MB` };
+  const image = sniffImage(bytes);
+  return image ? { ok: true, image } : { ok: false, message: `${name} — not a supported image` };
+}
