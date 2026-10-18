@@ -241,6 +241,28 @@ describe("ModelsPage (SCR-08)", () => {
       fireEvent.click(screen.getByRole("switch", { name: "Show GPT-5 Image in picker" }));
       await waitFor(() => expect(screen.queryByText("Couldn't save — try again.")).not.toBeInTheDocument());
     });
+
+    it("overlapping toggles: the first rejects after the second was started — its row still says so, the other row is unaffected (R1)", async () => {
+      let rejectFirst!: (e: unknown) => void;
+      let resolveSecond!: (v: ModelPreference) => void;
+      m.setModelPreference
+        .mockReturnValueOnce(new Promise((_, rej) => (rejectFirst = rej)))
+        .mockReturnValueOnce(new Promise((res) => (resolveSecond = res)));
+      renderWithQuery(<ModelsPage />);
+      const gptStar = await screen.findByRole("button", { name: "Favorite GPT-5 Image" });
+      await waitFor(() => expect(gptStar).toBeEnabled());
+      fireEvent.click(gptStar);
+      fireEvent.click(screen.getByRole("button", { name: "Favorite FLUX 2 Pro" }));
+      await waitFor(() => expect(m.setModelPreference).toHaveBeenCalledTimes(2));
+      await act(async () => rejectFirst(busy));
+      expect(await within(rowOf("GPT-5 Image")).findByText("Couldn't save — try again.")).toBeInTheDocument();
+      expect(gptStar).toHaveAttribute("aria-pressed", "false");
+      m.modelPreferences.mockResolvedValue({ preferences: [pref(FLUX.id, { favorite: true })] }); // the server's truth
+      await act(async () => resolveSecond(pref(FLUX.id, { favorite: true })));
+      expect(screen.getByRole("button", { name: "Favorite FLUX 2 Pro" })).toHaveAttribute("aria-pressed", "true");
+      expect(within(rowOf("FLUX 2 Pro")).queryByText("Couldn't save — try again.")).not.toBeInTheDocument();
+      expect(within(rowOf("GPT-5 Image")).getByText("Couldn't save — try again.")).toBeInTheDocument();
+    });
   });
 
   describe("provider states", () => {
@@ -351,6 +373,63 @@ describe("ModelsPage (SCR-08)", () => {
       expect(await screen.findByText("Couldn't forget — try again.")).toBeInTheDocument();
       expect(screen.getByText(RETIRED)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Forget" })).toBeEnabled();
+    });
+
+    it("overlapping Forgets that both fail: each says «Couldn't forget» and none stays in the spinner (R1)", async () => {
+      serve({ prefs: { openrouter: [pref(RETIRED, { favorite: true }), pref("gone/hidden", { hidden: true })] } });
+      let rejectFirst!: (e: unknown) => void;
+      let rejectSecond!: (e: unknown) => void;
+      m.setModelPreference
+        .mockReturnValueOnce(new Promise((_, rej) => (rejectFirst = rej)))
+        .mockReturnValueOnce(new Promise((_, rej) => (rejectSecond = rej)));
+      renderWithQuery(<ModelsPage />);
+      await screen.findByText("No longer offered");
+      const [first, second] = screen.getAllByRole("button", { name: "Forget" });
+      fireEvent.click(first as HTMLElement);
+      fireEvent.click(second as HTMLElement);
+      await waitFor(() => expect(m.setModelPreference).toHaveBeenCalledTimes(2));
+      await act(async () => rejectFirst(busy));
+      await act(async () => rejectSecond(busy));
+      await waitFor(() => expect(screen.getAllByText("Couldn't forget — try again.")).toHaveLength(2));
+      for (const b of screen.getAllByRole("button", { name: "Forget" })) expect(b).toBeEnabled();
+    });
+
+    it("a failed refetch over cached preferences disables the toggles and drops the retired list (R3)", async () => {
+      serve({ prefs: { openrouter: [pref(RETIRED, { favorite: true })] } });
+      const { client } = renderWithQuery(<ModelsPage />);
+      await screen.findByText("No longer offered");
+      m.modelPreferences.mockRejectedValue(new ApiError(500, "INTERNAL", "x"));
+      await act(async () => {
+        await client.refetchQueries({ queryKey: ["model-preferences", "openrouter"] });
+      });
+      expect(await screen.findByText("Favorites and hidden models couldn't be loaded.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Favorite GPT-5 Image" })).toBeDisabled();
+      expect(screen.getByRole("switch", { name: "Show GPT-5 Image in picker" })).toBeDisabled();
+      expect(screen.queryByText("No longer offered")).not.toBeInTheDocument();
+    });
+
+    it("keeps the table and Forget when a list refetch fails after the page loaded, with an inline error (R5, AC-08)", async () => {
+      remember("openrouter", [pref(RETIRED, { favorite: true })]);
+      const { client } = renderWithQuery(<ModelsPage />);
+      await screen.findByText("No longer offered");
+      m.models.mockRejectedValue(busy);
+      await act(async () => {
+        await client.refetchQueries({ queryKey: ["models", "openrouter"] });
+      });
+      expect(await screen.findByText("Couldn't load the OpenRouter models.")).toBeInTheDocument();
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Forget" }));
+      await waitFor(() => expect(screen.queryByText(RETIRED)).not.toBeInTheDocument());
+    });
+
+    it("observes rows again after an error then «Try again» that returns equal data (R5)", async () => {
+      m.models.mockRejectedValueOnce(busy);
+      renderWithQuery(<ModelsPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+      await screen.findByText("GPT-5 Image");
+      expect(m.price).not.toHaveBeenCalled();
+      act(() => intersect(rowOf("GPT-5 Image")));
+      expect(await within(rowOf("GPT-5 Image")).findByText("$0.0184 / image")).toBeInTheDocument();
     });
   });
 });

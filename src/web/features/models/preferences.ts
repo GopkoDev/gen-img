@@ -41,7 +41,15 @@ function upsert(old: Prefs | undefined, provider: ProviderId, model: string, cha
  * Change one or both flags of a model (ADR-0030): optimistic per named flag, rollback of that flag only,
  * success writes that flag only; the list is refetched once, after the last sibling mutation settles.
  */
-export function useSetModelPreference(provider: ProviderId, opts: { onError?: (error: unknown) => void } = {}) {
+export function useSetModelPreference(
+  provider: ProviderId,
+  // Hook-level (not per-`mutate`) so every overlapping mutation reports back, each with its own variables.
+  opts: {
+    onError?: (error: unknown, vars: SetPreferenceVars) => void;
+    onSuccess?: (saved: ModelPreference, vars: SetPreferenceVars) => void;
+    onSettled?: (vars: SetPreferenceVars) => void;
+  } = {},
+) {
   const client = useQueryClient();
   const key = modelPreferencesKey(provider);
   const mutationKey = ["set-model-preference", provider] as const;
@@ -64,11 +72,15 @@ export function useSetModelPreference(provider: ProviderId, opts: { onError?: (e
     },
     onError: (error, v, ctx) => {
       if (ctx) client.setQueryData<Prefs>(key, (old) => upsert(old, provider, v.model, ctx.previous));
-      opts.onError?.(error);
+      opts.onError?.(error, v);
     },
-    onSuccess: (saved, v) => client.setQueryData<Prefs>(key, (old) => upsert(old, provider, v.model, named(v, saved))),
+    onSuccess: (saved, v) => {
+      client.setQueryData<Prefs>(key, (old) => upsert(old, provider, v.model, named(v, saved)));
+      opts.onSuccess?.(saved, v);
+    },
     // cancelQueries may have cancelled an in-flight refetch: settle on the server's truth, but only after the last sibling.
-    onSettled: () => {
+    onSettled: (_saved, _error, v) => {
+      opts.onSettled?.(v);
       if (client.isMutating({ mutationKey }) === 1) return client.invalidateQueries({ queryKey: key });
     },
   });

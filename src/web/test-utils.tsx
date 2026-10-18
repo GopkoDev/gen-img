@@ -5,7 +5,7 @@ import type { GenerationSummary } from "../shared/generations";
 
 export function renderWithQuery(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return { ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>), client };
 }
 
 export function summary(i: number, over: Partial<GenerationSummary> = {}): GenerationSummary {

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon, StarIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import type { ModelPreference } from "../../../shared/models";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
 import { useShortPrice } from "../generate/PricePreview";
 import { describeParams } from "./params";
-import { useModelPreferences, useSetModelPreference } from "./preferences";
+import { type SetPreferenceVars, useModelPreferences, useSetModelPreference } from "./preferences";
 
 type ProviderInfo = { id: ProviderId; name: string; configured: boolean };
 
@@ -94,10 +94,9 @@ function ProviderCard({ info }: { info: ProviderInfo }) {
   });
   const prefsQuery = useModelPreferences(id, info.configured);
   const unreadable = prefsQuery.isError;
-  const prefs = prefsQuery.data?.preferences ?? null;
+  const prefs = unreadable ? null : (prefsQuery.data?.preferences ?? null);
   const flags = new Map((prefs ?? []).map((p) => [p.model, p]));
 
-  const toggle = useSetModelPreference(id);
   const [saveFailed, setSaveFailed] = useState<ReadonlySet<string>>(new Set());
   const [forgetFailed, setForgetFailed] = useState<ReadonlySet<string>>(new Set());
   const [forgetting, setForgetting] = useState<ReadonlySet<string>>(new Set());
@@ -107,35 +106,37 @@ function ProviderCard({ info }: { info: ProviderInfo }) {
     else next.delete(key);
     return next;
   };
+  const isForget = (v: SetPreferenceVars) => v.favorite === false && v.hidden === false;
+
+  // Hook-level callbacks run for every overlapping mutation (per-`mutate` ones only for the latest), keyed by model.
+  const toggle = useSetModelPreference(id, {
+    onSuccess: (_saved, v) => {
+      if (!isForget(v)) setSaveFailed((s) => mark(s, v.model, false));
+    },
+    onError: (_error, v) => {
+      if (isForget(v)) setForgetFailed((s) => mark(s, v.model, true));
+      else setSaveFailed((s) => mark(s, v.model, true));
+    },
+    onSettled: (v) => {
+      if (isForget(v)) setForgetting((s) => mark(s, v.model, false));
+    },
+  });
 
   const change = (model: string, flag: { favorite: boolean } | { hidden: boolean }) =>
-    toggle.mutate(
-      { model, ...flag },
-      {
-        onSuccess: () => setSaveFailed((s) => mark(s, model, false)),
-        onError: () => setSaveFailed((s) => mark(s, model, true)),
-      },
-    );
+    toggle.mutate({ model, ...flag });
 
   const forget = (model: string) => {
     setForgetting((s) => mark(s, model, true));
     setForgetFailed((s) => mark(s, model, false));
-    toggle.mutate(
-      { model, favorite: false, hidden: false },
-      {
-        onError: () => setForgetFailed((s) => mark(s, model, true)),
-        onSettled: () => setForgetting((s) => mark(s, model, false)),
-      },
-    );
+    toggle.mutate({ model, favorite: false, hidden: false });
   };
 
   // Prices only for rows that came into view (SAD §4): one observer per table, rows tracked by model id.
-  const tableRef = useRef<HTMLTableElement>(null);
+  const [table, setTable] = useState<HTMLTableElement | null>(null); // callback ref: re-observe whenever the table (re)mounts
   const [inView, setInView] = useState<ReadonlySet<string>>(new Set());
   const list = models.data?.models;
   // biome-ignore lint/correctness/useExhaustiveDependencies: rows are re-observed when the list changes
   useEffect(() => {
-    const table = tableRef.current;
     if (!table) return;
     const observer = new IntersectionObserver((entries) => {
       const seen = entries.filter((e) => e.isIntersecting).map((e) => (e.target as HTMLElement).dataset.model ?? "");
@@ -143,14 +144,14 @@ function ProviderCard({ info }: { info: ProviderInfo }) {
     });
     for (const row of table.querySelectorAll("tbody tr[data-model]")) observer.observe(row);
     return () => observer.disconnect();
-  }, [list]);
+  }, [table, list]);
 
   let body: React.ReactNode;
   if (!info.configured) {
     body = <p className="text-muted-foreground text-sm">{name} isn't configured — add its key to .env.local.</p>;
   } else if (models.isPending) {
     body = <p className="text-muted-foreground text-sm">Loading models…</p>;
-  } else if (models.isError || !list) {
+  } else if (!list) {
     body = (
       <div className="flex flex-wrap items-center gap-3 rounded-md bg-destructive/10 p-3 text-destructive text-sm">
         <p>Couldn't load the {name} models.</p>
@@ -168,10 +169,18 @@ function ProviderCard({ info }: { info: ProviderInfo }) {
       : [];
     body = (
       <>
+        {models.isError && (
+          <div className="mb-2 flex flex-wrap items-center gap-3 rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+            <p>Couldn't load the {name} models.</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => models.refetch()}>
+              Try again
+            </Button>
+          </div>
+        )}
         {unreadable && (
           <p className="mb-2 text-muted-foreground text-sm">Favorites and hidden models couldn't be loaded.</p>
         )}
-        <Table ref={tableRef}>
+        <Table ref={setTable}>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

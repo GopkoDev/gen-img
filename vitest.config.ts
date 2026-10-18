@@ -45,7 +45,7 @@ export default defineConfig({
         },
       },
       {
-        // Timing NFRs of web screens (jsdom) — like `nfr`: last and alone.
+        // Timing NFRs of web screens (jsdom) — like `nfr`: last and alone (group 2, so not in parallel with `nfr`).
         plugins: [react()],
         resolve: { alias },
         test: {
@@ -54,7 +54,7 @@ export default defineConfig({
           include: ["src/web/**/*.nfr.test.tsx"],
           setupFiles: ["tests/helpers/setup-dom.ts"],
           fileParallelism: false,
-          sequence: { groupOrder: 1 },
+          sequence: { groupOrder: 2 },
         },
       },
     ],

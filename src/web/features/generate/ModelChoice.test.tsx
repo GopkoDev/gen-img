@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { modelPreferencesKey } from "@/features/models/preferences";
 import { api } from "@/lib/api";
@@ -279,6 +279,38 @@ describe("GeneratePanel — automatic model choice goes through pickModel (AC-10
     );
     expect(screen.getByRole("link", { name: "Models page" })).toHaveAttribute("href", "/models");
     await expectSelected("Choose a model");
+  });
+
+  it("drops the «input images are hidden» notice once the Owner un-hides a suitable model elsewhere (R4)", async () => {
+    const client = setup({
+      models: { openrouter: [A, B_IN, C] },
+      prefs: { openrouter: [pref("openrouter", "x/b", { hidden: true })] },
+      address: "/?reuse=01SRC&output=1",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("input images are hidden");
+    act(() => {
+      client.setQueryData(modelPreferencesKey("openrouter"), { preferences: [] });
+    });
+    await waitFor(() => expect(screen.queryByText(/are hidden/)).not.toBeInTheDocument());
+  });
+
+  it("after a reuse notice, switching to a provider whose models are all hidden says so for that provider (R4)", async () => {
+    setup({
+      models: { openrouter: [A, B_IN, C], vercel: [V1, V2] },
+      prefs: {
+        openrouter: [pref("openrouter", "x/b", { hidden: true })],
+        vercel: [pref("vercel", "v/one", { hidden: true }), pref("vercel", "v/two", { hidden: true })],
+      },
+      address: "/?reuse=01SRC&output=1",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("input images are hidden");
+    fireEvent.pointerDown(await screen.findByRole("combobox", { name: "Provider" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /Vercel AI Gateway/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("All Vercel AI Gateway models are hidden"));
   });
 
   it("keeps the model the Owner chose selected and marked «hidden» when it is hidden elsewhere", async () => {

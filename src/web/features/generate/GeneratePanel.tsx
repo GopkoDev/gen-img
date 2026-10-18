@@ -170,8 +170,9 @@ export function GeneratePanel() {
   const [loadingSource, setLoadingSource] = useState(false);
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [modelNotice, setModelNotice] = useState<string | null>(null);
-  // Reuse found only hidden models that take input images (AC-13); shown only while no model is selected.
-  const [hiddenInputs, setHiddenInputs] = useState(false);
+  // The last reuse found no visible model that takes input images (AC-13); the notice is derived from the live
+  // preferences at render, so un-hiding elsewhere removes it. Cleared when the Owner switches provider or model.
+  const [reuseNeedsInputs, setReuseNeedsInputs] = useState(false);
   const [removedNote, setRemovedNote] = useState<string | null>(null);
   const [carryOnLoad, setCarryOnLoad] = useState(false);
   // Set when no visible model suited an automatic choice: the model stays empty until the Owner picks one.
@@ -199,7 +200,7 @@ export function GeneratePanel() {
     slowPick.current = null;
     setSourceGone(false);
     setModelNotice(null);
-    setHiddenInputs(false);
+    setReuseNeedsInputs(false);
     setRemovedNote(null);
     setErrors({});
     setRefused([]);
@@ -319,11 +320,12 @@ export function GeneratePanel() {
     return () => clearInterval(timer);
   }, [running]);
 
+  const takesInputs = (x: ImageModel) => x.params.inputs !== undefined;
   // Nothing selected because the Owner hid what would have been picked: say so instead of "none" (AC-13).
   const hiddenNotice =
     modelId || pending || !prefsReady
       ? null
-      : hiddenInputs
+      : reuseNeedsInputs && models.data && hiddenSuitable(models.data.models, prefs, takesInputs)
         ? `The ${provider?.name ?? "provider"} models that take input images are hidden — show one on the`
         : !modelNotice && models.data && hiddenSuitable(models.data.models, prefs)
           ? `All ${provider?.name ?? "provider"} models are hidden — show one on the`
@@ -390,7 +392,6 @@ export function GeneratePanel() {
     const arranged = arrangeModels(list, prefs, modelId);
     const current = list.find((x) => x.id === modelId);
     if (current?.params.inputs) return setModelId(current.id);
-    const takesInputs = (x: ImageModel) => x.params.inputs !== undefined;
     const withInputs = pickModel(arranged, takesInputs);
     if (withInputs) {
       if (prefsQ.isPending) slowPick.current = { suitable: takesInputs };
@@ -399,7 +400,7 @@ export function GeneratePanel() {
     } else {
       noAutoPick.current = true;
       setModelId("");
-      if (hiddenSuitable(list, prefs, takesInputs)) setHiddenInputs(true);
+      if (hiddenSuitable(list, prefs, takesInputs)) setReuseNeedsInputs(true);
       else setModelNotice(`No ${provider?.name ?? "provider"} model takes input images — switch provider.`);
     }
   }, [models.data, pending, prefsReady]);
@@ -488,6 +489,7 @@ export function GeneratePanel() {
   }
 
   function selectModel(id: string) {
+    setReuseNeedsInputs(false);
     noAutoPick.current = false;
     slowPick.current = null;
     setModelId(id);

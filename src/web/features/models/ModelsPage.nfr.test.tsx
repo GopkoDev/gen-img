@@ -42,5 +42,5 @@ describe("models-page NFRs", () => {
       cleanup();
     }
     expect(p95(times)).toBeLessThanOrEqual(300);
-  });
+  }, 60_000); // 21 renders: the test's own timeout, not the measured bound
 });
