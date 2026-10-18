@@ -73,7 +73,7 @@
       "dod": "integration tests with a temp web dir: `/gallery`, `/generations/<id>`, an unknown path → the app page; unknown `/api/*` → error envelope; a cross-site request to `/api/*` still refused",
       "files_hint": ["src/server/spa-fallback.int.test.ts", "src/server/app.ts"],
       "file": "docs/features/app-shell/tasks/t5-spa-fallback-for-sections.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

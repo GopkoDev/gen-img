@@ -9,8 +9,8 @@ files_hint: ["src/server/spa-fallback.int.test.ts", "src/server/app.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T5 — Prove section addresses get the app page and the API stays guarded
