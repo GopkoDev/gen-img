@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Comment, Tag } from "./curation";
 import { type SniffedImage, sniffImage } from "./image-sniff";
 import { type ImageModel, ProviderId } from "./providers";
 
@@ -118,6 +119,8 @@ export const GenerationSummary = z.object({
   imagesReceived: z.number().int(),
   inputsCount: z.number().int().min(0),
   thumbnail: OutputImage,
+  tags: z.array(Tag),
+  hasComment: z.boolean(),
 });
 export type GenerationSummary = z.infer<typeof GenerationSummary>;
 
@@ -140,6 +143,8 @@ export const Generation = z.object({
   durationMs: z.number().int(),
   rawRequest: z.unknown(),
   rawResponse: z.unknown(),
+  tags: z.array(Tag),
+  comment: Comment.nullable(),
 });
 export type Generation = z.infer<typeof Generation>;
 

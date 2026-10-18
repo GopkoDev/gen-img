@@ -12,7 +12,7 @@
 | T3 | Add comment, tag and atomic-delete queries to the generations repo | infra | dmytro.hopko | M | T1, T2 | done | COMMIT |
 | T4 | Let the file store move a generation into staging and purge it | infra | dmytro.hopko | S | — | done | COMMIT |
 | T5 | Curate and delete generations in the service without disturbing running work | app | dmytro.hopko | M | T3, T4 | done | COMMIT |
-| T6 | Expose the curation and delete routes and add tags/comment to the DTOs | ports | dmytro.hopko | M | T5 | todo | — |
+| T6 | Expose the curation and delete routes and add tags/comment to the DTOs | ports | dmytro.hopko | M | T5 | done | COMMIT |
 | T7 | Build the Notes card: comment editor and tag editor (SCR-02) | ui | dmytro.hopko | M | T6 | todo | — |
 | T8 | Build the delete confirmation and its after-effects (SCR-03, SCR-01 notice, SCR-04) | ui | dmytro.hopko | M | T6 | todo | — |
 | T9 | Show tags and a comment marker on gallery tiles (SCR-01) | ui | dmytro.hopko | S | T6 | todo | — |

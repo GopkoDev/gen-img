@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CommentResponse, TagsResponse } from "../../shared/curation";
 import { ErrorResponse } from "../../shared/errors";
 import {
   CurrentJobResponse,
@@ -58,5 +59,12 @@ export const api = {
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
   generations: (cursor?: string) =>
     request(GenerationPage, `/generations${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  setComment: (id: string, body: string) =>
+    request(CommentResponse, `/generations/${encodeURIComponent(id)}/comment`, json("PUT", { body })),
+  addTag: (id: string, tag: string) =>
+    request(TagsResponse, `/generations/${encodeURIComponent(id)}/tags`, json("POST", { tag })),
+  removeTag: (id: string, tag: string) =>
+    request(TagsResponse, `/generations/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`, json("DELETE")),
+  deleteGeneration: (id: string) => request(z.null(), `/generations/${encodeURIComponent(id)}`, json("DELETE")),
   generation: (id: string) => request(Generation, `/generations/${encodeURIComponent(id)}`),
 };

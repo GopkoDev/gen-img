@@ -21,6 +21,8 @@ export function summary(i: number, over: Partial<GenerationSummary> = {}): Gener
     imagesRequested: 1,
     imagesReceived: 1,
     inputsCount: 0,
+    tags: [],
+    hasComment: false,
     thumbnail: {
       position: 1,
       url: `/api/files/generations/${id}/output-1.png`,

@@ -85,7 +85,7 @@
         "src/web/lib/api.ts"
       ],
       "file": "docs/features/curate-gallery/tasks/t6-routes-and-dtos.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

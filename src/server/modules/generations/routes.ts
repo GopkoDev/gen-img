@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import type { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import type { CommentResponse, TagsResponse } from "../../../shared/curation";
 import type {
   CurrentJobResponse,
   Generation,
@@ -65,6 +66,12 @@ async function readStart(req: {
   return { body, files };
 }
 
+async function jsonBody(req: { json(): Promise<unknown> }): Promise<unknown> {
+  return req.json().catch(() => {
+    throw new AppError("VALIDATION_ERROR", "Request body must be JSON", 400);
+  });
+}
+
 const toInput = (img: InputRecord): InputImage => ({
   position: img.position,
   url: `${FILES_PREFIX}${img.path}`,
@@ -124,6 +131,25 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
       images: g.images.map(toImage),
       inputs: g.inputs.map(toInput),
     } satisfies Generation);
+  });
+
+  app.put("/generations/:id/comment", async (c) => {
+    const body = await jsonBody(c.req);
+    return c.json(service.setComment(c.req.param("id"), body) satisfies CommentResponse);
+  });
+
+  app.post("/generations/:id/tags", async (c) => {
+    const body = await jsonBody(c.req);
+    return c.json(service.addTag(c.req.param("id"), body) satisfies TagsResponse);
+  });
+
+  app.delete("/generations/:id/tags/:tag", (c) =>
+    c.json(service.removeTag(c.req.param("id"), c.req.param("tag")) satisfies TagsResponse),
+  );
+
+  app.delete("/generations/:id", (c) => {
+    service.deleteGeneration(c.req.param("id"));
+    return c.body(null, 204);
   });
 
   app.get("/generation-job", (c) => c.json({ job: service.getJob() } satisfies CurrentJobResponse));

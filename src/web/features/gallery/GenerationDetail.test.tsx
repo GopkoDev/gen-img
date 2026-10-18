@@ -33,6 +33,8 @@ const gen = (over: Partial<Generation> = {}): Generation => ({
   durationMs: 23_400,
   rawRequest: { method: "POST", url: "https://openrouter.ai/api/v1/images", body: { prompt: "A cat in a neon city" } },
   rawResponse: { data: [{ b64_json: { $file: "generations/01X/output-1.png" } }] },
+  tags: [],
+  comment: null,
   ...over,
 });
 

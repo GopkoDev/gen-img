@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/routes.ts", "src/server/modules/gen
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T6 — Expose the curation and delete routes and add tags/comment to the DTOs

@@ -37,6 +37,8 @@ const gen = (over: Partial<Generation> = {}): Generation => ({
   durationMs: 9000,
   rawRequest: {},
   rawResponse: {},
+  tags: [],
+  comment: null,
   ...over,
 });
 
