@@ -203,6 +203,21 @@ describe("generations routes", () => {
     expect(fetch.calls.filter((c) => c.url.endsWith("/images"))).toHaveLength(0);
   });
 
+  it("refuses more than 8 input images even when the model is unknown", async () => {
+    t = createTestApp({}, { fetch: openrouter("images-success") }); // no key → no catalog to check against
+    const res = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart(
+        valid,
+        Array.from({ length: 9 }, (_, i) => ({ bytes: TINY_PNG, name: `${i}.png` })),
+      ),
+    });
+    expect(res.status).toBe(400);
+    expect(ErrorResponse.parse(await res.json()).error.details).toEqual({
+      fields: { inputs: "At most 8 input images per generation" },
+    });
+  });
+
   it("refuses a body over the upload limit", async () => {
     t = createTestApp({ openRouterApiKey: KEY }, { fetch: openrouter("images-success") });
     const huge = new Uint8Array(9 * 10 * 1024 * 1024);
