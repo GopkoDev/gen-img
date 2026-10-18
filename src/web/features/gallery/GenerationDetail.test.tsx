@@ -106,6 +106,6 @@ describe("GenerationDetail (SCR-03)", () => {
       throw new ApiError(404, "NOT_FOUND", "Generation not found");
     });
     renderWithQuery(<GenerationDetail id="NOPE" />);
-    expect(await screen.findByText("Generation not found.")).toBeInTheDocument();
+    expect(await screen.findByText("This generation no longer exists.")).toBeInTheDocument();
   });
 });

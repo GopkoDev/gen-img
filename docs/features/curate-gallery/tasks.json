@@ -100,7 +100,7 @@
         "src/web/features/gallery/Notes.test.tsx"
       ],
       "file": "docs/features/curate-gallery/tasks/t7-notes-card-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",

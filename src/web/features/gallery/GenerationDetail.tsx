@@ -8,6 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
 import { Link } from "@/lib/router";
 import type { Generation, RequestedParams } from "../../../shared/generations";
+import { Notes } from "./Notes";
 
 const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter", vercel: "Vercel AI Gateway" };
 
@@ -86,6 +87,7 @@ function Detail({ g }: { g: Generation }) {
           </a>
         ))}
       </div>
+      <Notes g={g} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -158,7 +160,8 @@ export function GenerationDetail({ id }: { id: string }) {
 
   let body: ReactNode;
   if (q.isPending) body = <p className="text-muted-foreground text-sm">Loading…</p>;
-  else if (q.isError && q.error instanceof ApiError && q.error.status === 404) body = <p>Generation not found.</p>;
+  else if (q.isError && q.error instanceof ApiError && q.error.status === 404)
+    body = <p>This generation no longer exists.</p>;
   else if (q.isError)
     body = (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
