@@ -18,6 +18,11 @@ export type GenerationResult = {
   images: ProviderImage[];
   /** Price in USD as the provider stated it; `null` when the answer carried none. */
   costUsd: number | null;
+  /**
+   * The provider's reference for looking up the price later (ADR-0013), when the answer carried no price.
+   * Absent / `null` for providers that always state the price or never report it.
+   */
+  costRef?: string | null;
   /** Parameters the provider reports it applied; `null` = not reported. */
   acceptedParams: Record<string, unknown> | null;
   rawRequest: unknown;
@@ -35,6 +40,9 @@ export class ProviderError extends Error {
   }
 }
 
+/** Outcome of one later price lookup (ADR-0013). */
+export type CostLookup = { status: "known"; costUsd: number } | { status: "not-yet" } | { status: "unavailable" };
+
 export interface ImageProvider {
   readonly id: ProviderId;
   readonly name: string;
@@ -42,4 +50,6 @@ export interface ImageProvider {
   listModels(signal?: AbortSignal): Promise<ImageModel[]>;
   /** Throws `ProviderError` on refusal, failure, timeout (signal aborted) or zero usable images. */
   generate(input: GenerateInput, signal: AbortSignal): Promise<GenerationResult>;
+  /** Optional: look up a deferred price by the result's `costRef`. Adapters without it never yield `pending`. */
+  lookupCost?(costRef: string, signal: AbortSignal): Promise<CostLookup>;
 }

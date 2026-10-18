@@ -23,6 +23,20 @@ export function parseStartRequest(
   return parsed.success ? { ok: true, value: parsed.data } : { ok: false, fields: fieldErrors(parsed.error) };
 }
 
+/**
+ * The cost to record for a provider result (ADR-0013): a stated price is `known`; no price but a cost
+ * reference means the provider reports it later (`pending`); neither means `unavailable` — never zero.
+ */
+export function costFromResult(
+  costUsd: number | null,
+  costRef: string | null | undefined,
+): { costMicros: number | null; costStatus: CostStatus; costRef: string | null } {
+  const ref = costRef ? costRef : null;
+  const stated = toCost(costUsd);
+  if (stated.costStatus === "known") return { ...stated, costRef: ref };
+  return ref ? { costMicros: null, costStatus: "pending", costRef: ref } : { ...stated, costRef: null };
+}
+
 /** Provider USD → integer micro-USD. A missing or malformed price is `unavailable`, never zero. */
 export function toCost(usd: unknown): { costMicros: number | null; costStatus: CostStatus } {
   if (typeof usd !== "number" || !Number.isFinite(usd) || usd < 0)

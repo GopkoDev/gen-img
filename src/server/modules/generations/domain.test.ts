@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkInputFile, MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
-import { checkAgainstModel, parseStartRequest, toCost } from "./domain";
+import { checkAgainstModel, costFromResult, parseStartRequest, toCost } from "./domain";
 
 const model: ImageModel = {
   id: "test/model",
@@ -76,6 +76,25 @@ describe("toCost", () => {
     for (const missing of [undefined, null, Number.NaN, -1, "0.04"]) {
       expect(toCost(missing)).toEqual({ costMicros: null, costStatus: "unavailable" });
     }
+  });
+});
+
+describe("costFromResult", () => {
+  it("uses a stated price, even with a cost reference", () => {
+    expect(costFromResult(0.04, "gen_1")).toEqual({ costMicros: 40000, costStatus: "known", costRef: "gen_1" });
+    expect(costFromResult(0, null)).toEqual({ costMicros: 0, costStatus: "known", costRef: null });
+  });
+
+  it("is pending when the price will come later and unavailable when it never will", () => {
+    expect(costFromResult(null, "gen_1")).toEqual({ costMicros: null, costStatus: "pending", costRef: "gen_1" });
+    expect(costFromResult(null, null)).toEqual({ costMicros: null, costStatus: "unavailable", costRef: null });
+    expect(costFromResult(null, "")).toEqual({ costMicros: null, costStatus: "unavailable", costRef: null });
+  });
+
+  it("accepts the second provider id in a start request", () => {
+    expect(parseStartRequest({ provider: "vercel", model: "bfl/flux-2-pro", prompt: "x", params: { n: 1 } }).ok).toBe(
+      true,
+    );
   });
 });
 

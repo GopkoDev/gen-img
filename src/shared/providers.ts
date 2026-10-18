@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ProviderId = z.enum(["openrouter"]);
+export const ProviderId = z.enum(["openrouter", "vercel"]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
 export const ProvidersResponse = z.object({

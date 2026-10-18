@@ -30,7 +30,7 @@
         "src/server/modules/generations/domain.test.ts"
       ],
       "file": "docs/features/vercel-ai-gateway/tasks/t2-port-and-domain-cost.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

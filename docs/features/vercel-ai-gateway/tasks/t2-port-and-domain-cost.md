@@ -9,8 +9,8 @@ files_hint: ["src/shared/providers.ts", "src/server/modules/providers/port.ts", 
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T2 — Add the provider id, the port's cost reference and the pending-cost rule
