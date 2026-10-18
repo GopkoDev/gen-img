@@ -1,0 +1,154 @@
+{
+  "slug": "vercel-ai-gateway",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the cost_ref migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-05", "AC-06"],
+      "dod": "migration 0005_add_generation_cost_ref applies and reverts cleanly; the pending lookup uses the partial index",
+      "files_hint": [
+        "docs/features/vercel-ai-gateway/migrations/01_add_generation_cost_ref.up.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t1-promote-cost-ref-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Add the provider id, the port's cost reference and the pending-cost rule",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-05", "AC-07"],
+      "dod": "unit tests: costFromResult \u2192 known for a stated price, pending with a reference and no price, unavailable otherwise; ProviderId accepts vercel",
+      "files_hint": [
+        "src/shared/providers.ts",
+        "src/server/modules/providers/port.ts",
+        "src/server/modules/generations/domain.ts",
+        "src/server/modules/generations/domain.test.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t2-port-and-domain-cost.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Build the Vercel adapter: catalog and the three call paths",
+      "layer": "infra",
+      "deps": ["T2"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-08", "AC-13"],
+      "dod": "adapter unit tests on fixtures: catalog \u2192 image-producing models only with n/inputs per kind; generations, edits (inputs) and chat paths send the documented bodies; images decoded and redacted; chat id returned as cost reference; errors carry the gateway reason; abort \u2192 timeout error; no key \u2192 not configured",
+      "files_hint": [
+        "src/server/modules/providers/vercel.ts",
+        "src/server/modules/providers/vercel.test.ts",
+        "tests/fixtures/vercel/"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t3-vercel-adapter-generate.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Look up Vercel prices and register the adapter",
+      "layer": "infra",
+      "deps": ["T3"],
+      "acs": ["AC-05", "AC-07", "AC-13"],
+      "dod": "unit tests: lookup \u2192 known (total_cost), BYOK \u2192 upstream cost or unavailable, \u00abnot found\u00bb \u2192 not-yet, 401/other failure \u2192 unavailable, network error \u2192 not-yet; registry lists OpenRouter then Vercel",
+      "files_hint": [
+        "src/server/modules/providers/vercel.ts",
+        "src/server/modules/providers/vercel.test.ts",
+        "src/server/modules/providers/registry.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t4-vercel-adapter-lookup.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Store cost references and resolve pending costs in the repo",
+      "layer": "infra",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-05", "AC-06"],
+      "dod": "integration tests: insert keeps cost_ref; listPendingCosts returns provider, ref and answer time; resolveCost updates only pending rows (late lookups are no-ops)",
+      "files_hint": [
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/repo.int.test.ts",
+        "tests/helpers/generations.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t5-repo-pending-costs.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Resolve pending costs in the background and resume them on boot",
+      "layer": "app",
+      "deps": ["T4", "T5"],
+      "acs": ["AC-05", "AC-06", "AC-07", "AC-11"],
+      "dod": "tests with a fake clock/timers: schedule 5 s doubling to 60 s, \u2264 8 attempts, deadline answer+10 min \u2192 unavailable; known resolves; boot resume (young \u2192 scheduled, overdue \u2192 one lookup then unavailable, no ref \u2192 unavailable); service saves pending + tracks; one job slot across providers",
+      "files_hint": [
+        "src/server/modules/generations/cost-sync.ts",
+        "src/server/modules/generations/cost-sync.test.ts",
+        "src/server/modules/generations/service.ts",
+        "src/server/modules/generations/service.int.test.ts",
+        "src/server/app.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t6-cost-resolver.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Run the Vercel flow end to end through the API",
+      "layer": "ports",
+      "deps": ["T6"],
+      "acs": ["AC-01", "AC-04", "AC-09", "AC-10", "AC-12", "AC-14"],
+      "dod": "integration tests via app.request(): providers list shows both; Vercel models list; start (JSON and multipart) \u2192 job \u2192 detail pending \u2192 resolved known by the fake lookup; validation against Vercel limits; not-configured 409 while OpenRouter works; foreign page refused; mixed gallery newest first with provider",
+      "files_hint": [
+        "src/server/modules/generations/vercel-flow.int.test.ts",
+        "src/server/modules/providers/routes.int.test.ts",
+        "tests/helpers/test-app.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t7-vercel-routes-flow.md",
+      "status": "todo"
+    },
+    {
+      "id": "T8",
+      "title": "Add the provider selector to the generate panel",
+      "layer": "ui",
+      "deps": ["T7"],
+      "acs": ["AC-01", "AC-03", "AC-09", "AC-10", "AC-11"],
+      "dod": "web tests (mocked api): first configured provider preselected; switching loads that provider's models; Vercel models show no seed/aspect ratio and Images max per kind; unconfigured provider shows the AI_GATEWAY_API_KEY hint; in-progress job disables provider + model",
+      "files_hint": [
+        "src/web/features/generate/GeneratePanel.tsx",
+        "src/web/features/generate/ProviderSelect.test.tsx"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t8-provider-selector-ui.md",
+      "status": "todo"
+    },
+    {
+      "id": "T9",
+      "title": "Show pending costs that update themselves, and provider names",
+      "layer": "ui",
+      "deps": ["T7"],
+      "acs": ["AC-05", "AC-12"],
+      "dod": "web tests: detail shows \u00abpending\u00bb (never $) and refetches every 5 s until resolved; gallery tile shows \u00abcost pending\u00bb and the gallery refetches every 10 s while any tile is pending; provider names OpenRouter / Vercel AI Gateway",
+      "files_hint": [
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/PendingCost.test.tsx",
+        "src/web/lib/format.ts"
+      ],
+      "file": "docs/features/vercel-ai-gateway/tasks/t9-pending-cost-ui.md",
+      "status": "todo"
+    },
+    {
+      "id": "T10",
+      "title": "Prove OpenRouter is unchanged and the NFRs hold with two providers",
+      "layer": "tests",
+      "deps": ["T7"],
+      "acs": ["AC-13", "AC-15"],
+      "dod": "tests: OpenRouter request body and cost handling identical to before (fixture comparison); stored rows for all three Vercel paths contain neither the key nor base64; mixed 1 000-row gallery page \u2264 300 ms p95 (nfr project)",
+      "files_hint": ["src/server/nfr.int.test.ts", "src/server/modules/generations/regression.int.test.ts"],
+      "file": "docs/features/vercel-ai-gateway/tasks/t10-regression-and-nfr.md",
+      "status": "todo"
+    }
+  ]
+}
