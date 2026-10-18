@@ -9,8 +9,8 @@ files_hint: ["src/shared/model-groups.ts", "src/shared/model-groups.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or
