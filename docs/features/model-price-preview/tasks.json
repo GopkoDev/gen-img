@@ -1,0 +1,94 @@
+{
+  "slug": "model-price-preview",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Define the shared price shape and the estimate function",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-05"],
+      "dod": "unit tests: per-image exact and range estimates incl. input images, rounding up to the cent, \u00ab< $0.01\u00bb, per-token history estimate, unknown \u2192 no estimate",
+      "files_hint": ["src/shared/pricing.ts", "src/shared/pricing.test.ts"],
+      "file": "docs/features/model-price-preview/tasks/t1-price-shape-and-estimate.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Map OpenRouter's per-model endpoints pricing to the price shape",
+      "layer": "infra",
+      "deps": ["T1"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05"],
+      "dod": "adapter tests over recorded fixtures: per-image exact (qwen), per-image range over variants/endpoints, input_image per image, per-token (gpt-image-1), empty endpoints \u2192 unknown, failure \u2192 ProviderError, no authorization header",
+      "files_hint": [
+        "src/server/modules/providers/port.ts",
+        "src/server/modules/providers/openrouter.ts",
+        "src/server/modules/providers/openrouter-price.test.ts",
+        "tests/fixtures/openrouter/"
+      ],
+      "file": "docs/features/model-price-preview/tasks/t2-openrouter-price.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Map Vercel's inline model-list pricing to the price shape",
+      "layer": "infra",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-01", "AC-03", "AC-04", "AC-05"],
+      "dod": "adapter tests over a fixture trimmed from the real /v1/models: `image` \u2192 exact, size list \u2192 range (operation entries ignored), input/output tokens \u2192 per-token, `{}` \u2192 unknown, unknown model \u2192 refresh once then unknown",
+      "files_hint": [
+        "src/server/modules/providers/vercel.ts",
+        "src/server/modules/providers/vercel-price.test.ts",
+        "tests/fixtures/vercel/"
+      ],
+      "file": "docs/features/model-price-preview/tasks/t3-vercel-price.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Expose the model price with a per-model 10-minute cache",
+      "layer": "ports",
+      "deps": ["T2", "T3"],
+      "acs": ["AC-04", "AC-07", "AC-09", "AC-10"],
+      "dod": "integration tests: price served and cached (\u2264 1 provider request per model per 10 min, injected clock), failure \u2192 502 not cached, unknown model \u2192 404 without a price request, not configured \u2192 409, foreign page \u2192 403",
+      "files_hint": [
+        "src/server/modules/providers/prices.ts",
+        "src/server/modules/providers/routes.ts",
+        "src/server/modules/providers/prices.int.test.ts",
+        "src/server/app.ts"
+      ],
+      "file": "docs/features/model-price-preview/tasks/t4-price-route-and-cache.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Expose the Owner's known cost history per provider and model",
+      "layer": "ports",
+      "deps": ["T1"],
+      "acs": ["AC-05", "AC-06", "AC-09"],
+      "dod": "integration tests: only known costs of the same provider+model, last \u2264 20, average per received image in micro-USD, count 0 \u2192 null, foreign page \u2192 403; NFR \u2264 50 ms p95 with 1 000 generations in the nfr project",
+      "files_hint": [
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/cost-history.int.test.ts"
+      ],
+      "file": "docs/features/model-price-preview/tasks/t5-cost-history.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Show the price and the estimate in the generate panel (SCR-01)",
+      "layer": "ui",
+      "deps": ["T4", "T5"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-07", "AC-08"],
+      "dod": "web tests of every SCR-01 price state; estimate follows images/inputs; provider/model switch shows the new model's price and keeps the step-6 carry-over tests green; Generate never disabled by pricing",
+      "files_hint": [
+        "src/web/lib/api.ts",
+        "src/web/features/generate/PricePreview.tsx",
+        "src/web/features/generate/PricePreview.test.tsx",
+        "src/web/features/generate/GeneratePanel.tsx"
+      ],
+      "file": "docs/features/model-price-preview/tasks/t6-price-preview-ui.md",
+      "status": "todo"
+    }
+  ]
+}
