@@ -59,7 +59,7 @@ describe("generations service", () => {
 
   function build(
     provider: ImageProvider,
-    opts: { timeoutMs?: number; failCommit?: boolean; failStage?: boolean } = {},
+    opts: { timeoutMs?: number; failCommit?: boolean; failStage?: boolean; failSecondImage?: boolean } = {},
   ) {
     const registry = registryOf([provider]);
     const files = createFileStore(t.dataDir);
@@ -72,6 +72,13 @@ describe("generations service", () => {
       files.stage = async () => {
         throw new Error("ENOSPC: no space left on device");
       };
+    if (opts.failSecondImage) {
+      const real = files.stage;
+      files.stage = async (id, images) => {
+        await real(id, images.slice(0, 1)); // the first image lands in staging…
+        throw new Error("ENOSPC: no space left on device"); // …the second does not
+      };
+    }
     return createGenerationsService({
       providers: registry,
       catalog: createModelCatalog(registry),

@@ -118,7 +118,11 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     }
     const job = deps.jobs.start();
     running = run(job, parsed).catch((err) => {
-      deps.jobs.fail({ code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) });
+      try {
+        deps.jobs.fail({ code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) });
+      } catch (inner) {
+        console.error("generations: job failed and could not be recorded", err, inner); // never crash the server
+      }
     });
     return job;
   }
