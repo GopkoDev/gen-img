@@ -62,6 +62,14 @@ describe("model price route", () => {
     expect((await t.app.request("/api/providers/openrouter/price")).status).toBe(400);
   });
 
+  it("never sends an unchecked model id to the provider when the model list can't be loaded", async () => {
+    const fetch = fakeFetch((url) => (url.endsWith("/images/models") ? "network-error" : { body: {} }));
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch });
+    const res = await t.app.request("/api/providers/openrouter/price?model=any%2Fthing");
+    expect(res.status).toBe(502);
+    expect(priceCalls(fetch)).toHaveLength(0);
+  });
+
   it("refuses a foreign page and an unconfigured provider", async () => {
     t = createTestApp({}, { fetch: openrouter(() => ({ body: {} })) });
     expect((await t.app.request(`/api/providers/openrouter/price?model=${QWEN}`)).status).toBe(409);

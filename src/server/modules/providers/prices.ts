@@ -1,6 +1,7 @@
 import type { PriceResponse } from "../../../shared/pricing";
 import { AppError } from "../../lib/errors";
 import type { ModelCatalog } from "./catalog";
+import { ProviderError } from "./port";
 import type { ProviderRegistry } from "./registry";
 
 export const PRICE_TTL_MS = 10 * 60 * 1000; // same as the model list (spec §6)
@@ -19,9 +20,10 @@ export function createPriceCatalog(providers: ProviderRegistry, catalog: ModelCa
       const key = `${providerId}\u0000${modelId}`;
       const hit = cache.get(key);
       if (hit && now() - hit.at < PRICE_TTL_MS) return hit.value;
-      // An id the catalog doesn't know never reaches a provider URL (spec §6.1, AC-10).
-      if ((await catalog.find(providerId, modelId)) === undefined)
-        throw new AppError("NOT_FOUND", "This model is not offered by the provider", 404);
+      // Only ids the catalog confirms reach a provider URL (spec §6.1, AC-10) — also when the catalog is down.
+      const known = await catalog.find(providerId, modelId);
+      if (known === undefined) throw new AppError("NOT_FOUND", "This model is not offered by the provider", 404);
+      if (known === null) throw new ProviderError(provider.id, null, "The model list couldn't be loaded");
       const at = now();
       const price = provider.priceOf ? await provider.priceOf(modelId) : { kind: "unknown" as const };
       const value: PriceResponse = { price, fetchedAt: new Date(at).toISOString() };

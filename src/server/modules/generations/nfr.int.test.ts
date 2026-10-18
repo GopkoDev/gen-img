@@ -170,3 +170,31 @@ describe("model-price-preview NFRs", () => {
     expect(p95(runs)).toBeLessThanOrEqual(50);
   });
 });
+
+describe("model-price-preview NFRs — price", () => {
+  let t: ReturnType<typeof createTestApp>;
+  afterEach(() => t.cleanup());
+
+  it("cached price ≤ 50 ms p95; first pick adds ≤ 100 ms p95 on top of the provider's answer", async () => {
+    const { fakeFetch, fixture } = await import("../../../../tests/helpers/fake-fetch");
+    let answeredAt = 0;
+    const fetch = fakeFetch((url) => {
+      if (url.endsWith("/images/models")) return { body: fixture("openrouter/models.json") };
+      answeredAt = performance.now();
+      return { body: fixture("openrouter/endpoints/qwen_qwen-image-2.1-turbo.json") };
+    });
+    let clock = 0;
+    t = createTestApp({ openRouterApiKey: "k" }, { fetch, now: () => clock });
+    const url = "/api/providers/openrouter/price?model=qwen%2Fqwen-image-2.1-turbo";
+    await t.app.request("/api/providers/openrouter/models"); // the panel has loaded the model list
+    const first: number[] = [];
+    for (let i = 0; i <= 20; i++) {
+      clock += 11 * 60 * 1000; // expire the cache: every request is a first pick
+      expect((await t.app.request(url)).status).toBe(200);
+      if (i > 0) first.push(performance.now() - answeredAt); // warm-up run not measured
+    }
+    const cached = await timed(20, async () => expect((await t.app.request(url)).status).toBe(200));
+    expect(p95(first)).toBeLessThanOrEqual(100);
+    expect(p95(cached)).toBeLessThanOrEqual(50);
+  });
+});
