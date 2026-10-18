@@ -28,6 +28,8 @@ export type AppDeps = {
   timers?: Timers;
   /** Provider request timeout; spec §6: 180 s. */
   generationTimeoutMs?: number;
+  /** Published-price lookup timeout (default 10 s) — a hung provider must end in «couldn't load». */
+  priceTimeoutMs?: number;
 };
 
 export const GENERATION_TIMEOUT_MS = 180_000;
@@ -44,7 +46,11 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
 
   const providers = createProviderRegistry(deps.config, deps.fetch);
   const catalog = createModelCatalog(providers, deps.now);
-  registerProvidersRoutes(api, { providers, catalog, prices: createPriceCatalog(providers, catalog, deps.now) });
+  registerProvidersRoutes(api, {
+    providers,
+    catalog,
+    prices: createPriceCatalog(providers, catalog, deps.now, deps.priceTimeoutMs),
+  });
 
   const files = createFileStore(deps.config.dataDir);
   const repo = createGenerationsRepo(deps.db);

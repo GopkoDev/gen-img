@@ -242,5 +242,35 @@ describe("GeneratePanel (SCR-01)", () => {
     fireEvent.change(screen.getByLabelText("Images"), { target: { value: "3" } });
     expect(await screen.findByText("Estimate ≈ $0.06 for 3 images")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
+
+    // the estimate never leaves the browser (AC-08): the request carries exactly the form's fields
+    fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "A red square" } });
+    m.startGeneration.mockResolvedValue({ job: job({}) });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    await waitFor(() => expect(m.startGeneration).toHaveBeenCalled());
+    const [sent] = m.startGeneration.mock.calls[0] ?? [];
+    expect(JSON.stringify(sent)).not.toMatch(/estimate|price|cost/i);
+  });
+
+  it("refreshes the per-token estimate once a generation finishes", async () => {
+    configured();
+    m.price.mockResolvedValue({ price: { kind: "per-token" }, fetchedAt: new Date().toISOString() });
+    m.costHistory.mockResolvedValue({ count: 0, perImageMicros: null });
+    m.currentJob.mockResolvedValue({ job: job({}) }); // running
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText(/No estimate before generating/)).toBeInTheDocument();
+    m.costHistory.mockResolvedValue({ count: 1, perImageMicros: 60_000 });
+    m.currentJob.mockResolvedValue({ job: job({ status: "succeeded", generationId: "01DONE" }) });
+    expect(await screen.findByText(/Estimate ≈ \$0\.06/, {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("says «Price unknown» for a model the provider doesn't offer", async () => {
+    configured();
+    m.price.mockImplementation(async () => {
+      throw new ApiError(404, "NOT_FOUND", "This model is not offered by the provider");
+    });
+    renderWithQuery(<GeneratePanel />);
+    expect(await screen.findByText("Price unknown")).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't load/)).not.toBeInTheDocument();
   });
 });

@@ -52,6 +52,13 @@ describe("model price route", () => {
     expect((await t.app.request(`/api/providers/openrouter/price?model=${encodeURIComponent(QWEN)}`)).status).toBe(200);
   });
 
+  it("gives up on a price lookup that hangs, so the panel can say «couldn't load»", async () => {
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch: openrouter(() => "hang"), priceTimeoutMs: 50 });
+    const res = await t.app.request(`/api/providers/openrouter/price?model=${encodeURIComponent(QWEN)}`);
+    expect(res.status).toBe(502);
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe("PROVIDER_ERROR");
+  });
+
   it("answers an unknown model as not found without asking for its price", async () => {
     const fetch = openrouter(() => ({ body: {} }));
     t = createTestApp({ openRouterApiKey: KEY }, { fetch });

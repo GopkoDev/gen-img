@@ -5,12 +5,18 @@ import { ProviderError } from "./port";
 import type { ProviderRegistry } from "./registry";
 
 export const PRICE_TTL_MS = 10 * 60 * 1000; // same as the model list (spec §6)
+export const PRICE_TIMEOUT_MS = 10_000;
 
 /**
  * Published prices per (provider, model), cached 10 minutes (ADR-0020, SAD §8). Only models the provider's
  * catalog offers are looked up; failures are not cached, so the next selection tries again.
  */
-export function createPriceCatalog(providers: ProviderRegistry, catalog: ModelCatalog, now: () => number = Date.now) {
+export function createPriceCatalog(
+  providers: ProviderRegistry,
+  catalog: ModelCatalog,
+  now: () => number = Date.now,
+  timeoutMs: number = PRICE_TIMEOUT_MS,
+) {
   const cache = new Map<string, { value: PriceResponse; at: number }>();
 
   return {
@@ -25,7 +31,9 @@ export function createPriceCatalog(providers: ProviderRegistry, catalog: ModelCa
       if (known === undefined) throw new AppError("NOT_FOUND", "This model is not offered by the provider", 404);
       if (known === null) throw new ProviderError(provider.id, null, "The model list couldn't be loaded");
       const at = now();
-      const price = provider.priceOf ? await provider.priceOf(modelId) : { kind: "unknown" as const };
+      const price = provider.priceOf
+        ? await provider.priceOf(modelId, AbortSignal.timeout(timeoutMs))
+        : { kind: "unknown" as const };
       const value: PriceResponse = { price, fetchedAt: new Date(at).toISOString() };
       cache.set(key, { value, at });
       return value;

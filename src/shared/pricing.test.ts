@@ -7,6 +7,16 @@ const exact = (usd: number, input: number | null = null): ModelPrice => ({
   input: input === null ? null : { minUsd: input, maxUsd: input },
 });
 
+describe("a published free price", () => {
+  it("is shown as $0.00 — free is a published price, unlike «unknown»", () => {
+    expect(describeUnitPrice(exact(0))).toMatch(/^\$0\.00 \/ image/);
+    expect(describeEstimate(estimate(exact(0), { images: 2, inputs: 0 }), 2, 0)).toMatch(
+      /^Estimate ≈ \$0\.00 for 2 images/,
+    );
+    expect(describeUnitPrice({ kind: "unknown" })).not.toMatch(/\$0/);
+  });
+});
+
 describe("estimate", () => {
   it("multiplies a per-image price by the number of images and adds per-image inputs", () => {
     expect(estimate(exact(0.0184), { images: 2, inputs: 0 })).toEqual({

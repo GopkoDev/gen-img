@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { describeEstimate, describeUnitPrice, estimate } from "../../../shared/pricing";
 import type { ProviderId } from "../../../shared/providers";
 
@@ -20,6 +20,9 @@ export function PriceLine({ provider, model }: { provider: ProviderId; model: st
   const q = usePrice(provider, model);
   if (!model) return null;
   if (q.isPending) return <p className="text-muted-foreground text-sm">Price: loading…</p>;
+  // A model the provider doesn't offer has no published price — that is «unknown», not a failed load.
+  if (q.isError && q.error instanceof ApiError && q.error.status === 404)
+    return <p className="text-muted-foreground text-sm">Price unknown</p>;
   if (q.isError) return <p className="text-muted-foreground text-sm">Price unknown — couldn't load</p>;
   const { price } = q.data;
   if (price.kind === "per-token")

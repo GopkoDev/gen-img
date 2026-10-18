@@ -324,8 +324,10 @@ export function GeneratePanel() {
   // When a generation finishes, the gallery has a new item.
   const lastStatus = useRef<Job["status"] | undefined>(undefined);
   useEffect(() => {
-    if (lastStatus.current === "running" && job?.status === "succeeded")
+    if (lastStatus.current === "running" && job?.status === "succeeded") {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["cost-history"] }); // a new known cost refines per-token estimates
+    }
     lastStatus.current = job?.status;
   }, [job?.status, qc]);
 
