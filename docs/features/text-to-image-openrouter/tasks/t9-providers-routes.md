@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/providers/routes.ts", "src/server/modules/provi
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T9 — Expose providers and the cached model catalog

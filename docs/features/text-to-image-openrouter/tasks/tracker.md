@@ -15,7 +15,7 @@
 | T6 | Write the generations repo: atomic insert, gallery page, detail, recorded path lookup | infra | dmytro.hopko | M | T1, T2 | done | COMMIT |
 | T7 | Run generations as a single-slot job and save results atomically | app | dmytro.hopko | M | T4, T5, T6 | done | COMMIT |
 | T8 | Guard every API request by Host, Origin and Fetch Metadata | wiring | dmytro.hopko | S | — | done | COMMIT |
-| T9 | Expose providers and the cached model catalog | ports | dmytro.hopko | S | T4 | todo | — |
+| T9 | Expose providers and the cached model catalog | ports | dmytro.hopko | S | T4 | done | COMMIT |
 | T10 | Expose generations, job and file routes and wire the app | ports | dmytro.hopko | M | T7, T8, T9 | todo | — |
 | T11 | Add the typed web API client and the two-route router | ui | dmytro.hopko | S | T10 | todo | — |
 | T12 | Build the generate panel (SCR-01) in all its states | ui | dmytro.hopko | M | T11 | todo | — |

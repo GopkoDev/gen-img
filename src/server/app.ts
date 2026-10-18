@@ -4,12 +4,19 @@ import type { Db } from "./db/client";
 import { type Config, DEV_UI_PORT } from "./lib/config";
 import { notFound, onError } from "./lib/errors";
 import { requestGuard } from "./lib/request-guard";
+import { createModelCatalog } from "./modules/providers/catalog";
+import { createProviderRegistry } from "./modules/providers/registry";
+import { registerProvidersRoutes } from "./modules/providers/routes";
 import { registerSystemRoutes } from "./modules/system/routes";
 
 /** Everything a module needs is passed in explicitly — no global singletons, so tests build an app with fakes. */
 export type AppDeps = {
   config: Config;
   db: Db;
+  /** Outbound HTTP for provider adapters — tests pass a fixture-backed fake. */
+  fetch?: typeof fetch;
+  /** Clock (epoch ms) for caches. */
+  now?: () => number;
 };
 
 export type CreateAppOptions = {
@@ -21,6 +28,10 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
   const api = new Hono();
   api.use("*", requestGuard([deps.config.port, DEV_UI_PORT]));
   registerSystemRoutes(api, deps);
+
+  const providers = createProviderRegistry(deps.config, deps.fetch);
+  const catalog = createModelCatalog(providers, deps.now);
+  registerProvidersRoutes(api, { providers, catalog });
 
   const app = new Hono();
   app.onError(onError);

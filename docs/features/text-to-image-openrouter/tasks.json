@@ -130,7 +130,7 @@
         "src/shared/providers.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t9-providers-routes.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T10",
