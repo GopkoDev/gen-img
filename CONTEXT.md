@@ -8,7 +8,9 @@ updated_at: "2026-10-18"
 ## Glossary
 
 - Cost status — whether a generation's price is `known` (an exact amount), `pending` (expected to arrive later) or `unavailable` (the provider gave none). NOT a zero price: an unknown cost is never shown or stored as free.
+- Comment — the Owner's own free-text note on a generation (one per generation, editable, may be empty). NOT the prompt: the prompt was sent to the provider, the comment never is.
 - Cost lookup — gen-img asking a provider, some time after a generation, for the price it did not state in its answer; it ends with a known amount or «unavailable». NOT a price estimate made before generating (roadmap step 7).
+- Deletion — the Owner removing a generation for good: its record, comment, tags, output images and input copies disappear together, with no undo. NOT hiding or archiving: nothing of a deleted generation stays on the machine.
 - Gallery — the owner's browsable list of every saved generation, newest first, with a detail view per generation. NOT a provider's playground history: the gallery lives only on the owner's machine.
 - Generation — one request the owner sent to a provider together with everything it produced and cost: prompt, model, parameters, output images, cost, duration, raw request/response. NOT a single image: one generation can hold several output images.
 - Image model — a provider-offered model that can produce images, identified by the provider's model id. NOT a text-only chat model.
@@ -16,10 +18,12 @@ updated_at: "2026-10-18"
 - Output image — an image file a provider returned for a generation, stored on the owner's machine. NOT an input image (an image the owner attaches to a prompt — roadmap step 3).
 - Owner — the single person who runs gen-img on their own machine and holds the provider API keys. The only human role; there are no accounts, admins or guests.
 - Provider — an external image-generation service gen-img calls with the owner's key (OpenRouter, Vercel AI Gateway). NOT a model: one provider offers many image models.
+- Tag — a short label the Owner attaches to a generation to group it with others (normalized: trimmed, lower-case; a generation holds each tag once). NOT a model or provider attribute: tags come only from the Owner.
 
 ## Invariants
 
 - A generation is saved only together with all of its output images and copies of all of its input images — never a record without its image files, never image files without a record.
+- A deletion is all-or-nothing too: a generation's record and all its files disappear together — never a record whose files are gone, never files of a deleted record that stay reachable.
 - A provider API key never leaves the server process — it is never shown to the owner's browser, stored in a generation's raw request, or written to logs.
 - The app is reachable only from the owner's own machine.
 
