@@ -54,7 +54,7 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     prices: createPriceCatalog(providers, catalog, deps.now, deps.priceTimeoutMs),
   });
 
-  registerModelsRoutes(api, { repo: createModelsRepo(deps.db), providers, catalog });
+  registerModelsRoutes(api, { repo: createModelsRepo(deps.db, deps.now), providers, catalog });
 
   const files = createFileStore(deps.config.dataDir);
   const repo = createGenerationsRepo(deps.db);

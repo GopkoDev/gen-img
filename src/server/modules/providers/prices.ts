@@ -45,7 +45,11 @@ export function createPriceCatalog(
     // Only ids the catalog confirms reach a provider URL (spec §6.1, AC-10) — also when the catalog is down.
     const known = await catalog.find(providerId, modelId);
     if (known === undefined) throw new AppError("NOT_FOUND", "This model is not offered by the provider", 404);
-    if (known === null) throw new ProviderError(provider.id, null, "The model list couldn't be loaded");
+    if (known === null) {
+      const error = new ProviderError(provider.id, null, "The model list couldn't be loaded");
+      failures.set(key, { error, at: now() });
+      throw error;
+    }
     try {
       const price = provider.priceOf
         ? await limited(() =>

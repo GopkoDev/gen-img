@@ -136,6 +136,37 @@ describe("price lookups: caching", () => {
     expect((await retry).price).toEqual(PRICE);
   });
 
+  it("an unloadable model list is remembered as a failure for 60 s too", async () => {
+    let listCalls = 0;
+    const provider = {
+      id: "openrouter",
+      name: "openrouter",
+      configured: true,
+      async listModels() {
+        listCalls++;
+        throw new ProviderError("openrouter", 503, "list down");
+      },
+      async priceOf() {
+        return PRICE;
+      },
+    } as unknown as ImageProvider;
+    let t = 1_000_000;
+    const registry = registryOf([provider]);
+    const prices = createPriceCatalog(
+      registry,
+      createModelCatalog(registry, () => t),
+      () => t,
+    );
+    await expect(prices.price("openrouter", "m1")).rejects.toBeInstanceOf(ProviderError);
+    expect(listCalls).toBe(1);
+    t += 30_000;
+    await expect(prices.price("openrouter", "m1")).rejects.toBeInstanceOf(ProviderError);
+    expect(listCalls).toBe(1); // answered from the failure cache
+    t += 31_000;
+    await expect(prices.price("openrouter", "m1")).rejects.toBeInstanceOf(ProviderError);
+    expect(listCalls).toBe(2);
+  });
+
   it("successes are cached for 10 minutes", async () => {
     const { a, clock, prices } = setup();
     const first = prices.price("openrouter", "m1");

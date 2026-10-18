@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ModelPreference } from "../../../shared/models";
+import type { ProviderId } from "../../../shared/providers";
 import type { Db } from "../../db/client";
 
 const Row = z
@@ -23,7 +24,7 @@ const Row = z
 
 export type PreferenceFlags = { favorite?: boolean; hidden?: boolean };
 
-export function createModelsRepo(db: Db) {
+export function createModelsRepo(db: Db, now: () => number = Date.now) {
   const listStmt = db.prepare("SELECT * FROM model_preferences WHERE provider = ? ORDER BY model");
   const getStmt = db.prepare("SELECT * FROM model_preferences WHERE provider = ? AND model = ?");
   const upsertStmt = db.prepare(
@@ -33,12 +34,12 @@ export function createModelsRepo(db: Db) {
   const deleteStmt = db.prepare("DELETE FROM model_preferences WHERE provider = ? AND model = ?");
 
   return {
-    list(provider: string): ModelPreference[] {
+    list(provider: ProviderId): ModelPreference[] {
       return listStmt.all(provider).map((r) => Row.parse(r));
     },
 
     /** Merges the named flags into the stored row: upsert, or delete when both end off. */
-    set(provider: string, model: string, flags: PreferenceFlags, now: Date = new Date()): ModelPreference {
+    set(provider: ProviderId, model: string, flags: PreferenceFlags): ModelPreference {
       const stored = getStmt.get(provider, model);
       const current = stored ? Row.parse(stored) : undefined;
       const favorite = flags.favorite ?? current?.favorite ?? false;
@@ -47,7 +48,7 @@ export function createModelsRepo(db: Db) {
         deleteStmt.run(provider, model);
         return { provider, model, favorite, hidden, updatedAt: null };
       }
-      const updatedAt = now.toISOString();
+      const updatedAt = new Date(now()).toISOString();
       upsertStmt.run(provider, model, favorite ? 1 : 0, hidden ? 1 : 0, updatedAt);
       return { provider, model, favorite, hidden, updatedAt };
     },

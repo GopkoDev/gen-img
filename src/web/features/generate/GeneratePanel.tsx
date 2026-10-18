@@ -174,6 +174,8 @@ export function GeneratePanel() {
   const [carryOnLoad, setCarryOnLoad] = useState(false);
   // Set when no visible model suited an automatic choice: the model stays empty until the Owner picks one.
   const noAutoPick = useRef(false);
+  // Set when an automatic choice was made before slow preferences arrived: the rule it used, so it can be redone.
+  const slowPick = useRef<{ suitable?: (m: ImageModel) => boolean } | null>(null);
 
   // Thumbnails use object URLs; release the remaining ones when the panel goes away.
   const attachmentsRef = useRef(attachments);
@@ -192,6 +194,7 @@ export function GeneratePanel() {
 
   /** Re-run: same provider, model, prompt, parameters and stored inputs; reuse: one output, empty prompt (ADR-0019). */
   function applySource(g: Generation, relation: "rerun" | "reuse", output?: number) {
+    slowPick.current = null;
     setSourceGone(false);
     setModelNotice(null);
     setRemovedNote(null);
@@ -320,6 +323,7 @@ export function GeneratePanel() {
     if (modelId || !models.data || !prefsReady || noAutoPick.current) return;
     const first = pickModel(arrangeModels(models.data.models, prefs));
     if (first) {
+      if (prefsQ.isPending) slowPick.current = {};
       setModelId(first.id);
       if (carryOnLoad) {
         setCarryOnLoad(false);
@@ -327,6 +331,24 @@ export function GeneratePanel() {
       }
     }
   }, [modelId, models.data, pending, prefsReady]);
+
+  // Slow preferences: an automatic choice made from the plain list is redone once they arrive, unless the Owner
+  // has chosen since (selectModel clears it). Same suitability rule as the original choice; once only.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the first preferences arrive
+  useEffect(() => {
+    const rule = slowPick.current;
+    if (!rule || prefsQ.isPending || !models.data || pending || !modelId) return;
+    slowPick.current = null;
+    if (prefs === null) return;
+    const list = models.data.models;
+    const ideal = pickModel(arrangeModels(list, prefs, modelId), rule.suitable);
+    const hidden = prefs.some((p) => p.model === modelId && p.hidden);
+    const favorite = prefs.some((p) => p.model === ideal?.id && p.favorite);
+    if (!ideal || ideal.id === modelId || !(hidden || favorite)) return;
+    setModelId(ideal.id);
+    carryTo(ideal);
+    setModelNotice((n) => (n?.startsWith("Switched to ") ? `Switched to ${ideal.name} — it takes input images.` : n));
+  }, [prefsQ.isPending, prefsQ.data, modelId, models.data, pending]);
 
   // Once the model list of the draft's provider is in, check the source's model (AC-10) or find one that takes inputs (AC-11).
   // biome-ignore lint/correctness/useExhaustiveDependencies: settles the pending source once per model list
@@ -355,8 +377,10 @@ export function GeneratePanel() {
     const arranged = arrangeModels(list, prefs, modelId);
     const current = list.find((x) => x.id === modelId);
     if (current?.params.inputs) return setModelId(current.id);
-    const withInputs = pickModel(arranged, (x) => x.params.inputs !== undefined);
+    const takesInputs = (x: ImageModel) => x.params.inputs !== undefined;
+    const withInputs = pickModel(arranged, takesInputs);
     if (withInputs) {
+      if (prefsQ.isPending) slowPick.current = { suitable: takesInputs };
       setModelId(withInputs.id);
       setModelNotice(`Switched to ${withInputs.name} — it takes input images.`);
     } else {
@@ -451,6 +475,7 @@ export function GeneratePanel() {
 
   function selectModel(id: string) {
     noAutoPick.current = false;
+    slowPick.current = null;
     setModelId(id);
     setErrors({});
     setRefused([]);

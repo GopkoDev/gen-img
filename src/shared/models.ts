@@ -4,7 +4,7 @@ import { ProviderId } from "./providers";
 const ModelId = z.string().min(1).max(200);
 
 export const ModelPreference = z.object({
-  provider: z.string(),
+  provider: ProviderId,
   model: ModelId,
   favorite: z.boolean(),
   hidden: z.boolean(),

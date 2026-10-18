@@ -52,6 +52,18 @@ async function open() {
 }
 const star = (name: string) => screen.getByRole("button", { name: `Favorite ${name}` });
 
+/** A server that remembers saves, so the refetch after a toggle settles returns what was saved. */
+function persistSaves(initial: ModelPreference[] = []) {
+  const stored = [...initial];
+  m.modelPreferences.mockImplementation(async () => ({ preferences: [...stored] }));
+  return (saved: ModelPreference) => {
+    const at = stored.findIndex((p) => p.model === saved.model);
+    if (at >= 0) stored.splice(at, 1);
+    if (saved.favorite) stored.push(saved);
+    return saved;
+  };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   m.modelPreferences.mockResolvedValue({ preferences: [] });
@@ -140,7 +152,8 @@ describe("ModelPicker (SCR-07)", () => {
   });
 
   it("toggles a favorite with ★ without choosing it, keeps the list open, and moves the row to its group", async () => {
-    m.setModelPreference.mockResolvedValue(pref(SEEDREAM, { favorite: true }));
+    const save = persistSaves();
+    m.setModelPreference.mockImplementation(async () => save(pref(SEEDREAM, { favorite: true })));
     const { onChange } = show();
     await open();
     expect(star("Seedream 4").tagName).toBe("BUTTON");
@@ -153,9 +166,93 @@ describe("ModelPicker (SCR-07)", () => {
     expect(star("GPT-5 Image")).toBeInTheDocument(); // still open
   });
 
-  it("unfavorites an already favorite model", async () => {
+  it("keeps focus on the ★ and the list open when a toggle moves the row to another group (R1)", async () => {
+    const save = persistSaves();
+    m.setModelPreference.mockImplementation(async () => save(pref(SEEDREAM, { favorite: true })));
+    show();
+    await open();
+    star("Seedream 4").focus();
+    fireEvent.click(star("Seedream 4"));
+    await waitFor(() => expect(star("Seedream 4")).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByText("Favorites")).toBeInTheDocument();
+    expect(star("Seedream 4")).toHaveFocus();
+    expect(star("GPT-5 Image")).toBeInTheDocument(); // still open
+  });
+
+  it("does not look a failed price up again when its ★ is toggled (R1, AC-02)", async () => {
+    m.price.mockImplementation(async (_p, id) => {
+      if (id === FLUX.id) throw new ApiError(502, "PROVIDER_ERROR", "busy");
+      return { price: perImage(0.03), fetchedAt: "x" };
+    });
+    const save = persistSaves();
+    m.setModelPreference.mockImplementation(async () => save(pref(FLUX, { favorite: true })));
+    show();
+    await open();
+    expect(await screen.findByText("price unknown — couldn't load")).toBeInTheDocument();
+    fireEvent.click(star("FLUX 2 Pro"));
+    await waitFor(() => expect(star("FLUX 2 Pro")).toHaveAttribute("aria-pressed", "true"));
+    await screen.findByText("price unknown — couldn't load");
+    expect(m.price.mock.calls.filter(([, id]) => id === FLUX.id)).toHaveLength(1);
+  });
+
+  it("rolls back only the failed toggle and keeps a concurrent successful one (R2)", async () => {
+    let failX!: () => void;
+    const server: ModelPreference[] = [];
+    m.modelPreferences.mockImplementation(async () => ({ preferences: [...server] }));
+    m.setModelPreference.mockImplementation((req) => {
+      if (req.model === SEEDREAM.id)
+        return new Promise((_res, rej) => {
+          failX = () => rej(new ApiError(500, "INTERNAL", "down"));
+        });
+      const saved = pref(GEMINI, { favorite: true });
+      server.push(saved);
+      return Promise.resolve(saved);
+    });
+    show();
+    await open();
+    fireEvent.click(star("Seedream 4")); // X, fails later
+    fireEvent.click(star("Gemini 2.5 Flash Image")); // Y, succeeds
+    await waitFor(() => expect(m.setModelPreference).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(star("Gemini 2.5 Flash Image")).toHaveAttribute("aria-pressed", "true"));
+    failX();
+    expect(await screen.findByText("Couldn't save the favorite — try again.")).toBeInTheDocument();
+    await waitFor(() => expect(star("Seedream 4")).toHaveAttribute("aria-pressed", "false"));
+    expect(star("Gemini 2.5 Flash Image")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("refreshes preferences after a toggle settles (R2)", async () => {
+    const save = persistSaves();
+    m.setModelPreference.mockImplementation(async () => save(pref(SEEDREAM, { favorite: true })));
+    show();
+    await open();
+    const before = m.modelPreferences.mock.calls.length;
+    fireEvent.click(star("Seedream 4"));
+    await waitFor(() => expect(m.modelPreferences.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("shows a filled ★ on the closed trigger when the selected model is a favorite (R3)", async () => {
     m.modelPreferences.mockResolvedValue({ preferences: [pref(GPT, { favorite: true })] });
-    m.setModelPreference.mockResolvedValue(pref(GPT, { favorite: false }));
+    show();
+    expect(screen.queryByTestId("trigger-favorite")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button")[0] as HTMLElement);
+    await screen.findByText("Favorites");
+    fireEvent.keyDown(star("GPT-5 Image"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Favorites")).not.toBeInTheDocument());
+    expect(screen.getByTestId("trigger-favorite")).toBeInTheDocument();
+  });
+
+  it("renders «priced per token» as an outline Badge (R3)", async () => {
+    m.price.mockResolvedValue({ price: { kind: "per-token" }, fetchedAt: "x" });
+    show();
+    await open();
+    const badges = await screen.findAllByText("priced per token");
+    expect(badges[0]).toHaveAttribute("data-slot", "badge");
+    expect(badges[0]).toHaveAttribute("data-variant", "outline");
+  });
+
+  it("unfavorites an already favorite model", async () => {
+    const save = persistSaves([pref(GPT, { favorite: true })]);
+    m.setModelPreference.mockImplementation(async () => save(pref(GPT, { favorite: false })));
     show();
     fireEvent.click(screen.getAllByRole("button")[0] as HTMLElement);
     await waitFor(() => expect(star("GPT-5 Image")).toHaveAttribute("aria-pressed", "true"));

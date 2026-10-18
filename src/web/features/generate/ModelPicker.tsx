@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, StarIcon } from "lucide-react";
-import { type ButtonHTMLAttributes, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { api } from "@/lib/api";
@@ -54,11 +55,14 @@ function Row({
       >
         <span className={cn("truncate font-medium", selected && "underline")}>{model.name}</span>
         <span className="truncate text-muted-foreground text-xs">{model.id}</span>
-        <span className="min-w-24 text-muted-foreground text-xs">{price ?? "…"}</span>
+        <span className="min-w-24 text-muted-foreground text-xs">
+          {price?.perToken ? <Badge variant="outline">{price.text}</Badge> : (price?.text ?? "…")}
+        </span>
       </button>
       {hidden && <span className="text-muted-foreground text-xs">hidden</span>}
       <button
         type="button"
+        data-star={model.id}
         aria-label={`Favorite ${model.name}`}
         aria-pressed={favorite}
         disabled={starDisabled}
@@ -89,15 +93,29 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
     onMutate: async ({ model, favorite }) => {
       setSaveError(false);
       await client.cancelQueries({ queryKey: key });
-      const before = client.getQueryData<Prefs>(key);
+      // Remember only this model's flag, so a rollback never touches another model's concurrent toggle.
+      const was = client.getQueryData<Prefs>(key)?.preferences.find((p) => p.model === model);
       client.setQueryData<Prefs>(key, (old) => upsert(old, provider, model, { favorite }));
-      return { before };
+      return { model, was };
     },
     onError: (_e, _v, ctx) => {
-      client.setQueryData(key, ctx?.before);
+      if (ctx)
+        client.setQueryData<Prefs>(key, (old) =>
+          upsert(old, provider, ctx.model, { favorite: ctx.was?.favorite ?? false }),
+        );
       setSaveError(true);
     },
     onSuccess: (saved) => client.setQueryData<Prefs>(key, (old) => upsert(old, provider, saved.model, saved)),
+    // cancelQueries above may have cancelled the on-open refetch: settle on the server's truth.
+    onSettled: () => client.invalidateQueries({ queryKey: key }),
+  });
+
+  // A ★ toggle can move its row to the other group; keep the keyboard on that ★ (SCR-07).
+  const toggled = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const id = toggled.current;
+    if (!id || !listRef.current || (document.activeElement && document.activeElement !== document.body)) return;
+    listRef.current.querySelector<HTMLElement>(`[data-star="${CSS.escape(id)}"]`)?.focus();
   });
 
   // Focus the selected row (else the first) once the list is there, unless the Owner is already in it.
@@ -109,6 +127,7 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
 
   const arranged = arrangeModels(models, unreadable ? null : prefs, value);
   const flagsOf = new Map((prefs ?? []).map((p) => [p.model, p]));
+  const selectedFavorite = flagsOf.get(value)?.favorite === true && !flagsOf.get(value)?.hidden;
   const selectedName = models.find((m) => m.id === value)?.name ?? (value || "Choose a model");
 
   const row = (model: ImageModel) => (
@@ -124,7 +143,10 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
         onChange(model.id);
         setOpen(false);
       }}
-      onToggle={() => toggle.mutate({ model: model.id, favorite: !(flagsOf.get(model.id)?.favorite ?? false) })}
+      onToggle={() => {
+        toggled.current = model.id;
+        toggle.mutate({ model: model.id, favorite: !(flagsOf.get(model.id)?.favorite ?? false) });
+      }}
     />
   );
 
@@ -160,7 +182,10 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
             }
           }}
         >
-          <span className="truncate">{selectedName}</span>
+          {selectedFavorite && (
+            <StarIcon data-testid="trigger-favorite" className="size-4 shrink-0 fill-current" aria-hidden />
+          )}
+          <span className="min-w-0 flex-1 truncate text-left">{selectedName}</span>
           {arranged.hiddenSelected && <span className="text-muted-foreground text-xs">hidden</span>}
           <ChevronDownIcon className="size-4 opacity-50" aria-hidden />
         </Button>
@@ -175,17 +200,28 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
             </p>
           )}
           {!ready && <p className="px-2 py-1 text-muted-foreground text-sm">Loading…</p>}
-          {ready && grouped && <p className="px-2 pt-1 font-medium text-muted-foreground text-xs">Favorites</p>}
-          {ready && arranged.favorites.map(row)}
-          {ready && grouped && <p className="px-2 pt-2 font-medium text-muted-foreground text-xs">All models</p>}
-          {ready && arranged.others.map(row)}
+          {/* One flat keyed list: a row keeps its DOM node (focus, price query) when a ★ moves it between groups. */}
+          {ready && [
+            grouped && (
+              <p key="group-favorites" className="px-2 pt-1 font-medium text-muted-foreground text-xs">
+                Favorites
+              </p>
+            ),
+            ...arranged.favorites.map(row),
+            grouped && (
+              <p key="group-others" className="px-2 pt-2 font-medium text-muted-foreground text-xs">
+                All models
+              </p>
+            ),
+            ...arranged.others.map(row),
+          ]}
         </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function upsert(old: Prefs | undefined, provider: string, model: string, change: Partial<ModelPreference>): Prefs {
+function upsert(old: Prefs | undefined, provider: ProviderId, model: string, change: Partial<ModelPreference>): Prefs {
   const list = old?.preferences ?? [];
   const current = list.find((p) => p.model === model);
   const next: ModelPreference = {

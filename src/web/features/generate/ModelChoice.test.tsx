@@ -109,6 +109,43 @@ describe("GeneratePanel — automatic model choice goes through pickModel (AC-10
     window.history.replaceState(null, "", "/");
   });
 
+  describe("slow preferences (R5)", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function slowSetup(models: ImageModel[]) {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      let arrive!: (prefs: ModelPreference[]) => void;
+      setup({ models: { openrouter: models } });
+      m.modelPreferences.mockImplementation(
+        () => new Promise((resolve) => (arrive = (preferences) => resolve({ preferences }))),
+      );
+      return (prefs: ModelPreference[]) => arrive(prefs);
+    }
+
+    it("re-picks the first favorite when preferences arrive after the 1.5 s wait and the model was chosen automatically", async () => {
+      const arrive = slowSetup([A, B, C]);
+      await vi.advanceTimersByTimeAsync(1600);
+      await expectSelected("Alpha"); // the plain-list pick
+      arrive([pref("openrouter", "x/c", { favorite: true })]);
+      await expectSelected("Charlie");
+    });
+
+    it("does not touch a model the Owner chose after the preferences arrived", async () => {
+      const arrive = slowSetup([A, B, C]);
+      await vi.advanceTimersByTimeAsync(1600);
+      await expectSelected("Alpha");
+      arrive([pref("openrouter", "x/c", { favorite: true })]);
+      await expectSelected("Charlie");
+      fireEvent.click(await trigger());
+      fireEvent.click(await screen.findByRole("button", { name: /^Bravo/ }));
+      await expectSelected("Bravo");
+      await vi.advanceTimersByTimeAsync(2000);
+      await expectSelected("Bravo");
+    });
+  });
+
   it("uses the model picker (a button with aria-expanded), not a combobox select", async () => {
     setup({ models: { openrouter: [A, B] } });
     expect(await trigger()).toHaveTextContent("Alpha");

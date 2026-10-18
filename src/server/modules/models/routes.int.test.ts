@@ -51,6 +51,18 @@ describe("model preferences routes", () => {
     expect(rowCount()).toBe(0);
   });
 
+  it("stamps updatedAt from the injected clock (R6)", async () => {
+    const fetch = catalogFetch();
+    t = createTestApp(
+      { openRouterApiKey: "k", aiGatewayApiKey: "k" },
+      { fetch, now: () => Date.UTC(2030, 0, 2, 3, 4, 5) },
+    );
+    const res = ModelPreference.parse(
+      await (await patch({ provider: "openrouter", model: OR_MODEL, favorite: true })).json(),
+    );
+    expect(res.updatedAt).toBe("2030-01-02T03:04:05.000Z");
+  });
+
   it("keeps preferences per provider (AC-07)", async () => {
     setup();
     await patch({ provider: "openrouter", model: OR_MODEL, favorite: true });
