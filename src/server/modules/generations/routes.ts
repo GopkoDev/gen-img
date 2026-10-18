@@ -1,18 +1,21 @@
 import { readFile } from "node:fs/promises";
 import type { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type {
   CurrentJobResponse,
   Generation,
   GenerationPage,
+  InputImage,
   JobResponse,
   OutputImage,
 } from "../../../shared/generations";
+import { MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import { ProviderId } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import type { FileStore } from "../storage/file-store";
-import type { ImageRecord } from "./repo";
-import type { GenerationsService } from "./service";
+import type { ImageRecord, InputRecord } from "./repo";
+import type { GenerationsService, InputFile } from "./service";
 
 export type GenerationsRouteDeps = { service: GenerationsService; files: FileStore };
 
@@ -30,6 +33,47 @@ const ListQuery = z.object({
 });
 
 const FILES_PREFIX = "/api/files/";
+const MAX_BODY_BYTES = MAX_INPUT_IMAGES * MAX_INPUT_BYTES + 1024 * 1024; // files + the JSON part (SAD §8)
+
+/** A start request is JSON (text-only) or multipart: a `request` JSON part plus `inputs` files (ADR-0010). */
+async function readStart(req: {
+  header(name: string): string | undefined;
+  json(): Promise<unknown>;
+  parseBody(o: { all: true }): Promise<Record<string, unknown>>;
+}): Promise<{ body: unknown; files: InputFile[] }> {
+  const invalid = (message: string) => new AppError("VALIDATION_ERROR", message, 400);
+  if (!(req.header("content-type") ?? "").startsWith("multipart/form-data")) {
+    const body = await req.json().catch(() => {
+      throw invalid("Request body must be JSON");
+    });
+    return { body, files: [] };
+  }
+  const form = await req.parseBody({ all: true });
+  if (typeof form.request !== "string") throw invalid("The multipart request needs a JSON `request` part");
+  let body: unknown;
+  try {
+    body = JSON.parse(form.request);
+  } catch {
+    throw invalid("The `request` part must be JSON");
+  }
+  const parts = form.inputs === undefined ? [] : Array.isArray(form.inputs) ? form.inputs : [form.inputs];
+  const files: InputFile[] = [];
+  for (const part of parts) {
+    if (!(part instanceof File)) throw invalid("`inputs` parts must be files");
+    files.push({ bytes: new Uint8Array(await part.arrayBuffer()), name: part.name });
+  }
+  return { body, files };
+}
+
+const toInput = (img: InputRecord): InputImage => ({
+  position: img.position,
+  url: `${FILES_PREFIX}${img.path}`,
+  mediaType: img.mediaType,
+  width: img.width,
+  height: img.height,
+  byteSize: img.byteSize,
+  originalName: img.originalName,
+});
 
 const toImage = (img: ImageRecord): OutputImage => ({
   position: img.position,
@@ -43,13 +87,20 @@ const toImage = (img: ImageRecord): OutputImage => ({
 export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps) {
   const { service } = deps;
 
-  app.post("/generations", async (c) => {
-    const body: unknown = await c.req.json().catch(() => {
-      throw new AppError("VALIDATION_ERROR", "Request body must be JSON", 400);
-    });
-    const job = await service.startGenerationChecked(body);
-    return c.json({ job } satisfies JobResponse, 202);
-  });
+  app.post(
+    "/generations",
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: () => {
+        throw new AppError("VALIDATION_ERROR", "The request is too large — at most 8 input images of 10 MB each", 400);
+      },
+    }),
+    async (c) => {
+      const { body, files } = await readStart(c.req);
+      const job = await service.startGenerationChecked(body, files);
+      return c.json({ job } satisfies JobResponse, 202);
+    },
+  );
 
   app.get("/generations", (c) => {
     const q = ListQuery.safeParse(c.req.query());
@@ -67,7 +118,12 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
   app.get("/generations/:id", (c) => {
     const g = service.get(c.req.param("id"));
     if (!g) throw new AppError("NOT_FOUND", "Generation not found", 404);
-    return c.json({ ...g, provider: ProviderId.parse(g.provider), images: g.images.map(toImage) } satisfies Generation);
+    return c.json({
+      ...g,
+      provider: ProviderId.parse(g.provider),
+      images: g.images.map(toImage),
+      inputs: g.inputs.map(toInput),
+    } satisfies Generation);
   });
 
   app.get("/generation-job", (c) => c.json({ job: service.getJob() } satisfies CurrentJobResponse));

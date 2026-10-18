@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/routes.ts", "src/server/modules/gen
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T5 — Accept multipart starts with input images and expose inputs in the API

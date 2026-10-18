@@ -95,6 +95,17 @@ export const OutputImage = z.object({
 });
 export type OutputImage = z.infer<typeof OutputImage>;
 
+export const InputImage = z.object({
+  position: z.number().int().min(1),
+  url: z.string(),
+  mediaType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
+  width: z.number().int(),
+  height: z.number().int(),
+  byteSize: z.number().int(),
+  originalName: z.string().nullable(),
+});
+export type InputImage = z.infer<typeof InputImage>;
+
 export const GenerationSummary = z.object({
   id: z.string(),
   provider: ProviderId,
@@ -105,6 +116,7 @@ export const GenerationSummary = z.object({
   costStatus: CostStatus,
   imagesRequested: z.number().int(),
   imagesReceived: z.number().int(),
+  inputsCount: z.number().int().min(0),
   thumbnail: OutputImage,
 });
 export type GenerationSummary = z.infer<typeof GenerationSummary>;
@@ -121,6 +133,7 @@ export const Generation = z.object({
   acceptedParams: z.record(z.string(), z.unknown()).nullable(),
   imagesRequested: z.number().int(),
   images: z.array(OutputImage).min(1),
+  inputs: z.array(InputImage),
   costMicros: z.number().int().nullable(),
   costStatus: CostStatus,
   createdAt: z.string(),

@@ -189,6 +189,7 @@ describe("GeneratePanel (SCR-01)", () => {
       requestedParams: { n: 1 },
       acceptedParams: null,
       imagesRequested: 1,
+      inputs: [],
       images: [
         {
           position: 1,

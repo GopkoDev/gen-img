@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { fakeFetch, fixture } from "../../../../tests/helpers/fake-fetch";
-import { seedGeneration } from "../../../../tests/helpers/generations";
+import { seedGeneration, TINY_PNG } from "../../../../tests/helpers/generations";
 import { createTestApp } from "../../../../tests/helpers/test-app";
 import { ErrorResponse } from "../../../shared/errors";
 import { CurrentJobResponse, Generation, GenerationPage, JobResponse } from "../../../shared/generations";
@@ -37,6 +37,13 @@ const valid = {
   prompt: "A red square",
   params: { n: 2, aspectRatio: "16:9", seed: 7 },
 };
+
+function multipart(request: unknown, files: { bytes: Uint8Array; name: string; type?: string }[]) {
+  const fd = new FormData();
+  fd.append("request", JSON.stringify(request));
+  for (const f of files) fd.append("inputs", new Blob([Buffer.from(f.bytes)], { type: f.type ?? "image/png" }), f.name);
+  return fd;
+}
 
 describe("generations routes", () => {
   let t: ReturnType<typeof createTestApp>;
@@ -123,6 +130,91 @@ describe("generations routes", () => {
     });
     expect((await t.app.request("/api/generation-job", { method: "DELETE" })).status).toBe(204);
     expect(CurrentJobResponse.parse(await (await t.app.request("/api/generation-job")).json())).toEqual({ job: null });
+  });
+
+  it("starts a generation with input images and stores their copies in attach order", async () => {
+    const fetch = openrouter("images-success");
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch });
+    const res = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart(valid, [
+        { bytes: TINY_PNG, name: "cat.png" },
+        { bytes: TINY_PNG, name: "sky.png" },
+      ]),
+    });
+    expect(res.status).toBe(202);
+    const job = await settle(t);
+    expect(job?.status).toBe("succeeded");
+
+    const sent = JSON.parse(String(fetch.calls.find((c) => c.url.endsWith("/images"))?.init.body));
+    expect(sent.input_references).toHaveLength(2);
+
+    const detail = Generation.parse(await (await t.app.request(`/api/generations/${job?.generationId}`)).json());
+    expect(detail.inputs.map((i) => [i.position, i.originalName, i.width, i.height])).toEqual([
+      [1, "cat.png", 4, 3],
+      [2, "sky.png", 4, 3],
+    ]);
+    expect(JSON.stringify(detail.rawRequest)).not.toContain("base64,");
+    expect(JSON.stringify(detail.rawRequest)).toContain(`generations/${detail.id}/input-1.png`);
+    const file = await t.app.request(detail.inputs[1]?.url ?? "");
+    expect(file.status).toBe(200);
+
+    const page = GenerationPage.parse(await (await t.app.request("/api/generations")).json());
+    expect(page.items[0]?.inputsCount).toBe(2);
+  });
+
+  it("refuses bad files and too many inputs without calling the provider", async () => {
+    const fetch = openrouter("images-success");
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch });
+    const bad = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart(valid, [
+        { bytes: TINY_PNG, name: "ok.png" },
+        { bytes: new TextEncoder().encode("heic?"), name: "photo.heic", type: "image/heic" },
+      ]),
+    });
+    expect(bad.status).toBe(400);
+    expect(ErrorResponse.parse(await bad.json()).error.details).toEqual({
+      fields: { "inputs.2": "photo.heic — not a supported image" },
+    });
+
+    const many = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart(
+        valid,
+        Array.from({ length: 5 }, (_, i) => ({ bytes: TINY_PNG, name: `${i}.png` })),
+      ),
+    });
+    expect(ErrorResponse.parse(await many.json()).error.details).toEqual({
+      fields: { inputs: "This model takes at most 4 input images" },
+    });
+
+    const textOnly = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart({ ...valid, model: "meta/muse-image", params: { n: 1 } }, [{ bytes: TINY_PNG, name: "a.png" }]),
+    });
+    expect(ErrorResponse.parse(await textOnly.json()).error.details).toEqual({
+      fields: { inputs: "This model does not accept input images" },
+    });
+
+    const noRequest = new FormData();
+    noRequest.append("inputs", new Blob([Buffer.from(TINY_PNG)], { type: "image/png" }), "a.png");
+    expect((await t.app.request("/api/generations", { method: "POST", body: noRequest })).status).toBe(400);
+    expect(fetch.calls.filter((c) => c.url.endsWith("/images"))).toHaveLength(0);
+  });
+
+  it("refuses a body over the upload limit", async () => {
+    t = createTestApp({ openRouterApiKey: KEY }, { fetch: openrouter("images-success") });
+    const huge = new Uint8Array(9 * 10 * 1024 * 1024);
+    const res = await t.app.request("/api/generations", {
+      method: "POST",
+      body: multipart(valid, [{ bytes: huge, name: "huge.png" }]),
+    });
+    expect(res.status).toBe(400);
+    expect(ErrorResponse.parse(await res.json()).error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "The request is too large — at most 8 input images of 10 MB each",
+    });
   });
 
   it("pages the gallery newest first and shows an empty gallery", async () => {

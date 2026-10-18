@@ -11,7 +11,7 @@
 | T2 | Validate input images and model input ranges in shared code | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Send input images through the OpenRouter adapter | infra | dmytro.hopko | S | T2 | done | COMMIT |
 | T4 | Stage and record input copies with the generation | infra | dmytro.hopko | S | T1 | done | COMMIT |
-| T5 | Accept multipart starts with input images and expose inputs in the API | ports | dmytro.hopko | M | T3, T4 | todo | — |
+| T5 | Accept multipart starts with input images and expose inputs in the API | ports | dmytro.hopko | M | T3, T4 | done | COMMIT |
 | T6 | Add the input-images area to the generate panel (SCR-01) | ui | dmytro.hopko | M | T5 | todo | — |
 | T7 | Show the inputs hint on tiles and the inputs section on the detail page | ui | dmytro.hopko | S | T5 | todo | — |
 | T8 | Verify the input-image NFRs | tests | dmytro.hopko | S | T5 | todo | — |

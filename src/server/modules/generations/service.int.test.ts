@@ -119,6 +119,46 @@ describe("generations service", () => {
     expect(existsSync(join(t.dataDir, "generations", gen?.id ?? "", "output-2.png"))).toBe(true);
   });
 
+  it("passes input images to the provider and stores their copies with the generation", async () => {
+    const MODEL_IN: ImageModel = { ...MODEL, params: { ...MODEL.params, inputs: { min: 1, max: 2 } } };
+    const provider = fakeProvider(async () => ok(1));
+    provider.listModels = async () => [MODEL_IN];
+    const svc = build(provider);
+    const files = [{ bytes: TINY_PNG, name: "cat.png" }];
+    await expect(svc.startGenerationChecked(body(), [])).rejects.toMatchObject({
+      details: { fields: { inputs: "This model needs at least 1 input image" } },
+    });
+    await svc.startGenerationChecked(body(), files);
+    await svc.whenIdle();
+    expect(provider.calls[0]?.inputs).toEqual([{ bytes: TINY_PNG, mediaType: "image/png" }]);
+    const gen = svc.get(svc.getJob()?.generationId ?? "");
+    expect(gen?.inputs).toEqual([
+      {
+        position: 1,
+        path: `generations/${gen?.id}/input-1.png`,
+        mediaType: "image/png",
+        width: 4,
+        height: 3,
+        byteSize: TINY_PNG.byteLength,
+        originalName: "cat.png",
+      },
+    ]);
+    expect(existsSync(join(t.dataDir, "generations", gen?.id ?? "", "input-1.png"))).toBe(true);
+  });
+
+  it("leaves no input copies when storing fails", async () => {
+    const MODEL_IN: ImageModel = { ...MODEL, params: { ...MODEL.params, inputs: { min: 0, max: 2 } } };
+    const provider = fakeProvider(async () => ok(1));
+    provider.listModels = async () => [MODEL_IN];
+    const svc = build(provider, { failCommit: true });
+    await svc.startGenerationChecked(body(), [{ bytes: TINY_PNG, name: "cat.png" }]);
+    await svc.whenIdle();
+    expect(svc.getJob()?.status).toBe("failed");
+    const gens = join(t.dataDir, "generations");
+    expect(existsSync(gens) ? readdirSync(gens) : []).toEqual([]);
+    expect(readdirSync(join(t.dataDir, ".staging"))).toEqual([]);
+  });
+
   it("saves a partial result and records requested vs received", async () => {
     const svc = build(fakeProvider(async () => ok(2)));
     svc.startGeneration(body({ params: { n: 4 } }));

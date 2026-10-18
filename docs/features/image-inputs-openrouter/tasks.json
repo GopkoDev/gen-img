@@ -82,7 +82,7 @@
         "src/server/modules/generations/service.int.test.ts"
       ],
       "file": "docs/features/image-inputs-openrouter/tasks/t5-multipart-start-and-dto.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

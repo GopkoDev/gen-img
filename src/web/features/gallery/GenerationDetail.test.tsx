@@ -26,6 +26,7 @@ const gen = (over: Partial<Generation> = {}): Generation => ({
   acceptedParams: null,
   imagesRequested: 4,
   images: [img(1, 1024, 576), img(2, 1024, 576)],
+  inputs: [],
   costMicros: 40000,
   costStatus: "known",
   createdAt: "2026-10-18T14:02:11.000Z",

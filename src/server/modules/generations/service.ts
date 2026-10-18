@@ -1,3 +1,4 @@
+import { checkInputFile, MAX_INPUT_IMAGES } from "../../../shared/generations";
 import type { ImageModel } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import { newId } from "../../lib/ids";
@@ -7,7 +8,17 @@ import type { ProviderRegistry } from "../providers/registry";
 import type { FileStore } from "../storage/file-store";
 import { checkAgainstModel, type FieldErrors, parseStartRequest, toCost } from "./domain";
 import type { JobSlot, JobState } from "./jobs";
-import type { GenerationsRepo, ImageRecord } from "./repo";
+import type { GenerationsRepo, ImageRecord, InputRecord } from "./repo";
+
+/** An attached file as it arrived (bytes + the name the Owner's machine gave it). */
+export type InputFile = { bytes: Uint8Array; name: string };
+type CheckedInput = {
+  bytes: Uint8Array;
+  name: string;
+  mediaType: InputRecord["mediaType"];
+  width: number;
+  height: number;
+};
 
 export type GenerationsServiceDeps = {
   providers: ProviderRegistry;
@@ -20,24 +31,43 @@ export type GenerationsServiceDeps = {
 
 const invalid = (fields: FieldErrors) => new AppError("VALIDATION_ERROR", "Some fields need fixing", 400, { fields });
 
-/** Swaps the adapter's `{ "$image": N }` placeholders for references to the stored files (ADR-0008). */
-function linkFiles(value: unknown, paths: string[]): unknown {
-  if (Array.isArray(value)) return value.map((v) => linkFiles(v, paths));
+/** Swaps the adapter's `{ "$image": N }` / `{ "$input": N }` placeholders for references to the stored files (ADR-0008). */
+function linkFiles(value: unknown, outputs: string[], inputs: string[] = []): unknown {
+  if (Array.isArray(value)) return value.map((v) => linkFiles(v, outputs, inputs));
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    if (Object.keys(obj).length === 1 && "$image" in obj) {
-      const n = obj.$image;
+    const keys = Object.keys(obj);
+    if (keys.length === 1 && (keys[0] === "$image" || keys[0] === "$input")) {
+      const n = obj[keys[0]];
+      const paths = keys[0] === "$image" ? outputs : inputs;
       return { $file: typeof n === "number" ? (paths[n - 1] ?? null) : null };
     }
-    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, linkFiles(v, paths)]));
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, linkFiles(v, outputs, inputs)]));
   }
   return value;
+}
+
+/** Each file must be a usable picture within the size limit; failures are keyed `inputs.N` (1-based). */
+function checkFiles(files: InputFile[]): { inputs: CheckedInput[]; fields: FieldErrors } {
+  const fields: FieldErrors = {};
+  const inputs: CheckedInput[] = [];
+  if (files.length > MAX_INPUT_IMAGES) fields.inputs = `At most ${MAX_INPUT_IMAGES} input images per generation`;
+  for (const [i, f] of files.entries()) {
+    const checked = checkInputFile(f.bytes, f.name);
+    if (checked.ok) inputs.push({ bytes: f.bytes, name: f.name, ...checked.image });
+    else fields[`inputs.${i + 1}`] = checked.message;
+  }
+  return { inputs, fields };
 }
 
 export function createGenerationsService(deps: GenerationsServiceDeps) {
   let running: Promise<void> = Promise.resolve();
 
-  async function run(job: JobState, input: ReturnType<typeof parseStartRequest> & { ok: true }) {
+  async function run(
+    job: JobState,
+    input: ReturnType<typeof parseStartRequest> & { ok: true },
+    inputs: CheckedInput[],
+  ) {
     const req = input.value;
     const provider = deps.providers.get(req.provider);
     if (!provider) return deps.jobs.fail({ code: "NOT_FOUND", message: `Unknown provider: ${req.provider}` });
@@ -48,7 +78,15 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     let result: Awaited<ReturnType<typeof provider.generate>>;
     const sentAt = performance.now();
     try {
-      result = await provider.generate({ model: req.model, prompt: req.prompt, params: req.params }, ctrl.signal);
+      result = await provider.generate(
+        {
+          model: req.model,
+          prompt: req.prompt,
+          params: req.params,
+          ...(inputs.length ? { inputs: inputs.map((i) => ({ bytes: i.bytes, mediaType: i.mediaType })) } : {}),
+        },
+        ctrl.signal,
+      );
     } catch (err) {
       const timedOut = ctrl.signal.aborted;
       const pe = err instanceof ProviderError ? err : new ProviderError(provider.id, null, String(err));
@@ -65,6 +103,16 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
 
     try {
       const paths = await deps.files.stage(id, result.images);
+      const inputPaths = await deps.files.stageInputs(id, inputs);
+      const inputRecords: InputRecord[] = inputs.map((img, i) => ({
+        position: i + 1,
+        path: inputPaths[i] ?? "",
+        mediaType: img.mediaType,
+        width: img.width,
+        height: img.height,
+        byteSize: img.bytes.byteLength,
+        originalName: img.name || null,
+      }));
       const images: ImageRecord[] = result.images.map((img, i) => ({
         position: i + 1,
         path: paths[i] ?? "",
@@ -85,11 +133,12 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
           ...toCost(result.costUsd),
           createdAt: job.startedAt,
           durationMs,
-          rawRequest: result.rawRequest,
+          rawRequest: linkFiles(result.rawRequest, paths, inputPaths),
           rawResponse: linkFiles(result.rawResponse, paths),
         },
         images,
         () => deps.files.commitSync(id),
+        inputRecords,
       );
     } catch (err) {
       deps.files.discard(id);
@@ -102,10 +151,12 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     deps.jobs.succeed(id);
   }
 
-  /** Validates and starts a job; `model` (when known) narrows the parameters to what it supports. */
-  function startGeneration(body: unknown, model?: ImageModel | null): JobState {
+  /** Validates and starts a job; `model` (when known) narrows the parameters and input count to what it supports. */
+  function startGeneration(body: unknown, model?: ImageModel | null, files: InputFile[] = []): JobState {
     const parsed = parseStartRequest(body);
-    if (!parsed.ok) throw invalid(parsed.fields);
+    const checked = checkFiles(files);
+    if (!parsed.ok) throw invalid({ ...parsed.fields, ...checked.fields });
+    if (Object.keys(checked.fields).length) throw invalid(checked.fields);
     const provider = deps.providers.get(parsed.value.provider);
     if (!provider) throw new AppError("NOT_FOUND", `Unknown provider: ${parsed.value.provider}`, 404);
     if (!provider.configured)
@@ -113,11 +164,11 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
         provider: provider.id,
       });
     if (model) {
-      const fields = checkAgainstModel(parsed.value.params, model);
+      const fields = checkAgainstModel(parsed.value.params, model, checked.inputs.length);
       if (Object.keys(fields).length) throw invalid(fields);
     }
     const job = deps.jobs.start();
-    running = run(job, parsed).catch((err) => {
+    running = run(job, parsed, checked.inputs).catch((err) => {
       try {
         deps.jobs.fail({ code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) });
       } catch (inner) {
@@ -131,13 +182,13 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
     startGeneration,
 
     /** Route entry: looks the model up in the catalog first (unknown model → field error; catalog down → provider decides). */
-    async startGenerationChecked(body: unknown): Promise<JobState> {
+    async startGenerationChecked(body: unknown, files: InputFile[] = []): Promise<JobState> {
       const parsed = parseStartRequest(body);
       if (!parsed.ok) throw invalid(parsed.fields);
       const provider = deps.providers.get(parsed.value.provider);
       const model = provider?.configured ? await deps.catalog.find(parsed.value.provider, parsed.value.model) : null;
       if (model === undefined) throw invalid({ model: "This model is not offered by the provider" });
-      return startGeneration(body, model);
+      return startGeneration(body, model, files);
     },
 
     getJob: () => deps.jobs.current(),
