@@ -9,7 +9,7 @@ ticket: "roadmap step 9"
 
 # 0026 — Keep model preferences as one row per provider and model in a models module
 
-- **Status:** Accepted
+- **Status:** Accepted — amended by [ADR-0029](../../models-page/adr/0029-turn-preference-flags-off-without-checking-the-provider-catalog.md) (2026-10-19): the catalog check applies only to writes that turn a flag on
 - **Date:** 2026-10-19
 - **Deciders:** dmytro.hopko (Owner/Architect), Claude (design pass, answers delegated by the Owner)
 
@@ -40,7 +40,7 @@ The picker needs the Owner's favorites now and hidden models for step 10's Model
 - Toggling off both flags deletes the row — toggling twice ends where it started, and the table only holds real choices.
 
 **Negative**
-- A write needs the provider's catalog (cached 10 min) to refuse unknown models; with the catalog down, writes are refused («couldn't check the model») rather than stored unchecked.
+- A write needs the provider's catalog (cached 10 min) to refuse unknown models; with the catalog down, writes are refused («couldn't check the model») rather than stored unchecked. *(Since ADR-0029: only writes that turn a flag on.)*
 - Rows for models retired for good stay until step 10 offers a way to see them.
 
 **Neutral**
