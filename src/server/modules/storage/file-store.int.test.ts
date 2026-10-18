@@ -102,6 +102,17 @@ describe("file store", () => {
     store.trashSync("LEFT"); // crash before purge
     store.sweep(new Set());
     expect(readdirSync(join(dir, ".staging"))).toEqual([]);
+
+    await store.stage("KEPT", [img(1)]);
+    store.commitSync("KEPT");
+    store.trashSync("KEPT"); // moved, but its row survived (rollback / crash before commit)
+    store.sweep(new Set(["KEPT"]));
+    expect(existsSync(join(dir, "generations", "KEPT", "output-1.png"))).toBe(true);
+
+    store.trashSync("KEPT");
+    store.restoreSync("KEPT");
+    expect(existsSync(join(dir, "generations", "KEPT", "output-1.png"))).toBe(true);
+    expect(() => store.restoreSync("NEVER")).not.toThrow();
   });
 
   it("throws when the generation directory can't be moved", async () => {

@@ -6,14 +6,15 @@ export const MAX_TAG_CHARS = 32;
 export const MAX_COMMENT_CHARS = 2000;
 
 const TAG_RULE = `Tags may contain letters, digits, spaces, - and _ (1–${MAX_TAG_CHARS} characters)`;
-const TAG_CHARS = /^[\p{L}\p{N} _-]+$/u;
+const TAG_CHARS = /^[\p{L}\p{M}\p{N} _-]+$/u; // \p{M}: combining marks (Hindi, Thai, decomposed accents)
 
 /** Characters as the Owner sees them (code points), not UTF-16 units — matches SQLite `length()`. */
 const charCount = (s: string) => [...s].length;
 
-/** Trim, collapse inner whitespace, lower-case (any alphabet); refuse anything outside the rule. */
+/** NFC, trim, collapse inner whitespace, lower-case (any alphabet), NFC again; refuse anything outside the rule. */
 export function normalizeTag(raw: string): { ok: true; tag: string } | { ok: false; message: string } {
-  const tag = raw.trim().replace(/\s+/g, " ").toLowerCase();
+  // NFC first so composed and decomposed spellings are one tag; again after lower-casing (İ → i̇).
+  const tag = raw.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase().normalize("NFC");
   if (tag.length === 0 || charCount(tag) > MAX_TAG_CHARS || !TAG_CHARS.test(tag))
     return { ok: false, message: TAG_RULE };
   return { ok: true, tag };

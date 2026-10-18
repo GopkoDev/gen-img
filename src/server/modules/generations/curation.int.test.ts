@@ -29,7 +29,10 @@ describe("generations service — curation and deletion", () => {
     t.cleanup();
   });
 
-  function build(generate: ImageProvider["generate"] = async () => result()) {
+  function build(
+    generate: ImageProvider["generate"] = async () => result(),
+    files: ReturnType<typeof createFileStore> = createFileStore(t.dataDir),
+  ) {
     const provider: ImageProvider = {
       id: "openrouter",
       name: "OpenRouter",
@@ -44,7 +47,7 @@ describe("generations service — curation and deletion", () => {
       providers: registry,
       catalog: createModelCatalog(registry),
       repo: createGenerationsRepo(t.db),
-      files: createFileStore(t.dataDir),
+      files,
       jobs,
       costSync,
       timeoutMs: 180_000,
@@ -109,6 +112,26 @@ describe("generations service — curation and deletion", () => {
     );
     expect(svc.get(g.id)).toMatchObject({ tags: ["keep"], comment: { body: "still here" } });
     expect(existsSync(join(t.dataDir, g.images[0]?.path ?? ""))).toBe(true);
+  });
+
+  it("puts the files back when the deletion fails after they were moved, and a restart keeps them too", async () => {
+    const g = seedGeneration(t.db, t.dataDir);
+    const files = createFileStore(t.dataDir);
+    const real = files.trashSync;
+    files.trashSync = (id) => {
+      real(id); // the move succeeds…
+      throw new Error("SQLITE_FULL: database or disk is full"); // …then the transaction fails
+    };
+    const { svc } = build(undefined, files);
+    expect(() => svc.deleteGeneration(g.id)).toThrow(expect.objectContaining({ code: "STORAGE_ERROR" }));
+    expect(svc.get(g.id)).toBeDefined();
+    const image = `/api/files/${g.images[0]?.path}`;
+    expect((await t.app.request(image)).status).toBe(200);
+
+    // crash variant: files moved, row never deleted, process gone before anything ran
+    createFileStore(t.dataDir).trashSync(g.id);
+    t.restart();
+    expect((await t.app.request(image)).status).toBe(200);
   });
 
   it("does not disturb a running generation when another one is deleted", async () => {

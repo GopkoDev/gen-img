@@ -16,6 +16,15 @@ describe("normalizeTag", () => {
   });
 });
 
+describe("normalizeTag — scripts with combining marks", () => {
+  it("accepts Hindi, Thai, decomposed accents and Turkish İ, and treats composed and decomposed forms as one tag", () => {
+    for (const raw of ["हिंदी", "ไทย่", "и\u0306", "cafe\u0301", "İstanbul"])
+      expect(normalizeTag(raw)).toMatchObject({ ok: true });
+    expect(normalizeTag("cafe\u0301")).toEqual(normalizeTag("café"));
+    expect(normalizeTag("и\u0306")).toEqual(normalizeTag("й"));
+  });
+});
+
 describe("checkComment", () => {
   it("keeps the text as written, line breaks included", () => {
     expect(checkComment("Line one\n  line two ")).toEqual({ ok: true, body: "Line one\n  line two " });

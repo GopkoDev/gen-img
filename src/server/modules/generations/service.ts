@@ -244,6 +244,12 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
       try {
         deleted = deps.repo.deleteAtomic(id, () => deps.files.trashSync(id));
       } catch (err) {
+        // The transaction rolled back, so the generation still exists — its files must come back with it.
+        try {
+          deps.files.restoreSync(id);
+        } catch (restoreErr) {
+          console.error(`generations: could not restore files of ${id}; the boot sweep will retry`, restoreErr);
+        }
         throw new AppError(
           "STORAGE_ERROR",
           `The generation could not be deleted: ${err instanceof Error ? err.message : String(err)}`,

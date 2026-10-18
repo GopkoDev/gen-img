@@ -73,6 +73,14 @@ export function createFileStore(dataDir: string) {
       renameSync(source, target);
     },
 
+    /** Undoes `trashSync` when the deletion did not commit — the generation keeps its files. */
+    restoreSync(id: string): void {
+      const trashed = join(root, STAGING, `${id}.deleted`);
+      if (!existsSync(trashed) || existsSync(finalDir(id))) return;
+      mkdirSync(join(root, GENERATIONS), { recursive: true });
+      renameSync(trashed, finalDir(id));
+    },
+
     /** Removes a deleted generation's files after the deletion committed (the boot sweep covers a crash). */
     purge(id: string): void {
       rmSync(join(root, STAGING, `${id}.deleted`), { recursive: true, force: true });
@@ -80,6 +88,16 @@ export function createFileStore(dataDir: string) {
 
     /** Boot clean-up: drops leftover staging and any generation directory without a record. */
     sweep(knownIds: Set<string>): void {
+      // A deletion that never committed (crash / failed COMMIT) left a recorded generation's files in staging: put them back.
+      const staging = join(root, STAGING);
+      if (existsSync(staging))
+        for (const name of readdirSync(staging)) {
+          const id = name.endsWith(".deleted") ? name.slice(0, -".deleted".length) : null;
+          if (id && knownIds.has(id) && !existsSync(finalDir(id))) {
+            mkdirSync(join(root, GENERATIONS), { recursive: true });
+            renameSync(join(staging, name), finalDir(id));
+          }
+        }
       rmSync(join(root, STAGING), { recursive: true, force: true });
       mkdirSync(join(root, STAGING), { recursive: true });
       const gens = join(root, GENERATIONS);
