@@ -51,7 +51,7 @@
       "dod": "integration tests: trashSync moves generations/<id> to .staging/<id>.deleted (sync), is a no-op when the dir is missing, throws when the move fails; purge removes the trash dir; sweep removes leftover trash dirs",
       "files_hint": ["src/server/modules/storage/file-store.ts", "src/server/modules/storage/file-store.int.test.ts"],
       "file": "docs/features/curate-gallery/tasks/t4-file-store-trash.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

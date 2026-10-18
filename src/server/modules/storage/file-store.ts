@@ -61,6 +61,23 @@ export function createFileStore(dataDir: string) {
       rmSync(finalDir(id), { recursive: true, force: true });
     },
 
+    /**
+     * Deletion's file step (ADR-0014): moves `generations/<id>` to `.staging/<id>.deleted` synchronously, as the
+     * last step of the DB transaction. A missing directory is «nothing to move»; a failed move throws.
+     */
+    trashSync(id: string): void {
+      const source = finalDir(id);
+      if (!existsSync(source)) return;
+      const target = join(root, STAGING, `${id}.deleted`);
+      rmSync(target, { recursive: true, force: true });
+      renameSync(source, target);
+    },
+
+    /** Removes a deleted generation's files after the deletion committed (the boot sweep covers a crash). */
+    purge(id: string): void {
+      rmSync(join(root, STAGING, `${id}.deleted`), { recursive: true, force: true });
+    },
+
     /** Boot clean-up: drops leftover staging and any generation directory without a record. */
     sweep(knownIds: Set<string>): void {
       rmSync(join(root, STAGING), { recursive: true, force: true });

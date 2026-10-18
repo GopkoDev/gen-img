@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/storage/file-store.ts", "src/server/modules/sto
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T4 — Let the file store move a generation into staging and purge it

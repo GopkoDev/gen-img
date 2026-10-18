@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -73,5 +82,38 @@ describe("file store", () => {
     expect(() => store.resolveRecorded("../etc/passwd")).toThrow();
     expect(() => store.resolveRecorded("/etc/passwd")).toThrow();
     expect(() => store.resolveRecorded("generations/../gen-img.db")).toThrow();
+  });
+
+  it("moves a generation into staging for deletion, purges it, and the sweep clears leftovers", async () => {
+    const store = createFileStore(dir);
+    await store.stage("DEL", [img(1)]);
+    store.commitSync("DEL");
+
+    store.trashSync("DEL");
+    expect(existsSync(join(dir, "generations", "DEL"))).toBe(false);
+    expect(readdirSync(join(dir, ".staging"))).toEqual(["DEL.deleted"]);
+    store.purge("DEL");
+    expect(readdirSync(join(dir, ".staging"))).toEqual([]);
+
+    expect(() => store.trashSync("NEVER")).not.toThrow(); // missing dir: nothing to move
+
+    await store.stage("LEFT", [img(1)]);
+    store.commitSync("LEFT");
+    store.trashSync("LEFT"); // crash before purge
+    store.sweep(new Set());
+    expect(readdirSync(join(dir, ".staging"))).toEqual([]);
+  });
+
+  it("throws when the generation directory can't be moved", async () => {
+    const store = createFileStore(dir);
+    await store.stage("RO", [img(1)]);
+    store.commitSync("RO");
+    chmodSync(join(dir, "generations"), 0o555);
+    try {
+      expect(() => store.trashSync("RO")).toThrow();
+      expect(existsSync(join(dir, "generations", "RO"))).toBe(true);
+    } finally {
+      chmodSync(join(dir, "generations"), 0o755);
+    }
   });
 });
