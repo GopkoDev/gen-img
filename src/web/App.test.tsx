@@ -141,6 +141,12 @@ describe("App frame (SCR-04, SCR-05)", () => {
     expect(await screen.findByText("server ok")).toBeInTheDocument();
   });
 
+  it("has the theme toggle in the sidebar (AC-11)", () => {
+    at("/");
+    const sidebar = document.querySelector("[data-slot=sidebar]") as HTMLElement;
+    expect(within(sidebar).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
+  });
+
   it("reports the server as unreachable when health fails", async () => {
     m.health.mockRejectedValue(new Error("down"));
     at("/");

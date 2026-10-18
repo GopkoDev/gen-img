@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ukiyo</title>
+    <!-- Apply the theme before the first paint (ADR-0024): a stored light/dark wins, else the system. -->
+    <script>
+      (() => {
+        var t = null;
+        try {
+          t = localStorage.getItem("gen-img:theme");
+        } catch (e) {}
+        if (t !== "light" && t !== "dark")
+          t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.classList.remove("light", "dark");
+        document.documentElement.classList.add(t);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

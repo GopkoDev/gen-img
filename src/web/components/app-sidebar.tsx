@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Waves } from "lucide-react";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
@@ -76,7 +77,8 @@ export function AppSidebar({ sections, current }: { sections: readonly Section[]
           </nav>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="flex-row flex-wrap items-center group-data-[collapsible=icon]:flex-col">
+        <ModeToggle />
         <Badge
           variant={health.isError ? "destructive" : "secondary"}
           className="mx-2 group-data-[collapsible=icon]:hidden"

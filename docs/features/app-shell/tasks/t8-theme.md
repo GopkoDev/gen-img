@@ -9,8 +9,8 @@ files_hint: ["src/web/components/theme-provider.tsx", "src/web/components/mode-t
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: "SELECT"
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Follow the system theme with a Light / Dark / System toggle (ADR-0024)
