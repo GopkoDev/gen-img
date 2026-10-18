@@ -167,20 +167,22 @@ components:
         job: { type: object, additionalProperties: true }
     LineageSource:
       type: [object, "null"]
-      required: [id, relation, output, exists]
+      required: [id, relation, output, exists, prompt]
       properties:
         id: { type: string }
         relation: { $ref: "#/components/schemas/Relation" }
         output: { type: [integer, "null"] }
         exists: { type: boolean, description: "false → show «source deleted», no link" }
+        prompt: { type: [string, "null"], description: "source prompt for the lineage text; null once deleted" }
     DerivedItem:
       type: object
-      required: [id, relation, output, createdAt]
+      required: [id, relation, output, createdAt, prompt]
       properties:
         id: { type: string }
         relation: { $ref: "#/components/schemas/Relation" }
         output: { type: [integer, "null"] }
         createdAt: { type: string, format: date-time }
+        prompt: { type: string }
     GenerationLineage:
       type: object
       description: "Lineage fields added to Generation (other fields per earlier contracts)"
