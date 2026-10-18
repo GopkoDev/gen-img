@@ -213,4 +213,16 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(await screen.findByText("Saved to gallery")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /Open/ })).toHaveAttribute("href", "/generations/01GEN");
   });
+
+  it("stops showing the latest result once its generation was deleted", async () => {
+    configured();
+    m.currentJob.mockResolvedValue({ job: job({ status: "succeeded", generationId: "01GONE" }) });
+    m.generation.mockImplementation(async () => {
+      throw new ApiError(404, "NOT_FOUND", "Generation not found");
+    });
+    renderWithQuery(<GeneratePanel />);
+    await screen.findByRole("combobox", { name: "Model" });
+    await waitFor(() => expect(m.generation).toHaveBeenCalledWith("01GONE"));
+    await waitFor(() => expect(screen.queryByText("Saved to gallery")).not.toBeInTheDocument());
+  });
 });

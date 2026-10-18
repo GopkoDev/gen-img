@@ -117,7 +117,7 @@
         "src/web/features/generate/GeneratePanel.tsx"
       ],
       "file": "docs/features/curate-gallery/tasks/t8-delete-dialog-ui.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",

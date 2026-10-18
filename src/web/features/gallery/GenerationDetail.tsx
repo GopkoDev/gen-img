@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
 import { Link } from "@/lib/router";
 import type { Generation, RequestedParams } from "../../../shared/generations";
+import { DeleteGeneration } from "./DeleteGeneration";
 import { Notes } from "./Notes";
 
 const PROVIDER_NAMES: Record<string, string> = { openrouter: "OpenRouter", vercel: "Vercel AI Gateway" };
@@ -73,8 +74,18 @@ function Inputs({ g }: { g: Generation }) {
 }
 
 function Detail({ g }: { g: Generation }) {
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <DeleteGeneration g={g} onFailed={setDeleteError} />
+      </div>
+      {deleteError && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          <p className="font-medium">Couldn't delete this generation</p>
+          <p>{deleteError}</p>
+        </div>
+      )}
       <Inputs g={g} />
       <div className="flex gap-4 overflow-x-auto">
         {g.images.map((img) => (

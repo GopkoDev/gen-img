@@ -67,6 +67,8 @@ function Notice({ title, children, action }: { title: string; children?: ReactNo
 
 function LatestResult({ generationId }: { generationId: string }) {
   const q = useQuery({ queryKey: ["generation", generationId], queryFn: () => api.generation(generationId) });
+  // Deleted meanwhile (curate-gallery AC-12): never show a broken result.
+  if (q.error instanceof ApiError && q.error.code === "NOT_FOUND") return null;
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
       <div className="flex items-center justify-between gap-2">

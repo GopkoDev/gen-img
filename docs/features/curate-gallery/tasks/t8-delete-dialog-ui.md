@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/GenerationDetail.tsx", "src/web/features/
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T8 — Build the delete confirmation and its after-effects (SCR-03, SCR-01 notice, SCR-04)

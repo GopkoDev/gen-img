@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ImageIcon, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,6 +58,11 @@ function Tile({ g }: { g: GenerationSummary }) {
 
 /** SCR-02 — newest-first gallery with on-demand paging. */
 export function Gallery() {
+  // A one-off notice after a deletion (SCR-01); the flag is dropped from the address right away.
+  const [justDeleted] = useState(() => new URLSearchParams(window.location.search).has("deleted"));
+  useEffect(() => {
+    if (justDeleted) window.history.replaceState(null, "", window.location.pathname);
+  }, [justDeleted]);
   const q = useInfiniteQuery({
     queryKey: GALLERY_QUERY_KEY,
     queryFn: ({ pageParam }) => api.generations(pageParam),
@@ -80,9 +85,11 @@ export function Gallery() {
     );
 
   const items = q.data.pages.flatMap((p) => p.items);
+  const notice = justDeleted && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
   if (items.length === 0)
     return (
       <div className="flex flex-col items-start gap-3">
+        {notice}
         <p className="text-muted-foreground">No generations yet.</p>
         <Button onClick={() => document.getElementById("prompt")?.focus()}>Write a prompt</Button>
       </div>
@@ -90,6 +97,7 @@ export function Gallery() {
 
   return (
     <div className="flex flex-col gap-4">
+      {notice}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {items.map((g) => (
           <Tile key={g.id} g={g} />
