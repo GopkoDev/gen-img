@@ -25,7 +25,7 @@ ADR-0002 fixed a provider port but not its shape. This slice builds the first ad
 
 ## Considered options
 
-1. **Normalized result** — `generate(input, signal)` returns `{ images: {bytes, mediaType, width, height}[], costMicros: number|null, acceptedParams: Record|null, rawRequest, rawResponse }` with images already decoded/validated and the raw exchange already redacted; failures throw `ProviderError {provider, upstreamStatus, message}`.
+1. **Normalized result** — `generate(input, signal)` returns `{ images: {bytes, mediaType, width, height}[], costUsd: number|null (provider USD; `generations` converts to micro-USD), acceptedParams: Record|null, rawRequest, rawResponse }` with images already decoded/validated and the raw exchange already redacted; failures throw `ProviderError {provider, upstreamStatus, message}`.
 2. **Adapter persists its own output** — the adapter decodes and writes image files through `storage` and returns file references + metadata; `generations` only inserts rows.
 3. **Streaming port** — the adapter yields partial images/events, `generations` assembles them.
 
