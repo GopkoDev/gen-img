@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { formatRelative } from "@/lib/format";
-import { Link } from "@/lib/router";
+import { Link, replace } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
@@ -74,12 +74,16 @@ export function Gallery() {
   // A one-off notice after a deletion (SCR-01); the flag is dropped from the address right away.
   const [justDeleted] = useState(() => new URLSearchParams(window.location.search).has("deleted"));
   useEffect(() => {
-    if (justDeleted) window.history.replaceState(null, "", window.location.pathname);
+    if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
   const q = useInfiniteQuery({
     queryKey: GALLERY_QUERY_KEY,
     queryFn: ({ pageParam }) => api.generations(pageParam),
     initialPageParam: undefined as string | undefined,
+    // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
+    // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: "always",
     // Re-read while any loaded tile still waits for its price (spec §6, sad §8).
     refetchInterval: (query) =>
       query.state.data?.pages.some((p) => p.items.some((g) => g.costStatus === "pending")) ? PENDING_REFETCH_MS : false,

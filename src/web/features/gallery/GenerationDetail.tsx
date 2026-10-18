@@ -189,6 +189,9 @@ export function GenerationDetail({ id }: { id: string }) {
   const q = useQuery({
     queryKey: ["generation", id],
     queryFn: () => api.generation(id),
+    // Like the gallery (spec §6): revisiting doesn't reload; changes invalidate it, focus catches other tabs.
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: "always",
     refetchInterval: (query) => (query.state.data?.costStatus === "pending" ? PENDING_REFETCH_MS : false),
   });
   const back = (

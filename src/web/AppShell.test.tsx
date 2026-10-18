@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { navigate } from "@/lib/router";
-import { renderWithQuery } from "@/test-utils";
+import { renderWithQuery, summary } from "@/test-utils";
 import type { Generation, Job } from "../shared/generations";
 import type { ImageModel } from "../shared/providers";
 import { App } from "./App";
@@ -15,6 +15,7 @@ vi.mock("@/lib/api", async (orig) => ({
     models: vi.fn(),
     currentJob: vi.fn(),
     dismissJob: vi.fn(),
+    deleteGeneration: vi.fn(),
     generations: vi.fn(),
     generation: vi.fn(),
     price: vi.fn(),
@@ -142,13 +143,114 @@ describe("App shell — draft, job and carried sources across sections", () => {
     await waitFor(() => expect(entry("Generate")).toHaveTextContent("generation failed"));
   });
 
-  it("polls the running generation once, not once per observer (spec §6)", async () => {
-    m.currentJob.mockResolvedValue({ job: job({}) });
+  it("clears the failure flag once the Owner dismisses the notice on Generate (AC-06)", async () => {
+    m.currentJob.mockResolvedValue({
+      job: job({
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+        error: { code: "PROVIDER_ERROR", message: "No credits" },
+      }),
+    });
+    m.dismissJob.mockResolvedValue(null);
+    at("/gallery");
+    await waitFor(() => expect(entry("Generate")).toHaveTextContent("generation failed"));
+    fireEvent.click(entry("Generate"));
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Dismiss" })));
+    await waitFor(() => expect(entry("Generate")).not.toHaveTextContent("generation failed"));
+  });
+
+  it("does not reload an already visited gallery or detail page when coming back (spec §6)", async () => {
+    m.generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
+    at("/gallery");
+    await screen.findByText("A test prompt number 1");
+    const lists = m.generations.mock.calls.length;
+    fireEvent.click(entry("Generate"));
+    fireEvent.click(entry("Gallery"));
+    await screen.findByText("A test prompt number 1");
+    act(() => navigate("/generations/01SRC"));
+    await screen.findByRole("button", { name: "Delete" });
+    const details = m.generation.mock.calls.length;
+    act(() => navigate("/gallery"));
+    act(() => navigate("/generations/01SRC"));
+    await screen.findByRole("button", { name: "Delete" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(m.generations.mock.calls.length).toBe(lists);
+    expect(m.generation.mock.calls.length).toBe(details);
+  });
+
+  it("refreshes an open detail page when a generation finishes — its lineage may have changed", async () => {
+    let current: Job | null = job({});
+    m.currentJob.mockImplementation(async () => ({ job: current }));
+    at("/generations/01SRC");
+    await screen.findByRole("button", { name: "Delete" });
+    const reads = () => m.generation.mock.calls.filter(([id]) => id === "01SRC").length;
+    const details = reads();
+    current = job({ status: "succeeded", finishedAt: new Date().toISOString(), generationId: "01NEW" });
+    await waitFor(() => expect(reads()).toBeGreaterThan(details), { timeout: 3000 });
+  });
+
+  it("deletes from the detail page and lands on the Gallery section with the notice (AC-08)", async () => {
+    m.deleteGeneration.mockResolvedValue(null);
+    at("/generations/01SRC");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Delete generation" })));
+    expect(await screen.findByText("Generation deleted.")).toBeVisible();
+    expect(entry("Gallery")).toHaveAttribute("aria-current", "page");
+    expect(window.location.pathname + window.location.search).toBe("/gallery");
+  });
+
+  it("drops a pending prompt focus when the prompt can't take it after loading (job running)", async () => {
+    let current: Job | null = job({});
+    m.currentJob.mockImplementation(async () => ({ job: current }));
     at("/gallery");
     await waitFor(() => expect(entry("Generate")).toHaveTextContent("generation running"));
-    const start = m.currentJob.mock.calls.length;
-    await new Promise((r) => setTimeout(r, 2500));
-    expect(m.currentJob.mock.calls.length - start).toBeLessThanOrEqual(3);
+    act(() => navigate("/?focus=prompt"));
+    await waitFor(() => expect(prompt()).toBeDisabled());
+    expect(prompt()).not.toHaveFocus();
+    current = job({ status: "succeeded", finishedAt: new Date().toISOString(), generationId: "01NEW" });
+    await waitFor(() => expect(prompt()).toBeEnabled(), { timeout: 3000 });
+    expect(prompt()).not.toHaveFocus();
+  });
+
+  it("drops a pending prompt focus when the Owner leaves Generate before it is ready", async () => {
+    let ready: (v: Awaited<ReturnType<typeof api.providers>>) => void = () => {};
+    m.providers.mockReturnValue(new Promise((r) => (ready = r)));
+    at("/gallery");
+    act(() => navigate("/?focus=prompt"));
+    act(() => navigate("/gallery"));
+    await act(async () => ready({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Model", hidden: true })).toHaveTextContent("Seedy"),
+    );
+    fireEvent.click(entry("Generate"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(prompt()).not.toHaveFocus();
+  });
+
+  it("a carried source cleans the address at once, and a slower earlier load never wins the draft", async () => {
+    const OTHER: Generation = { ...SOURCE, id: "01OTHER", prompt: "A dog on the moon" };
+    let first: (g: Generation) => void = () => {};
+    m.generation.mockImplementation((id) =>
+      id === "01SRC" ? new Promise((r) => (first = r)) : Promise.resolve(OTHER),
+    );
+    at("/gallery");
+    act(() => navigate("/?rerun=01SRC"));
+    expect(window.location.search).toBe(""); // Back never re-applies it
+    act(() => navigate("/?rerun=01OTHER"));
+    await waitFor(() => expect(prompt()).toHaveValue("A dog on the moon"));
+    await act(async () => first(SOURCE));
+    expect(prompt()).toHaveValue("A dog on the moon");
+  });
+
+  it("a carried source that loads after the Owner left Generate does not fill the draft", async () => {
+    let load: (g: Generation) => void = () => {};
+    m.generation.mockImplementation(() => new Promise((r) => (load = r)));
+    at("/gallery");
+    act(() => navigate("/?rerun=01SRC"));
+    act(() => navigate("/gallery"));
+    await act(async () => load(SOURCE));
+    fireEvent.click(entry("Generate"));
+    expect(prompt()).toHaveValue("");
   });
 
   it("applies a re-run carried in the address on every arrival, then cleans the address (AC-07)", async () => {
