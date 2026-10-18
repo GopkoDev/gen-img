@@ -139,7 +139,7 @@
       "dod": "NFR tests in the serial nfr project (files named `nfr.int.test.ts`): comment/tag save \u2264 100 ms p95; delete with 4 outputs + 8 inputs \u2264 300 ms p95 and the dir is gone; gallery first page \u2264 300 ms p95 with 1 000 generations \u00d7 10 tags + comment; restart after a commit-before-purge crash leaves no trash",
       "files_hint": ["src/server/modules/generations/nfr.int.test.ts"],
       "file": "docs/features/curate-gallery/tasks/t10-curation-nfr-tests.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

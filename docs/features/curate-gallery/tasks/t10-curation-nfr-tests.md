@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/nfr.int.test.ts"]
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T10 — Verify the curation and deletion NFRs
