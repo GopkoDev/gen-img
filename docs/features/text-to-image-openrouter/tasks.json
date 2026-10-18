@@ -148,7 +148,7 @@
         "tests/helpers/test-app.ts"
       ],
       "file": "docs/features/text-to-image-openrouter/tasks/t10-generations-routes-wiring.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T11",

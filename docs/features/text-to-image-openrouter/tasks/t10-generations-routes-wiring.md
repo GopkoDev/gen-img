@@ -9,8 +9,8 @@ files_hint: ["src/server/modules/generations/routes.ts", "src/server/modules/gen
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 # T10 — Expose generations, job and file routes and wire the app

@@ -18,14 +18,18 @@ export function createTestApp(overrides: Partial<Config> = {}, deps: Omit<Partia
   };
   const db = openDb(dataDir);
   migrateUp(db);
-  const app = createApp({ config, db, ...deps });
-  return {
-    app,
+  const handle = {
+    app: createApp({ config, db, ...deps }),
     db,
     dataDir,
+    /** Builds a fresh app over the same DB + data dir, like a server restart. */
+    restart() {
+      handle.app = createApp({ config, db, ...deps });
+    },
     cleanup() {
       db.close();
       rmSync(dataDir, { recursive: true, force: true });
     },
   };
+  return handle;
 }

@@ -4,9 +4,14 @@ import type { Db } from "./db/client";
 import { type Config, DEV_UI_PORT } from "./lib/config";
 import { notFound, onError } from "./lib/errors";
 import { requestGuard } from "./lib/request-guard";
+import { createJobSlot } from "./modules/generations/jobs";
+import { createGenerationsRepo } from "./modules/generations/repo";
+import { registerGenerationsRoutes } from "./modules/generations/routes";
+import { createGenerationsService } from "./modules/generations/service";
 import { createModelCatalog } from "./modules/providers/catalog";
 import { createProviderRegistry } from "./modules/providers/registry";
 import { registerProvidersRoutes } from "./modules/providers/routes";
+import { createFileStore } from "./modules/storage/file-store";
 import { registerSystemRoutes } from "./modules/system/routes";
 
 /** Everything a module needs is passed in explicitly — no global singletons, so tests build an app with fakes. */
@@ -17,7 +22,11 @@ export type AppDeps = {
   fetch?: typeof fetch;
   /** Clock (epoch ms) for caches. */
   now?: () => number;
+  /** Provider request timeout; spec §6: 180 s. */
+  generationTimeoutMs?: number;
 };
+
+export const GENERATION_TIMEOUT_MS = 180_000;
 
 export type CreateAppOptions = {
   /** Directory of the built SPA (`dist/web`); when set, served at `/` with an index.html fallback. */
@@ -32,6 +41,18 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
   const providers = createProviderRegistry(deps.config, deps.fetch);
   const catalog = createModelCatalog(providers, deps.now);
   registerProvidersRoutes(api, { providers, catalog });
+
+  const files = createFileStore(deps.config.dataDir);
+  const service = createGenerationsService({
+    providers,
+    catalog,
+    repo: createGenerationsRepo(deps.db),
+    files,
+    jobs: createJobSlot(deps.config.dataDir),
+    timeoutMs: deps.generationTimeoutMs ?? GENERATION_TIMEOUT_MS,
+  });
+  service.sweepOnBoot(); // drop leftovers of an interrupted save (ADR-0006)
+  registerGenerationsRoutes(api, { service, files });
 
   const app = new Hono();
   app.onError(onError);
