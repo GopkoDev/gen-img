@@ -15,7 +15,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/gallery-by-model/tasks/t1-by-model-index.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
@@ -52,7 +52,7 @@
         "src/web/features/gallery/GenerationDialog.tsx"
       ],
       "file": "docs/features/gallery-by-model/tasks/t3-view-model-and-patches.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T4",
