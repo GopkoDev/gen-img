@@ -564,3 +564,102 @@ describe("lineage, re-run and reuse inside the dialog (AC-07, AC-08)", () => {
     expect(window.history.length).toBe(len);
   });
 });
+
+describe("delete from the dialog (AC-06)", () => {
+  /** Newest-first ids n..1 in pages of `size`; deleted ids vanish from later requests. */
+  function serveWithDeletes(n: number, size: number, failPages = { on: false }) {
+    const gone = new Set<string>();
+    generations.mockImplementation(async (cursor) => {
+      if (cursor && failPages.on) throw new ApiError(500, "UPSTREAM", "boom");
+      const all = Array.from({ length: n }, (_, i) => summary(n - i)).filter((g) => !gone.has(g.id));
+      const rest = cursor ? all.filter((g) => g.id < cursor) : all;
+      const items = rest.slice(0, size);
+      return { items, nextCursor: rest.length > size ? (items[size - 1]?.id ?? null) : null } satisfies GenerationPage;
+    });
+    vi.mocked(api.deleteGeneration).mockImplementation(async (id) => {
+      gone.add(id);
+      return null;
+    });
+  }
+  const del = async (d: HTMLElement) => {
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete generation" }));
+  };
+
+  it("a middle one: notice in the dialog, the older neighbour shown, address replaced, Back skips the deleted id", async () => {
+    serveWithDeletes(3, 3);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    const len = window.history.length;
+    await del(d);
+    expect(await screen.findByText("Detail prompt 1")).toBeInTheDocument();
+    expect(screen.getByText("Generation deleted.")).toBeInTheDocument();
+    expect(here()).toBe(`/generations/${idOf(1)}`);
+    expect(window.history.length).toBe(len);
+    await waitFor(() => expect(screen.queryByText("A test prompt number 2")).not.toBeInTheDocument());
+    await act(async () => window.history.back());
+    await waitFor(() => expect(here()).toBe("/gallery"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("the notice in the dialog clears on the next step", async () => {
+    serveWithDeletes(3, 3);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    await del(d);
+    await screen.findByText("Generation deleted.");
+    fireEvent.click(newer());
+    await waitFor(() => expect(here()).toBe(`/generations/${idOf(3)}`));
+    await waitFor(() => expect(screen.queryByText("Generation deleted.")).toBeNull());
+  });
+
+  it("the oldest loaded one with no more pages: the newer neighbour", async () => {
+    serveWithDeletes(3, 3);
+    renderApp();
+    const d = await openCard(1);
+    await within(d).findByText("Detail prompt 1");
+    await del(d);
+    expect(await screen.findByText("Detail prompt 2")).toBeInTheDocument();
+    expect(here()).toBe(`/generations/${idOf(2)}`);
+    expect(screen.getByText("Generation deleted.")).toBeInTheDocument();
+  });
+
+  it("the only generation: the dialog closes onto the grid, which says «Generation deleted.»", async () => {
+    serveWithDeletes(1, 3);
+    renderApp();
+    const d = await openCard(1);
+    await within(d).findByText("Detail prompt 1");
+    await del(d);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(here()).toBe("/gallery");
+    expect(await screen.findByText("Generation deleted.")).toBeInTheDocument();
+  });
+
+  it("the last loaded one with more pages: the next page loads first, then its first item shows", async () => {
+    serveWithDeletes(3, 2);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    await del(d);
+    expect(await screen.findByText("Detail prompt 1")).toBeInTheDocument();
+    expect(here()).toBe(`/generations/${idOf(1)}`);
+    expect(screen.getByText("Generation deleted.")).toBeInTheDocument();
+  });
+
+  it("the next page fails: the dialog closes onto the grid with the notice and «Couldn't load more.»", async () => {
+    const fail = { on: false };
+    serveWithDeletes(3, 2, fail);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fail.on = true;
+    await del(d);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(here()).toBe("/gallery");
+    expect(await screen.findByText("Generation deleted.")).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load more.")).toBeInTheDocument();
+    expect(screen.queryByText("A test prompt number 2")).not.toBeInTheDocument();
+  });
+});

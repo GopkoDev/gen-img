@@ -33,3 +33,9 @@ export function useDialogEscape(handler: EscapeHandler | null) {
     return () => register(null);
   }, [active, register]);
 }
+
+/**
+ * Set by the dialog around the detail body: after a delete succeeded, move to a neighbour (or close onto the grid).
+ * Null outside a dialog — the full page navigates to the grid itself.
+ */
+export const DialogDeleteContext = createContext<((deletedId: string) => Promise<void>) | null>(null);

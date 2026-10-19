@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,19 +14,25 @@ import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
 import { navigate } from "@/lib/router";
 import type { Generation } from "../../../shared/generations";
-import { useReportDialogBusy } from "./DialogBusy";
+import { DialogDeleteContext, useReportDialogBusy } from "./DialogBusy";
 
 const excerpt = (prompt: string) => (prompt.length > 80 ? `${prompt.slice(0, 80)}…` : prompt);
 
 /** SCR-03 — Delete action + confirmation dialog. Failures are reported through `onFailed` (shown on SCR-02). */
 export function DeleteGeneration({ g, onFailed }: { g: Generation; onFailed: (message: string | null) => void }) {
   const qc = useQueryClient();
+  const afterDeleteInDialog = useContext(DialogDeleteContext);
   const [open, setOpen] = useState(false);
   useReportDialogBusy(open);
   const del = useMutation({
     mutationFn: () => api.deleteGeneration(g.id),
     onMutate: () => onFailed(null),
-    onSuccess: () => {
+    onSuccess: async () => {
+      if (afterDeleteInDialog) {
+        setOpen(false);
+        await afterDeleteInDialog(g.id);
+        return;
+      }
       qc.removeQueries({ queryKey: ["generation", g.id] });
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["generation-job"] }); // the panel's latest result may be this one

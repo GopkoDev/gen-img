@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ApiError } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { dialogState, replace } from "@/lib/router";
-import { DialogBusyContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
-import { galleryQueryOptions } from "./Gallery";
+import type { GenerationPage } from "../../../shared/generations";
+import { DialogBusyContext, DialogDeleteContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
+import { GALLERY_QUERY_KEY, galleryQueryOptions } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
+import { showGalleryNotice } from "./galleryNotice";
 import { bringCardIntoView } from "./gridPlace";
 import { neighbours } from "./neighbours";
 
@@ -125,6 +127,39 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
     if (next && idRef.current === from) go(next);
   };
 
+  // After a delete: choose from the order as it was before it, show the neighbour in place (address replaced), or
+  // close onto the grid with the notice handed over. The deleted card leaves the grid either way.
+  const qc = useQueryClient();
+  const [deletedNotice, setDeletedNotice] = useState<string | null>(null);
+  useEffect(() => setDeletedNotice((n) => (n === id ? n : null)), [id]);
+  const afterDelete = async (deletedId: string) => {
+    const before = neighbours(items, deletedId);
+    const loadNext = !before.older && before.inOrder && before.atEnd && grid.hasNextPage;
+    // The card leaves the grid first: a failed page load afterwards then keeps its own error on the grid.
+    qc.setQueryData<InfiniteData<GenerationPage, string | undefined>>(
+      GALLERY_QUERY_KEY,
+      (d) => d && { ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((g) => g.id !== deletedId) })) },
+    );
+    let target = before.older;
+    let pageFailed = false;
+    if (loadNext) {
+      const r = await grid.fetchNextPage();
+      if (r.isError || !r.data) pageFailed = true;
+      else target = r.data.pages.flatMap((p) => p.items).find((g) => g.id < deletedId)?.id ?? null;
+    }
+    if (!pageFailed) target ??= before.newer;
+    if (!pageFailed) qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
+    if (target && mounted.current) {
+      setDeletedNotice(target);
+      go(target);
+    } else {
+      showGalleryNotice();
+      window.history.back();
+    }
+    qc.removeQueries({ queryKey: ["generation", deletedId] });
+    qc.invalidateQueries({ queryKey: ["generation-job"] }); // the panel's latest result may be this one
+  };
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTextTarget(e.target)) return;
     if (e.key === "ArrowLeft") stepNewer();
@@ -211,6 +246,11 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
               </Button>
             </DialogClose>
           </header>
+          {deletedNotice === id && (
+            <p role="status" className="shrink-0 border-b bg-muted px-6 py-2 text-sm">
+              Generation deleted.
+            </p>
+          )}
           {nextFailed && (
             <p className="flex shrink-0 items-center gap-2 border-b border-destructive/40 bg-destructive/10 px-6 py-2 text-sm">
               Couldn't load the next one.
@@ -221,7 +261,9 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
           )}
           <DialogBusyContext.Provider value={setBusy}>
             <DialogEscapeContext.Provider value={setEscape}>
-              <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:overflow-hidden">{body}</div>
+              <DialogDeleteContext.Provider value={afterDelete}>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:overflow-hidden">{body}</div>
+              </DialogDeleteContext.Provider>
             </DialogEscapeContext.Provider>
           </DialogBusyContext.Provider>
         </TooltipProvider>

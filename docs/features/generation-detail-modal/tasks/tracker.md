@@ -11,7 +11,7 @@
 | T2 | Find a generation's newer and older neighbours in the loaded order | domain | dmytro.hopko | S | — | done | COMMIT |
 | T3 | Show the generation in a dialog over the grid and step through neighbours | ui | dmytro.hopko | L | T1, T2 | done | COMMIT |
 | T4 | Make the detail body safe and dialog-aware: busy, lineage, re-run and in-place card edits | ui | dmytro.hopko | M | T1, T3 | done | COMMIT |
-| T5 | Delete from the dialog and move to a neighbour | ui | dmytro.hopko | S | T4 | todo | — |
+| T5 | Delete from the dialog and move to a neighbour | ui | dmytro.hopko | S | T4 | done | COMMIT |
 | T6 | Prove the dialog's timing, request counts and preloads | tests | dmytro.hopko | S | T5 | todo | — |
 
 **Total:** 6 tasks, ~5 person-days.

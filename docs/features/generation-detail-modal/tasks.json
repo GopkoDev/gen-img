@@ -78,7 +78,7 @@
         "src/web/features/gallery/DeleteGeneration.test.tsx"
       ],
       "file": "docs/features/generation-detail-modal/tasks/t5-delete-from-dialog.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

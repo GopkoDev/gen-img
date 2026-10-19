@@ -9,6 +9,7 @@ import { excerpt, formatRelative } from "@/lib/format";
 import { dialogState, isDialogVisit, Link, navigate, replace, useRoute } from "@/lib/router";
 import type { GenerationPage, GenerationSummary } from "../../../shared/generations";
 import { CardBadges } from "./CardBadges";
+import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
 import { isOwnScroll } from "./gridPlace";
 import { usePendingCost } from "./usePendingCost";
 
@@ -117,6 +118,8 @@ export function Gallery() {
   useEffect(() => {
     if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
+  const handedOver = useGalleryNotice(); // the dialog closed after a delete
+  useEffect(() => clearGalleryNotice, []);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const q = useInfiniteQuery(galleryQueryOptions);
   // While the dialog is open the grid loads nothing by itself; after it closes the sentinel is re-armed by the
@@ -179,7 +182,7 @@ export function Gallery() {
     );
 
   const items = q.data.pages.flatMap((p) => p.items);
-  const notice = justDeleted && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
+  const notice = (justDeleted || handedOver) && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
   if (items.length === 0)
     return (
       <div className="flex flex-col items-start gap-3">
