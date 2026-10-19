@@ -15,7 +15,7 @@
         "src/web/App.test.tsx"
       ],
       "file": "docs/features/generation-detail-modal/tasks/t1-history-state-and-fixed-gallery.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T2",
@@ -26,7 +26,7 @@
       "dod": "unit tests: newer/older for first, middle, last, not-in-order; prepending an item doesn't change a shown item's neighbours",
       "files_hint": ["src/web/features/gallery/neighbours.ts", "src/web/features/gallery/neighbours.test.ts"],
       "file": "docs/features/generation-detail-modal/tasks/t2-neighbours.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
