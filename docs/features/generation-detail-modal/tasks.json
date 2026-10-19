@@ -92,7 +92,7 @@
         "src/web/features/gallery/GenerationDialog.test.tsx"
       ],
       "file": "docs/features/generation-detail-modal/tasks/t6-dialog-timing-and-requests.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

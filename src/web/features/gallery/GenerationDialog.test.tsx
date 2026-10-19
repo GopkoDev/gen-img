@@ -409,6 +409,59 @@ describe("preload (spec §6)", () => {
   });
 });
 
+describe("request counts (spec §6 rows 2-4)", () => {
+  const detailReads = () => generation.mock.calls.map((c) => c[0]);
+
+  it("reads each not-yet-read generation once and a revisit not at all", async () => {
+    serve(4);
+    renderApp();
+    const d = await openCard(4);
+    await within(d).findByText("Detail prompt 4");
+    fireEvent.click(older());
+    await within(d).findByText("Detail prompt 3");
+    fireEvent.click(newer());
+    await within(d).findByText("Detail prompt 4");
+    fireEvent.click(older());
+    await within(d).findByText("Detail prompt 3");
+    expect(detailReads().sort()).toEqual([idOf(3), idOf(4)].sort());
+  });
+
+  it("a tag change costs 0 list reads and at most 1 detail read", async () => {
+    serve(3);
+    let tags: string[] = [];
+    generation.mockImplementation(async (id) => gen(Number(id.slice(3)), { tags }));
+    vi.mocked(api.addTag).mockImplementation(async () => {
+      tags = ["cat"];
+      return { tags };
+    });
+    renderApp();
+    const d = await openCard(3);
+    const tag = await within(d).findByPlaceholderText("Add a tag…");
+    const lists = generations.mock.calls.length;
+    const reads = generation.mock.calls.length;
+    fireEvent.change(tag, { target: { value: "cat" } });
+    fireEvent.keyDown(tag, { key: "Enter" });
+    await within(d).findByRole("button", { name: "Remove tag cat" });
+    await act(async () => {});
+    expect(generations.mock.calls.length).toBe(lists);
+    expect(generation.mock.calls.length - reads).toBeLessThanOrEqual(1);
+  });
+
+  it("preloads nothing past the loaded items, at most 2 per step", async () => {
+    generations.mockResolvedValue({ items: [2, 1].map((i) => summary(i)), nextCursor: "more" });
+    const srcs: string[] = [];
+    const Spy = vi.fn(function (this: { set: boolean }) {
+      Object.defineProperty(this, "src", { set: (v: string) => srcs.push(v) });
+    });
+    vi.stubGlobal("Image", Spy);
+    renderApp();
+    await openCard(1); // the last loaded one, more pages exist: still no preload of the unloaded
+    await waitFor(() => expect(srcs).toEqual([summary(2).thumbnail.url]));
+    expect(generations).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
+
 const olderBtn = () => screen.getByRole("button", { name: /^Older/, hidden: true });
 const newerBtn = () => screen.getByRole("button", { name: /^Newer/, hidden: true });
 const arrows = (d: HTMLElement) => {
