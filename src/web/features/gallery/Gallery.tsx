@@ -114,7 +114,7 @@ function Tile({ g }: { g: GenerationSummary }) {
 /** SCR-02 — newest-first gallery with on-demand paging. */
 export function Gallery() {
   // A one-off notice after a deletion (SCR-01); the flag is dropped from the address right away.
-  const [justDeleted] = useState(() => new URLSearchParams(window.location.search).has("deleted"));
+  const [justDeleted, setJustDeleted] = useState(() => new URLSearchParams(window.location.search).has("deleted"));
   useEffect(() => {
     if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
@@ -127,7 +127,11 @@ export function Gallery() {
   const paused = isDialogVisit(useRoute());
   const [armed, setArmed] = useState(true);
   useEffect(() => {
-    if (paused) setArmed(false);
+    if (!paused) return;
+    setArmed(false);
+    // A notice belongs to the visit that showed it: it does not wait for a later dialog to be closed.
+    setJustDeleted(false);
+    clearGalleryNotice();
   }, [paused]);
   useEffect(() => {
     if (paused || armed) return;

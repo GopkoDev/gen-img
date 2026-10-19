@@ -31,6 +31,9 @@ export function patchCard(
       })),
     };
   });
+  // A list refresh already in flight was read before this change and would put the old card back: refresh again.
+  if (qc.isFetching({ queryKey: GALLERY_QUERY_KEY, exact: true }) > 0)
+    qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY, exact: true });
   qc.invalidateQueries({ queryKey: ["generation", id] });
   qc.invalidateQueries({ queryKey: RECENT_QUERY_KEY, exact: true });
 }

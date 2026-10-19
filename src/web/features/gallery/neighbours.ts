@@ -16,3 +16,12 @@ export function neighbours(items: readonly { id: string }[], id: string): Neighb
     inOrder: true,
   };
 }
+
+/**
+ * `id` was the last loaded generation and a refresh pushed it off the tail: it still sits just past the end of the
+ * loaded order (newest-first ULIDs), so Older is «load the next page» and Newer is the last loaded one.
+ */
+export function anchoredAtEnd(items: readonly { id: string }[], id: string): Neighbours | null {
+  const last = items[items.length - 1];
+  return last && id < last.id ? { newer: last.id, older: null, atEnd: true, inOrder: true } : null;
+}

@@ -13,7 +13,7 @@ import { GALLERY_QUERY_KEY, galleryQueryOptions } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { showGalleryNotice } from "./galleryNotice";
 import { bringCardIntoView } from "./gridPlace";
-import { neighbours } from "./neighbours";
+import { anchoredAtEnd, neighbours } from "./neighbours";
 
 const isTextTarget = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
@@ -62,25 +62,40 @@ function Step({
  * Grid state is shared through the TanStack cache: this reads the same infinite query as the Gallery
  * (`galleryQueryOptions`, staleTime ∞ so it never refetches by itself). Its `fetchNextPage` is the grid's own
  * request (deduped), only ever called here when stepping past the end; the Gallery pauses its sentinel from the route.
- * `busy` (or the `DialogBusyContext` setter T4's detail body reports through) disables stepping.
+ * The `DialogBusyContext` setter the detail body reports through (and a delete in progress) disables stepping.
  */
-export function GenerationDialog({ id, busy: busyProp = false }: { id: string; busy?: boolean }) {
+export function GenerationDialog({ id }: { id: string }) {
   const grid = useInfiniteQuery(galleryQueryOptions);
   const detail = useGeneration(id);
   const items = grid.data?.pages.flatMap((p) => p.items) ?? [];
-  const nav = neighbours(items, id);
+  // A refresh can push the shown, last loaded generation off the tail of the list: keep it at the end of the order
+  // (it was in the order, more pages exist, it is older than everything loaded). A lineage hop never was in it.
+  const anchorFor = useRef<string | null>(null);
+  let nav = neighbours(items, id);
+  if (!nav.inOrder && anchorFor.current === id && grid.hasNextPage) nav = anchoredAtEnd(items, id) ?? nav;
+  if (nav.inOrder) anchorFor.current = id;
+  const refreshing = grid.isFetching; // read during render so a refresh re-renders the dialog
   const [reported, setReported] = useState(0);
   const setBusy = useCallback((b: boolean) => setReported((n) => Math.max(0, n + (b ? 1 : -1))), []);
   const escapeHandler = useRef<EscapeHandler | null>(null);
   const setEscape = useCallback((h: EscapeHandler | null) => {
     escapeHandler.current = h;
   }, []);
-  const busy = busyProp || reported > 0;
+  const [deleting, setDeleting] = useState(false);
+  const busy = reported > 0 || deleting;
   const [loadingNext, setLoadingNext] = useState(false);
+  const [queued, setQueued] = useState<string | null>(null);
   const [nextFailed, setNextFailed] = useState(false);
   const idRef = useRef(id);
   idRef.current = id;
   const mounted = useRef(true);
+  // Every close path goes back at most once per visit (a double Esc, an overlay click after Esc, a delete finishing).
+  const closingRef = useRef(false);
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    window.history.back();
+  };
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // A failure belongs to the generation it happened on.
@@ -110,9 +125,14 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
     if (!busy && nav.newer) go(nav.newer);
   };
   const stepOlder = async () => {
+    if (queued === id) return;
+    await olderStep();
+  };
+  const olderStep = async () => {
     if (busy || loadingNext) return;
     if (nav.older) return go(nav.older);
-    if (!nav.inOrder || !grid.hasNextPage || grid.isFetching) return;
+    if (!nav.inOrder || !grid.hasNextPage) return;
+    if (refreshing) return setQueued(id); // the list is being refreshed: step once it has settled
     const from = id;
     setLoadingNext(true);
     setNextFailed(false);
@@ -120,12 +140,15 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
     if (!mounted.current) return;
     setLoadingNext(false);
     if (r.isError || !r.data) return setNextFailed(true);
-    const next = neighbours(
-      r.data.pages.flatMap((p) => p.items),
-      from,
-    ).older;
+    const next = r.data.pages.flatMap((p) => p.items).find((g) => g.id < from)?.id;
     if (next && idRef.current === from) go(next);
   };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the refresh settles, with this render's state
+  useEffect(() => {
+    if (queued === null || refreshing) return;
+    setQueued(null);
+    if (queued === idRef.current) void olderStep();
+  }, [queued, refreshing]);
 
   // After a delete: choose from the order as it was before it, show the neighbour in place (address replaced), or
   // close onto the grid with the notice handed over. The deleted card leaves the grid either way.
@@ -133,7 +156,8 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
   const [deletedNotice, setDeletedNotice] = useState<string | null>(null);
   useEffect(() => setDeletedNotice((n) => (n === id ? n : null)), [id]);
   const afterDelete = async (deletedId: string) => {
-    const before = neighbours(items, deletedId);
+    setDeleting(true);
+    const before = nav;
     const loadNext = !before.older && before.inOrder && before.atEnd && grid.hasNextPage;
     // The card leaves the grid first: a failed page load afterwards then keeps its own error on the grid.
     qc.setQueryData<InfiniteData<GenerationPage, string | undefined>>(
@@ -149,12 +173,15 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
     }
     if (!pageFailed) target ??= before.newer;
     if (!pageFailed) qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
-    if (target && mounted.current) {
+    if (!mounted.current || closingRef.current) {
+      showGalleryNotice(); // closed meanwhile: the grid says so, and no second Back
+    } else if (target) {
       setDeletedNotice(target);
+      setDeleting(false);
       go(target);
     } else {
       showGalleryNotice();
-      window.history.back();
+      close();
     }
     qc.removeQueries({ queryKey: ["generation", deletedId] });
     qc.invalidateQueries({ queryKey: ["generation-job"] }); // the panel's latest result may be this one
@@ -166,12 +193,13 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
     else if (e.key === "ArrowRight") void stepOlder();
   };
 
-  const waitingForNext = loadingNext || (nav.atEnd && grid.isFetchingNextPage);
+  const waitingForNext = loadingNext || queued === id || (nav.atEnd && !!grid.hasNextPage && refreshing);
   const olderUnavailable = !nav.older && !(grid.hasNextPage && nav.inOrder);
-  const title = items.find((g) => g.id === id)?.prompt ?? detail.data?.prompt;
+  const title = deleting ? undefined : (items.find((g) => g.id === id)?.prompt ?? detail.data?.prompt);
 
   let body: ReactNode;
-  if (detail.isPending) body = <Placeholder>Loading…</Placeholder>;
+  if (deleting) body = <Placeholder>Generation deleted.</Placeholder>;
+  else if (detail.isPending) body = <Placeholder>Loading…</Placeholder>;
   else if (detail.isError && detail.error instanceof ApiError && detail.error.status === 404)
     body = <Placeholder>This generation no longer exists.</Placeholder>;
   else if (detail.isError)
@@ -188,7 +216,7 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
   else body = <Detail key={id} g={detail.data} layout="dialog" />;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && window.history.back()}>
+    <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
@@ -200,6 +228,16 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           closeRef.current?.focus();
+        }}
+        onCloseAutoFocus={(e) => {
+          // Back to the grid card last shown, not to <body>; the scroll is the grid's own business (bringCardIntoView).
+          const card = lastGridId.current
+            ? document.querySelector<HTMLElement>(`[data-generation-id="${CSS.escape(lastGridId.current)}"]`)
+            : null;
+          const target = card?.matches("a, button") ? card : card?.querySelector<HTMLElement>("a, button");
+          if (!target) return;
+          e.preventDefault();
+          target.focus({ preventScroll: true });
         }}
       >
         <TooltipProvider>
@@ -232,7 +270,7 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
                         ? "No older generation"
                         : "Older generation (→)"
                   }
-                  unavailable={olderUnavailable || waitingForNext}
+                  unavailable={olderUnavailable || loadingNext || queued === id}
                   disabled={busy}
                   onClick={() => void stepOlder()}
                 />

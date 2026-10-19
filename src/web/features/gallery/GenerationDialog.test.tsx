@@ -8,6 +8,7 @@ import { intersect } from "../../../../tests/helpers/intersection";
 import type { Generation, GenerationPage } from "../../../shared/generations";
 import { Gallery, resetGalleryScroll } from "./Gallery";
 import { GenerationDialog } from "./GenerationDialog";
+import { showGalleryNotice } from "./galleryNotice";
 
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
@@ -66,22 +67,22 @@ function serve(n: number) {
 }
 
 /** What App renders: the grid at a fixed place and, on a dialog visit, the dialog over it. */
-function Harness({ busy }: { busy?: boolean }) {
+function Harness() {
   const route = useRoute();
   return (
     <>
       <Gallery />
-      {route.name === "detail" && isDialogVisit(route) && <GenerationDialog id={route.id} busy={busy} />}
+      {route.name === "detail" && isDialogVisit(route) && <GenerationDialog id={route.id} />}
     </>
   );
 }
-const renderApp = (props: { busy?: boolean } = {}) => {
+const renderApp = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     client,
     ...render(
       <QueryClientProvider client={client}>
-        <Harness {...props} />
+        <Harness />
       </QueryClientProvider>,
     ),
   };
@@ -185,9 +186,10 @@ describe("stepping (AC-02, AC-09)", () => {
 
   it("is unavailable while busy: both buttons disabled with a tooltip, keys ignored", async () => {
     serve(3);
-    renderApp({ busy: true });
+    renderApp();
     const d = await openCard(2);
-    await within(d).findByText("Detail prompt 2");
+    fireEvent.change(await within(d).findByPlaceholderText("Add a tag…"), { target: { value: "cat" } });
+    await waitFor(() => expect(older()).toBeDisabled());
     expect(older()).toBeDisabled();
     expect(newer()).toBeDisabled();
     fireEvent.keyDown(d, { key: "ArrowRight" });
@@ -714,5 +716,224 @@ describe("delete from the dialog (AC-06)", () => {
     expect(await screen.findByText("Generation deleted.")).toBeInTheDocument();
     expect(await screen.findByText("Couldn't load more.")).toBeInTheDocument();
     expect(screen.queryByText("A test prompt number 2")).not.toBeInTheDocument();
+  });
+});
+
+describe("close latch (review R1, R6)", () => {
+  it("closing during a pending delete and then the delete resolving goes back once", async () => {
+    serve(3);
+    let resolveDelete: () => void = () => {};
+    vi.mocked(api.deleteGeneration).mockImplementation(
+      () =>
+        new Promise((r) => {
+          resolveDelete = () => r(null);
+        }),
+    );
+    renderApp();
+    const back = vi.spyOn(window.history, "back");
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete generation" }));
+    fireEvent.click(within(d).getByRole("button", { name: "Close", hidden: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(back).toHaveBeenCalledTimes(1);
+    await act(async () => resolveDelete());
+    await act(async () => {});
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+
+  it("a double Esc goes back once", async () => {
+    serve(3);
+    renderApp();
+    const back = vi.spyOn(window.history, "back");
+    const d = await openCard(3);
+    fireEvent.keyDown(d, { key: "Escape" });
+    fireEvent.keyDown(d, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deleting placeholder (review R2)", () => {
+  it("while the next page loads after a delete, the dialog says deleted and offers no actions", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    vi.mocked(api.deleteGeneration).mockResolvedValue(null);
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const base = generations.getMockImplementation();
+    generations.mockImplementation(async (cursor) => {
+      if (cursor) await gate;
+      return (base as NonNullable<typeof base>)(cursor);
+    });
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete generation" }));
+    await waitFor(() => expect(within(d).getByText("Generation deleted.")).toBeInTheDocument());
+    expect(within(d).queryByText("Detail prompt 2")).not.toBeInTheDocument();
+    expect(within(d).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(d).queryByText("Not in the gallery's current order")).not.toBeInTheDocument();
+    expect(newer()).toBeDisabled();
+    expect(older()).toBeDisabled();
+    await act(async () => release());
+    expect(await within(d).findByText("Detail prompt 1")).toBeInTheDocument();
+  });
+});
+
+describe("anchor at the end of the loaded order (review R3)", () => {
+  it("a generation arriving at the head keeps Newer/Older for the last loaded card; Older loads the next page", async () => {
+    serve(5); // [5,4] loaded, then [3,2], [1]
+    const { client } = renderApp();
+    const d = await openCard(4);
+    await within(d).findByText("Detail prompt 4");
+    serve(6); // a new generation 6 arrives: page one becomes [6,5], so 4 leaves the loaded tail
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["generations"] });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(generations).toHaveBeenCalledTimes(2);
+    expect(within(d).queryByText("Not in the gallery's current order")).not.toBeInTheDocument();
+    fireEvent.click(older());
+    expect(await within(d).findByText("Detail prompt 3")).toBeInTheDocument();
+  });
+});
+
+describe("the notice does not stick (review R4)", () => {
+  it("both the handed-over and the ?deleted notice clear when the dialog opens", async () => {
+    serve(3);
+    replace("/gallery?deleted=1", null);
+    renderApp();
+    expect(await screen.findByText("Generation deleted.")).toBeInTheDocument();
+    act(() => showGalleryNotice());
+    fireEvent.click(await screen.findByText("A test prompt number 3"));
+    await dialog();
+    expect(screen.queryByText("Generation deleted.")).not.toBeInTheDocument();
+    act(() => window.history.back());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByText("Generation deleted.")).not.toBeInTheDocument();
+  });
+});
+
+describe("focus on close (review R5)", () => {
+  it("returns focus to the last grid card's link without scrolling", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(3);
+    await within(d).findByText("Detail prompt 3");
+    fireEvent.keyDown(d, { key: "ArrowRight" });
+    await within(d).findByText("Detail prompt 2");
+    const link = document.querySelector(`a[data-generation-id="${idOf(2)}"]`) as HTMLElement;
+    const focus = vi.spyOn(link, "focus");
+    act(() => window.history.back());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(link));
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+});
+
+describe("Older at the end during a refetch (review R7)", () => {
+  it("shows waiting, then performs the step once the refetch settles", async () => {
+    serve(3); // [3,2] [1]
+    const { client } = renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    const base = generations.getMockImplementation() as NonNullable<
+      ReturnType<typeof generations.getMockImplementation>
+    >;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    generations.mockImplementationOnce(async (cursor) => {
+      await gate;
+      return base(cursor);
+    });
+    act(() => {
+      void client.invalidateQueries({ queryKey: ["generations"] });
+    });
+    await waitFor(() => expect(client.isFetching({ queryKey: ["generations"] })).toBe(1));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20)); // let the view see the refetch
+    });
+    expect(older().querySelector(".animate-spin")).not.toBeNull(); // waiting while the list refreshes
+    fireEvent.click(older());
+    expect(within(d).getByText("Detail prompt 2")).toBeInTheDocument();
+    expect(older()).toHaveAttribute("aria-disabled", "true");
+    expect(generations).toHaveBeenCalledTimes(2); // no page request on top of the refresh
+    await act(async () => release());
+    expect(await within(d).findByText("Detail prompt 1")).toBeInTheDocument();
+  });
+});
+
+describe("a card patch during a refetch (review R8)", () => {
+  it("is not lost when a stale list answer lands afterwards", async () => {
+    let tags: string[] = [];
+    const list = async () =>
+      ({ items: [3, 2, 1].map((i) => summary(i, i === 3 ? { tags } : {})), nextCursor: null }) satisfies GenerationPage;
+    generations.mockImplementation(list);
+    generation.mockImplementation(async (id) => gen(Number(id.slice(3)), { tags }));
+    vi.mocked(api.addTag).mockImplementation(async () => {
+      tags = ["cat"];
+      return { tags };
+    });
+    const { client } = renderApp();
+    const d = await openCard(3);
+    const tag = await within(d).findByPlaceholderText("Add a tag…");
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    generations.mockImplementationOnce(async () => {
+      const stale = { items: [3, 2, 1].map((i) => summary(i)), nextCursor: null } satisfies GenerationPage;
+      await gate;
+      return stale;
+    });
+    act(() => {
+      void client.invalidateQueries({ queryKey: ["generations"] });
+    });
+    await waitFor(() => expect(client.isFetching({ queryKey: ["generations"] })).toBe(1));
+    fireEvent.change(tag, { target: { value: "cat" } });
+    fireEvent.keyDown(tag, { key: "Enter" });
+    await within(d).findByRole("button", { name: "Remove tag cat" });
+    await act(async () => release());
+    const cardTags = () =>
+      (client.getQueryData(["generations"]) as { pages: GenerationPage[] }).pages
+        .flatMap((p) => p.items)
+        .find((c) => c.id === idOf(3))?.tags;
+    await waitFor(() => expect(cardTags()).toEqual(["cat"]));
+  });
+});
+
+describe("review R9", () => {
+  it("Esc with the delete confirmation open closes the confirmation, not the dialog", async () => {
+    serve(3);
+    renderApp();
+    const back = vi.spyOn(window.history, "back");
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    const confirm = await screen.findByText("Delete this generation?");
+    fireEvent.keyDown(confirm, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Delete this generation?")).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it("re-reads the grid's list after a delete in the dialog (AC-07)", async () => {
+    serve(3);
+    vi.mocked(api.deleteGeneration).mockResolvedValue(null);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    const before = generations.mock.calls.length;
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete generation" }));
+    await waitFor(() => expect(generations.mock.calls.length).toBeGreaterThan(before + 1)); // next page + the refresh
   });
 });
