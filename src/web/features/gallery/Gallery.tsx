@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
+import { infiniteQueryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ImageIcon, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,14 @@ import { api } from "@/lib/api";
 import { excerpt, formatRelative } from "@/lib/format";
 import { dialogState, isDialogVisit, Link, navigate, replace, useRoute } from "@/lib/router";
 import type { GenerationPage, GenerationSummary } from "../../../shared/generations";
+import { ByModel } from "./ByModel";
 import { CardBadges } from "./CardBadges";
+import { showView } from "./GalleryViews";
 import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
+import { type GalleryView, viewKey } from "./galleryView";
 import { isOwnScroll } from "./gridPlace";
+import { modelsQueryOptions, providerName } from "./modelsQuery";
+import { useGalleryView } from "./useGalleryView";
 import { usePendingCost } from "./usePendingCost";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
@@ -20,24 +25,29 @@ const SENTINEL_MARGIN = "600px";
  * The grid's list query. The dialog (a sibling of the grid in App) reads the very same cache entry with these
  * options, so both see one flattened list and one in-flight page request; with staleTime ∞ it never refetches.
  */
-export const galleryQueryOptions = infiniteQueryOptions({
-  queryKey: GALLERY_QUERY_KEY,
-  queryFn: ({ pageParam }) => api.generations(pageParam),
-  initialPageParam: undefined as string | undefined,
-  // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
-  // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
-  staleTime: Number.POSITIVE_INFINITY,
-  gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
-  refetchOnWindowFocus: "always",
-  getNextPageParam: (last: GenerationPage) => last.nextCursor ?? undefined,
-});
+export function galleryQueryOptionsFor(view: GalleryView) {
+  const filter = view.kind === "model" ? { provider: view.provider, model: view.model } : undefined;
+  return infiniteQueryOptions({
+    queryKey: viewKey(view),
+    queryFn: ({ pageParam }) => (filter ? api.generations(pageParam, undefined, filter) : api.generations(pageParam)),
+    initialPageParam: undefined as string | undefined,
+    // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
+    // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
+    refetchOnWindowFocus: "always",
+    getNextPageParam: (last: GenerationPage) => last.nextCursor ?? undefined,
+  });
+}
 
-/** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
-const savedScroll = { y: 0 };
+export const galleryQueryOptions = galleryQueryOptionsFor({ kind: "all" });
 
-/** Test-only: forget the saved position so one test's scroll does not leak into the next. */
+/** Where the Owner left each view's list (by view key); kept for the page's lifetime. A view never shown starts at 0. */
+const savedScroll = new Map<string, number>();
+
+/** Test-only: forget the saved positions so one test's scroll does not leak into the next. */
 export function resetGalleryScroll() {
-  savedScroll.y = 0;
+  savedScroll.clear();
 }
 
 /** Mounted for pending cards only: refreshes that card's cost on its own (ADR-0031). */
@@ -111,8 +121,19 @@ function Tile({ g }: { g: GenerationSummary }) {
   );
 }
 
-/** SCR-02 — newest-first gallery with on-demand paging. */
+/** The gallery's body for the view in the address: the grid (all or one model) or «By model». */
 export function Gallery() {
+  const view = useGalleryView();
+  if (view.kind === "models") return <ByModel />;
+  // One grid per view: its own query, scroll position and paging state.
+  return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
+}
+
+/** SCR-02 — newest-first grid (all generations or one model's) with on-demand paging. */
+function Grid({ view }: { view: GalleryView }) {
+  const scrollKey = JSON.stringify(viewKey(view));
+  const one = view.kind === "model" ? view : undefined;
+  const models = useQuery({ ...modelsQueryOptions, enabled: one !== undefined });
   // A one-off notice after a deletion (SCR-01); the flag is dropped from the address right away.
   const [justDeleted, setJustDeleted] = useState(() => new URLSearchParams(window.location.search).has("deleted"));
   useEffect(() => {
@@ -121,7 +142,7 @@ export function Gallery() {
   const handedOver = useGalleryNotice(); // the dialog closed after a delete
   useEffect(() => clearGalleryNotice, []);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const q = useInfiniteQuery(galleryQueryOptions);
+  const q = useInfiniteQuery(galleryQueryOptionsFor(view));
   // While the dialog is open the grid loads nothing by itself; after it closes the sentinel is re-armed by the
   // Owner's next scroll (never by the scroll that brought the last shown card into view).
   const paused = isDialogVisit(useRoute());
@@ -149,14 +170,16 @@ export function Gallery() {
   // and the browser clamped scrollY. Restore once the cached pages render, before the sentinel is armed.
   useEffect(() => {
     const onScroll = () => {
-      savedScroll.y = window.scrollY;
+      savedScroll.set(scrollKey, window.scrollY);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [scrollKey]);
   useLayoutEffect(() => {
-    if (ready && savedScroll.y > 0) window.scrollTo(0, savedScroll.y);
-  }, [ready]);
+    if (!ready) return;
+    const y = savedScroll.get(scrollKey) ?? 0;
+    if (y > 0 || window.scrollY > 0) window.scrollTo(0, y);
+  }, [ready, scrollKey]);
 
   // Armed only while a request is allowed: more pages, nothing in flight (a full refresh included: paging would
   // cancel it), the last one not failed (no auto retry).
@@ -187,6 +210,16 @@ export function Gallery() {
 
   const items = q.data.pages.flatMap((p) => p.items);
   const notice = (justDeleted || handedOver) && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
+  if (items.length === 0 && one)
+    return (
+      <div className="flex flex-col items-start gap-3">
+        {notice}
+        <p className="text-muted-foreground">
+          No generations with {one.model} ({providerName(one.provider)}).
+        </p>
+        <Button onClick={() => showView({ kind: "all" })}>Show all generations</Button>
+      </div>
+    );
   if (items.length === 0)
     return (
       <div className="flex flex-col items-start gap-3">
@@ -201,6 +234,14 @@ export function Gallery() {
   return (
     <div className="flex flex-col gap-4">
       {notice}
+      {one && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-medium">{modelHeading(one, models.data?.models)}</h3>
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => showView({ kind: "all" })}>
+            Show all generations
+          </Button>
+        </div>
+      )}
       {q.isError && !isFetchNextPageError && (
         <p className="flex items-center gap-2 text-muted-foreground text-sm">
           These cards may be out of date.
@@ -244,4 +285,13 @@ export function Gallery() {
       )}
     </div>
   );
+}
+
+function modelHeading(
+  one: { provider: string; model: string },
+  models: { provider: string; model: string; count: number }[] | undefined,
+) {
+  const count = models?.find((g) => g.provider === one.provider && g.model === one.model)?.count;
+  const head = `${one.model} · ${providerName(one.provider)}`;
+  return count === undefined ? head : `${head} · ${count} generation${count === 1 ? "" : "s"}`;
 }

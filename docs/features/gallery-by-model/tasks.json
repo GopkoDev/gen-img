@@ -68,7 +68,7 @@
         "src/web/features/gallery/GalleryViews.test.tsx"
       ],
       "file": "docs/features/gallery-by-model/tasks/t4-view-switch-and-filtered-grid.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",
