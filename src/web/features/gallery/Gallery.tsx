@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { isDialogVisit, Link, replace, useRoute } from "@/lib/router";
 import type { GenerationPage } from "../../../shared/generations";
 import { ByModel } from "./ByModel";
+import { ByPrompt } from "./ByPrompt";
 import { showView } from "./GalleryViews";
 import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
 import { type GalleryView, viewKey } from "./galleryView";
@@ -19,7 +20,7 @@ import { useGalleryView } from "./useGalleryView";
 export type ListView = Exclude<GalleryView, { kind: "models" | "prompts" }>;
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
-const SENTINEL_MARGIN = "600px";
+export const SENTINEL_MARGIN = "600px";
 
 /**
  * The grid's list query. The dialog (a sibling of the grid in App) reads the very same cache entry with these
@@ -47,7 +48,8 @@ export { resetGalleryScroll };
 /** The gallery's body for the view in the address: the grid (all or one model) or «By model». */
 export function Gallery() {
   const view = useGalleryView();
-  if (view.kind === "models" || view.kind === "prompts") return <ByModel />; // prompts: placeholder until T5
+  if (view.kind === "models") return <ByModel />;
+  if (view.kind === "prompts") return <ByPrompt single={view.single} />;
   // One grid per view: its own query, scroll position and paging state.
   return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
 }
