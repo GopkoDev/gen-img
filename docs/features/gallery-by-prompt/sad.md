@@ -171,7 +171,7 @@ The flow covers AC-01, AC-02, AC-03, AC-07, AC-08 and AC-10; AC-04 is the addres
 
 **QG-2. Private, stable addresses**
 - **When:** opening a 10 000-character prompt's view, reloading it, stepping in its dialog.
-- **Then:** a 32-character key in the address, no text; reload restores the view and dialog stepping; «a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip, and 0 for views not on screen (they re-read when next shown); a revisit costs 0 reads unless a change happened since (gallery-by-model §6)» (spec §6).
+- **Then:** a 32-character key in the address, no text; reload restores the view and dialog stepping; «a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip (+ 1 group read when a prompt's grid shows its heading), and 0 for views not on screen (they re-read when next shown); a revisit costs 0 reads unless a change happened since (gallery-by-model §6)» (spec §6).
 - **How verify:** component tests (address contents, popstate); «component test counting requests».
 
 **QG-3. Scales with the gallery**

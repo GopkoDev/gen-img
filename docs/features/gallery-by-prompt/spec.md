@@ -125,7 +125,7 @@ Committed approach: a «By prompt» view lists one group card per distinct promp
 | «By prompt» page | a page of 24 groups (latest image, counts, models) ≤ 300 ms p95 server time with 1 000 generations across 200 prompts, each with 10 tags and a comment | `nfr` test over a seeded data dir |
 | A prompt's page | any page of 24 generations of one prompt ≤ 300 ms p95 server time with the same seed | `nfr` test |
 | Existing generations grouped | every generation stored before the feature has its prompt key after the first start, in ≤ 2 s for 1 000 generations | integration test over a seeded data dir |
-| Refresh | a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip, and 0 for views not on screen (they re-read when next shown); a revisit costs 0 reads unless a change happened since (gallery-by-model §6) | component test counting requests |
+| Refresh | a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip (+ 1 group read when a prompt's grid shows its heading), and 0 for views not on screen (they re-read when next shown); a revisit costs 0 reads unless a change happened since (gallery-by-model §6) | component test counting requests |
 
 ## 6.1 Security / privacy
 
