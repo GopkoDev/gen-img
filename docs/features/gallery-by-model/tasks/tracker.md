@@ -8,7 +8,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
 | T1 | Promote the by-model index migration | migration | dmytro.hopko | S | — | done | COMMIT |
-| T2 | Filter the list by model and read the models with counts and latest cards | ports | dmytro.hopko | M | T1 | in_progress | RED |
+| T2 | Filter the list by model and read the models with counts and latest cards | ports | dmytro.hopko | M | T1 | done | COMMIT |
 | T3 | Parse gallery views from the address and patch summaries in every view | app | dmytro.hopko | M | — | done | COMMIT |
 | T4 | Add the view switch, the model choice and the filtered grid | ui | dmytro.hopko | M | T2, T3 | todo | — |
 | T5 | Show the gallery grouped by model | ui | dmytro.hopko | S | T4 | todo | — |

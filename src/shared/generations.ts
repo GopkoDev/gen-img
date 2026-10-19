@@ -194,6 +194,26 @@ export type GenerationSummary = z.infer<typeof GenerationSummary>;
 export const GenerationPage = z.object({ items: z.array(GenerationSummary), nextCursor: z.string().nullable() });
 export type GenerationPage = z.infer<typeof GenerationPage>;
 
+/** One provider + model the Owner generated with: exact count, newest id, up to 4 newest summaries. */
+export const ModelGroup = z.object({
+  provider: ProviderId,
+  model: z.string(),
+  count: z.number().int().min(1),
+  latestId: z.string(),
+  items: z.array(GenerationSummary).max(4),
+});
+export type ModelGroup = z.infer<typeof ModelGroup>;
+
+export const ModelGroupsResponse = z.object({ models: z.array(ModelGroup) });
+export type ModelGroupsResponse = z.infer<typeof ModelGroupsResponse>;
+
+/** The list filter: a provider + model pair, matched exactly (both or neither; unknown values give an empty page). */
+export const ModelFilter = z.object({
+  provider: z.string().min(1).max(200),
+  model: z.string().min(1).max(200),
+});
+export type ModelFilter = z.infer<typeof ModelFilter>;
+
 export const Relation = z.enum(["rerun", "reuse"]);
 export type Relation = z.infer<typeof Relation>;
 /** The generation this one was derived from; `exists: false` → shown as «source deleted» (ADR-0018). */

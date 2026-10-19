@@ -6,6 +6,8 @@ import {
   Generation,
   GenerationPage,
   JobResponse,
+  type ModelFilter,
+  ModelGroupsResponse,
   type StartGenerationRequest,
 } from "../../shared/generations";
 import { HealthResponse } from "../../shared/health";
@@ -70,13 +72,18 @@ export const api = {
     request(ModelPreference, "/model-preferences", json("PATCH", body)),
   currentJob: () => request(CurrentJobResponse, "/generation-job"),
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
-  generations: (cursor?: string, limit?: number) => {
+  generations: (cursor?: string, limit?: number, filter?: ModelFilter) => {
     const q = new URLSearchParams();
+    if (filter) {
+      q.set("provider", filter.provider);
+      q.set("model", filter.model);
+    }
     if (cursor) q.set("cursor", cursor);
     if (limit !== undefined) q.set("limit", String(limit));
     const qs = q.toString();
     return request(GenerationPage, `/generations${qs ? `?${qs}` : ""}`);
   },
+  generationModels: (latest: number) => request(ModelGroupsResponse, `/generations/models?latest=${latest}`),
   setComment: (id: string, body: string) =>
     request(CommentResponse, `/generations/${encodeURIComponent(id)}/comment`, json("PUT", { body })),
   addTag: (id: string, tag: string) =>
