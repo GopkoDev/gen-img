@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ImageIcon, Loader2, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,10 @@ import { CardBadges } from "./CardBadges";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
 const PENDING_REFETCH_MS = 10_000;
+const SENTINEL_MARGIN = "600px";
+
+/** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
+const savedScroll = { y: 0 };
 
 function Tile({ g }: { g: GenerationSummary }) {
   const [broken, setBroken] = useState(false);
@@ -77,6 +81,7 @@ export function Gallery() {
   useEffect(() => {
     if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const q = useInfiniteQuery({
     queryKey: GALLERY_QUERY_KEY,
     queryFn: ({ pageParam }) => api.generations(pageParam),
@@ -91,8 +96,37 @@ export function Gallery() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
+  const ready = q.data !== undefined;
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
+
+  // Save on leaving; restore once the cached pages render, before the sentinel is armed (effects run after this).
+  useEffect(
+    () => () => {
+      savedScroll.y = window.scrollY;
+    },
+    [],
+  );
+  useLayoutEffect(() => {
+    if (ready && savedScroll.y > 0) window.scrollTo(0, savedScroll.y);
+  }, [ready]);
+
+  // Armed only while a request is allowed: more pages, none in flight, the last one not failed (no auto retry).
+  const canLoadMore = ready && hasNextPage && !isFetchingNextPage && !isFetchNextPageError;
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!canLoadMore || !el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) fetchNextPage();
+      },
+      { rootMargin: SENTINEL_MARGIN },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canLoadMore, fetchNextPage]);
+
   if (q.isPending) return <p className="text-muted-foreground text-sm">Loading…</p>;
-  if (q.isError)
+  if (q.isError && !q.data)
     return (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
         <p className="text-sm">Couldn't load the gallery</p>
@@ -118,21 +152,44 @@ export function Gallery() {
   return (
     <div className="flex flex-col gap-4">
       {notice}
+      {q.isError && !isFetchNextPageError && (
+        <p className="flex items-center gap-2 text-muted-foreground text-sm">
+          These cards may be out of date.
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => q.refetch()}>
+            Refresh
+          </Button>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {items.map((g) => (
           <Tile key={g.id} g={g} />
         ))}
       </div>
-      {q.hasNextPage && (
-        <Button
-          variant="outline"
-          className="self-center"
-          disabled={q.isFetchingNextPage}
-          onClick={() => q.fetchNextPage()}
-        >
-          {q.isFetchingNextPage && <Loader2 className="animate-spin" />}
-          Load more
-        </Button>
+      {isFetchNextPageError && (
+        <div className="flex items-center gap-3 self-center text-sm">
+          <p className="text-destructive">Couldn't load more.</p>
+          <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {hasNextPage ? (
+        <>
+          <div ref={sentinelRef} data-testid="gallery-sentinel" aria-hidden className="h-px" />
+          <div className="flex items-center justify-center gap-3">
+            {isFetchingNextPage && (
+              <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="size-4 animate-spin" />
+                Loading more…
+              </span>
+            )}
+            <Button variant="outline" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
+              Load more
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="text-center text-muted-foreground text-sm">That's everything</p>
       )}
     </div>
   );

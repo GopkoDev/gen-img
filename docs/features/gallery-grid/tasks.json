@@ -56,7 +56,7 @@
         "src/web/features/gallery/Paging.test.tsx"
       ],
       "file": "docs/features/gallery-grid/tasks/t4-auto-paging-and-restore.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",
