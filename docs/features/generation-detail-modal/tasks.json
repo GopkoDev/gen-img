@@ -1,0 +1,98 @@
+{
+  "slug": "generation-detail-modal",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Carry a dialog state in history and keep one Gallery instance under it",
+      "layer": "app",
+      "deps": [],
+      "acs": ["AC-04", "AC-05", "AC-11"],
+      "dod": "router/App tests: dialog state of this load renders the grid with the dialog slot, any other detail visit the full page; the Gallery instance survives open/close; back/forward via popstate",
+      "files_hint": [
+        "src/web/lib/router.tsx",
+        "src/web/lib/router.test.tsx",
+        "src/web/App.tsx",
+        "src/web/App.test.tsx"
+      ],
+      "file": "docs/features/generation-detail-modal/tasks/t1-history-state-and-fixed-gallery.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Find a generation's newer and older neighbours in the loaded order",
+      "layer": "domain",
+      "deps": [],
+      "acs": ["AC-02", "AC-08"],
+      "dod": "unit tests: newer/older for first, middle, last, not-in-order; prepending an item doesn't change a shown item's neighbours",
+      "files_hint": ["src/web/features/gallery/neighbours.ts", "src/web/features/gallery/neighbours.test.ts"],
+      "file": "docs/features/generation-detail-modal/tasks/t2-neighbours.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Show the generation in a dialog over the grid and step through neighbours",
+      "layer": "ui",
+      "deps": ["T1", "T2"],
+      "acs": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-09", "AC-10"],
+      "dod": "component tests: dialog over the grid with images left / metadata right; Newer/Older by keys and buttons with first/last disabled; stepping past the end loads the next page, failure stays with a message; no stepping from a text field or while busy; loading/error/gone inside the dialog; closing via Esc/×/outside/Back returns to the same grid with the last shown card in view and no page load",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDialog.tsx",
+        "src/web/features/gallery/GenerationDialog.test.tsx",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/App.tsx"
+      ],
+      "file": "docs/features/generation-detail-modal/tasks/t3-generation-dialog.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Make the detail body safe and dialog-aware: busy, lineage, re-run and in-place card edits",
+      "layer": "ui",
+      "deps": ["T1", "T3"],
+      "acs": ["AC-07", "AC-08", "AC-09"],
+      "dod": "component tests: busy disables stepping (draft, tag text, delete confirmation); Esc cancels a comment edit before closing; tag/comment changes patch the card with 0 list reads; lineage stays in the dialog with one-Back; re-run/reuse open Generate and Back returns to the grid; full page unchanged",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDetail.tsx",
+        "src/web/features/gallery/Notes.tsx",
+        "src/web/features/gallery/Lineage.tsx",
+        "src/web/features/gallery/DeleteGeneration.tsx",
+        "src/web/features/gallery/Notes.test.tsx",
+        "src/web/features/gallery/Lineage.test.tsx",
+        "src/web/features/gallery/GenerationDialog.test.tsx"
+      ],
+      "file": "docs/features/generation-detail-modal/tasks/t4-dialog-aware-detail-body.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Delete from the dialog and move to a neighbour",
+      "layer": "ui",
+      "deps": ["T4"],
+      "acs": ["AC-06"],
+      "dod": "component tests: delete in the dialog moves to the older (else newer) neighbour with «Generation deleted.», closes onto the grid with the notice when none, loads the next page when needed and handles its failure; Back never returns to the deleted id",
+      "files_hint": [
+        "src/web/features/gallery/DeleteGeneration.tsx",
+        "src/web/features/gallery/galleryNotice.ts",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/DeleteGeneration.test.tsx"
+      ],
+      "file": "docs/features/generation-detail-modal/tasks/t5-delete-from-dialog.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Prove the dialog's timing, request counts and preloads",
+      "layer": "tests",
+      "deps": ["T5"],
+      "acs": ["AC-01", "AC-11"],
+      "dod": "nfr-web: stepping between read generations renders ≤ 100 ms p95; component tests count detail/list reads and preloads per spec §6",
+      "files_hint": [
+        "src/web/features/gallery/GenerationDialog.nfr.test.tsx",
+        "src/web/features/gallery/GenerationDialog.test.tsx"
+      ],
+      "file": "docs/features/generation-detail-modal/tasks/t6-dialog-timing-and-requests.md",
+      "status": "todo"
+    }
+  ]
+}
