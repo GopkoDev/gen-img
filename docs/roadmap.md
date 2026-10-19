@@ -32,7 +32,7 @@ The single owner, on one machine, generates images from text and/or input images
 | 11 | Gallery grid — a paged grid of cards (cursor by id), each card with cost, duration and image size as badges over the preview | owner request (V2) · idea-brief.md §7 Recommendation | S | shipped → [`features/gallery-grid`](./features/gallery-grid/spec.md) |
 | 12 | Generation detail as a modal — image on the left, metadata on the right, ← → to step through neighbouring generations; the deep link keeps working | owner request (V2) | S | shipped → [`features/generation-detail-modal`](./features/generation-detail-modal/spec.md) |
 | 13 | Gallery by model — filter the grid to one model, and a «group by model» view with a section per model | owner request (V2) · idea-brief.md §5 Out of scope | S | shipped → [`features/gallery-by-model`](./features/gallery-by-model/spec.md) |
-| 14 | Gallery by prompt — group generations that share an identical prompt; one group card opens every image made from it | owner request (V2) | S | idea |
+| 14 | Gallery by prompt — group generations that share an identical prompt; one group card opens every image made from it | owner request (V2) | S | spec'd → [`features/gallery-by-prompt`](./features/gallery-by-prompt/spec.md) |
 | 15 | Folders — create a folder for an idea / test flow / job; the selected folder sticks in the generate panel so new generations land in it; one folder per generation, move between folders | owner request (V2) | M | idea |
 | 16 | Bulk generation — many generations from one submit (prompt × model × variants) | owner request (V3) | fog | idea |
 | 17 | Canvas image editor — edit an image on a canvas and feed the result back as an input | owner request (V3) | fog | idea |
