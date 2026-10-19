@@ -83,7 +83,7 @@
         "src/web/features/gallery/Gallery.tsx"
       ],
       "file": "docs/features/gallery-by-model/tasks/t5-by-model-view.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",

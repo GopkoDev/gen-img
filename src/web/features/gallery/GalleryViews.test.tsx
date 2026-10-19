@@ -76,7 +76,7 @@ describe("view switch (SCR-02)", () => {
     m.generations.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "By model" }));
     expect(address()).toBe("/gallery?view=models");
-    expect(await screen.findByRole("heading", { name: "By model" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Seedream 4" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "By model" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
     expect(m.generations).not.toHaveBeenCalled();
@@ -182,7 +182,7 @@ describe("view and address (AC-03)", () => {
     popTo(MODEL_URL);
     expect(await screen.findByText("A test prompt number 7")).toBeInTheDocument();
     popTo("/gallery?view=models");
-    expect(await screen.findByRole("heading", { name: "By model" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Seedream 4" })).toBeInTheDocument();
     popTo("/gallery");
     expect(await screen.findByText("A test prompt number 3")).toBeInTheDocument();
   });
