@@ -13,6 +13,6 @@
 | T4 | Add the view switch, the model choice and the filtered grid | ui | dmytro.hopko | M | T2, T3 | done | COMMIT |
 | T5 | Show the gallery grouped by model | ui | dmytro.hopko | S | T4 | done | COMMIT |
 | T6 | Step, close and delete in the dialog within the view it was opened from | ui | dmytro.hopko | M | T5 | done | COMMIT |
-| T7 | Prove that changes re-read only the views on screen | tests | dmytro.hopko | S | T6 | todo | — |
+| T7 | Prove that changes re-read only the views on screen | tests | dmytro.hopko | S | T6 | done | COMMIT |
 
 **Total:** 7 tasks, ~5 person-days.

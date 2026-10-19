@@ -112,7 +112,7 @@
       "dod": "component tests: a finished generation re-reads only on-screen views + the strip; revisits cost 0; one pending poll per generation across views; curation 0 list reads",
       "files_hint": ["src/web/features/gallery/Views.requests.test.tsx"],
       "file": "docs/features/gallery-by-model/tasks/t7-refresh-scope.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }
