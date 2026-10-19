@@ -76,3 +76,8 @@ export function seedGeneration(
     comment: comment === undefined ? null : { body: comment, updatedAt },
   };
 }
+
+/** Simulates a generation stored before the prompt key existed: sets its prompt_key back to NULL. */
+export function clearPromptKey(db: Db, id: string): void {
+  db.prepare("UPDATE generations SET prompt_key = NULL WHERE id = ?").run(id);
+}

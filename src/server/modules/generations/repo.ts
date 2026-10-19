@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_TAGS } from "../../../shared/curation";
 import { RequestedParams } from "../../../shared/generations";
 import type { Db } from "../../db/client";
+import { promptKey } from "./promptKey";
 
 const CostStatus = z.enum(["known", "pending", "unavailable"]);
 const ImageMediaType = z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -162,11 +163,18 @@ export function createGenerationsRepo(db: Db) {
   const insertGen = db.prepare(
     `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
        cost_micros, cost_status, cost_ref, created_at, duration_ms, raw_request, raw_response,
-       source_id, source_relation, source_output)
+       source_id, source_relation, source_output, prompt_key)
      VALUES (@id, @provider, @model, @prompt, @requestedParams, @acceptedParams, @imagesRequested,
        @costMicros, @costStatus, @costRef, @createdAt, @durationMs, @rawRequest, @rawResponse,
-       @sourceId, @sourceRelation, @sourceOutput)`,
+       @sourceId, @sourceRelation, @sourceOutput, @promptKey)`,
   );
+  const selectKeyless = db.prepare("SELECT id, prompt FROM generations WHERE prompt_key IS NULL");
+  const updateKey = db.prepare("UPDATE generations SET prompt_key = ? WHERE id = ?");
+  const backfillAll = db.transaction((): number => {
+    const rows = z.array(z.object({ id: z.string(), prompt: z.string() })).parse(selectKeyless.all());
+    for (const r of rows) updateKey.run(promptKey(r.prompt), r.id);
+    return rows.length;
+  });
   const insertImage = db.prepare(
     `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
      VALUES (@generationId, @position, @path, @mediaType, @width, @height, @byteSize)`,
@@ -334,6 +342,7 @@ export function createGenerationsRepo(db: Db) {
     (gen: NewGeneration, images: ImageRecord[], inputs: InputRecord[], commitFiles: () => void) => {
       insertGen.run({
         ...gen,
+        promptKey: promptKey(gen.prompt),
         costRef: gen.costRef ?? null,
         sourceId: gen.sourceId ?? null,
         sourceRelation: gen.sourceId ? (gen.sourceRelation ?? null) : null,
@@ -353,6 +362,11 @@ export function createGenerationsRepo(db: Db) {
     /** Inserts a generation, its outputs and input copies in one transaction whose last step moves the files into place. */
     insertAtomic(gen: NewGeneration, images: ImageRecord[], commitFiles: () => void, inputs: InputRecord[] = []): void {
       insertAll(gen, images, inputs, commitFiles);
+    },
+
+    /** Keys every generation whose prompt_key is NULL (stored before migration 0010), in one transaction. Returns the count updated; idempotent. */
+    backfillPromptKeys(): number {
+      return backfillAll();
     },
 
     get(id: string): GenerationRecord | undefined {

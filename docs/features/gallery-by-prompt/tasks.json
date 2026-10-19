@@ -34,7 +34,7 @@
         "tests/helpers/generations.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t2-prompt-key-and-backfill.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
