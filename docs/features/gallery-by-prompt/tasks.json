@@ -1,0 +1,108 @@
+{
+  "slug": "gallery-by-prompt",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the prompt key migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-05"],
+      "dod": "migration 0010 applies and reverts; test proves the length CHECK and the index plan",
+      "files_hint": [
+        "docs/features/gallery-by-prompt/migrations/01_add_generation_prompt_key.up.sql",
+        "docs/features/gallery-by-prompt/migrations/01_add_generation_prompt_key.down.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t1-prompt-key-migration.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Write the prompt key on save and backfill older generations on boot",
+      "layer": "infra",
+      "deps": ["T1"],
+      "acs": ["AC-05", "AC-10"],
+      "dod": "unit: key = first 32 hex of SHA-256 over the exact text (literal differences give different keys); integration: inserts carry the key; boot backfills 1 000 NULL keys ≤ 2 s and is idempotent",
+      "files_hint": [
+        "src/server/modules/generations/promptKey.ts",
+        "src/server/modules/generations/promptKey.test.ts",
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/service.ts",
+        "src/server/app.ts",
+        "src/server/modules/generations/prompt-key.int.test.ts",
+        "tests/helpers/generations.ts"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t2-prompt-key-and-backfill.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Read prompt groups, one group and a prompt's pages",
+      "layer": "ports",
+      "deps": ["T2"],
+      "acs": ["AC-01", "AC-02", "AC-05", "AC-06", "AC-07", "AC-09"],
+      "dod": "integration tests: literal grouping, reused-only default and single=1, paging by latest without duplicates, counts/images/models (3 most recent + more), cover follows deletions, one-group read and 404, prompt filter pages, validation 400s, foreign page 403; nfr ≤ 300 ms p95 for both reads",
+      "files_hint": [
+        "src/shared/generations.ts",
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/service.ts",
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/by-prompt.int.test.ts",
+        "src/server/modules/generations/nfr.int.test.ts",
+        "src/web/lib/api.ts"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t3-prompt-reads.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Add the prompt views to the address and the caches",
+      "layer": "app",
+      "deps": [],
+      "acs": ["AC-03", "AC-04"],
+      "dod": "unit tests: prompt views parse/serialize (switch kept), malformed key → unknown-key view, keys per view, dialog state validation; patches never touch prompt-group caches",
+      "files_hint": [
+        "src/web/features/gallery/galleryView.ts",
+        "src/web/features/gallery/galleryView.test.ts",
+        "src/web/features/gallery/summaryPatch.ts",
+        "src/web/features/gallery/summaryPatch.test.tsx",
+        "src/web/features/gallery/useGalleryView.ts"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t4-prompt-views.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Show the gallery grouped by prompt",
+      "layer": "ui",
+      "deps": ["T3", "T4"],
+      "acs": ["AC-01", "AC-08"],
+      "dod": "component tests: group cards with cover/lines/counts/models, paging, switch in the address, none-reused state, errors with and without data, empty gallery",
+      "files_hint": [
+        "src/web/features/gallery/ByPrompt.tsx",
+        "src/web/features/gallery/ByPrompt.test.tsx",
+        "src/web/features/gallery/GalleryViews.tsx",
+        "src/web/features/gallery/Gallery.tsx"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t5-by-prompt-view.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Show a prompt's grid and step within it in the dialog",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-02", "AC-03", "AC-06", "AC-07"],
+      "dod": "component tests: prompt grid with full-prompt heading and count, unknown key state, dialog steps within the prompt (more at the end), deletes move within it and the last closes onto the unknown state; counts refresh after changes",
+      "files_hint": [
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/GenerationDialog.tsx",
+        "src/web/features/gallery/ByPrompt.tsx",
+        "src/web/features/gallery/PromptView.test.tsx"
+      ],
+      "file": "docs/features/gallery-by-prompt/tasks/t6-prompt-grid-and-dialog.md",
+      "status": "todo"
+    }
+  ]
+}
