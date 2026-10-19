@@ -171,7 +171,7 @@ The flow covers AC-01, AC-02, AC-04, AC-06, AC-07 and the §6 refresh row; AC-03
 
 **QG-2. Views are addresses**
 - **When:** reload, Back, new tab, sidebar entry; opening a card from a filter and from «By model»; switching views.
-- **Then:** same view; sidebar = «All»; per-view scroll; dialog steps within the view with the grid view behind kept (AC-03, AC-04, AC-10); «a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip, and 0 for views not on screen (they re-read when next shown); a pending cost is refreshed once across all views, ≤ every 10 s, asking only for the pending generation»; «each view is read on its first visit; a revisit costs 0 reads unless a change happened since (then as «Refresh on a change»); a curation change still costs 0 list reads (ADR-0034)» (spec §6).
+- **Then:** same view; sidebar = «All»; per-view scroll; dialog steps within the view with the grid view behind kept (AC-03, AC-04, AC-10); «a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip (+ 1 models read when a one-model view's heading shows its count), and 0 for views not on screen (they re-read when next shown); a pending cost is refreshed once across all views, ≤ every 10 s, asking only for the pending generation»; «each view is read on its first visit; a revisit costs 0 reads unless a change happened since (then as «Refresh on a change»); a curation change still costs 0 list reads (ADR-0034)» (spec §6).
 - **How verify:** component tests with popstate; «component test counting requests».
 
 **QG-3. Fast enough**

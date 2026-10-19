@@ -128,7 +128,7 @@ Committed approach: the gallery gets a view choice that lives in its address, so
 |---|---|---|
 | A filtered page | any page (first or continued) of 24 items of one model, 1 000 generations across 30 models, each with 10 tags and a comment, ≤ 300 ms p95 server time | `nfr` test over a seeded data dir |
 | Model choice and «By model» | the model list with counts, and the groups with their latest four cards, ≤ 300 ms p95 server time with 1 000 generations across 30 models | `nfr` test |
-| Refresh on a change | a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip, and 0 for views not on screen (they re-read when next shown); a pending cost is refreshed once across all views, ≤ every 10 s, asking only for the pending generation | component test counting requests |
+| Refresh on a change | a finished generation or a deletion costs ≤ 1 request per loaded page of each view on screen + 1 for the recent strip (+ 1 models read when a one-model view's heading shows its count), and 0 for views not on screen (they re-read when next shown); a pending cost is refreshed once across all views, ≤ every 10 s, asking only for the pending generation | component test counting requests |
 | Requests per view | each view is read on its first visit; a revisit costs 0 reads unless a change happened since (then as «Refresh on a change»); a curation change still costs 0 list reads (ADR-0034) | component test counting requests |
 
 ## 6.1 Security / privacy
