@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ApiError } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { dialogState, replace } from "@/lib/router";
-import { DialogBusyContext } from "./DialogBusy";
+import { DialogBusyContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
 import { galleryQueryOptions } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { bringCardIntoView } from "./gridPlace";
@@ -67,8 +67,13 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
   const detail = useGeneration(id);
   const items = grid.data?.pages.flatMap((p) => p.items) ?? [];
   const nav = neighbours(items, id);
-  const [reported, setBusy] = useState(false);
-  const busy = busyProp || reported;
+  const [reported, setReported] = useState(0);
+  const setBusy = useCallback((b: boolean) => setReported((n) => Math.max(0, n + (b ? 1 : -1))), []);
+  const escapeHandler = useRef<EscapeHandler | null>(null);
+  const setEscape = useCallback((h: EscapeHandler | null) => {
+    escapeHandler.current = h;
+  }, []);
+  const busy = busyProp || reported > 0;
   const [loadingNext, setLoadingNext] = useState(false);
   const [nextFailed, setNextFailed] = useState(false);
   const idRef = useRef(id);
@@ -154,6 +159,9 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
         aria-describedby={undefined}
         className="flex h-[90vh] flex-col gap-0 p-0 sm:max-w-6xl"
         onKeyDown={onKeyDown}
+        onEscapeKeyDown={(e) => {
+          if (escapeHandler.current?.()) e.preventDefault();
+        }}
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           closeRef.current?.focus();
@@ -211,17 +219,15 @@ export function GenerationDialog({ id, busy: busyProp = false }: { id: string; b
               </Button>
             </p>
           )}
-          <DialogBusyContext.Provider value={useStableSetter(setBusy)}>
-            <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:overflow-hidden">{body}</div>
+          <DialogBusyContext.Provider value={setBusy}>
+            <DialogEscapeContext.Provider value={setEscape}>
+              <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:overflow-hidden">{body}</div>
+            </DialogEscapeContext.Provider>
           </DialogBusyContext.Provider>
         </TooltipProvider>
       </DialogContent>
     </Dialog>
   );
-}
-
-function useStableSetter(set: (b: boolean) => void) {
-  return useCallback((b: boolean) => set(b), [set]);
 }
 
 /** Loading / error / gone: the same two columns, the message in the metadata one. */

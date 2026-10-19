@@ -11,7 +11,14 @@ import { GenerationDialog } from "./GenerationDialog";
 
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
-  api: { generations: vi.fn(), generation: vi.fn() },
+  api: {
+    generations: vi.fn(),
+    generation: vi.fn(),
+    setComment: vi.fn(),
+    addTag: vi.fn(),
+    removeTag: vi.fn(),
+    deleteGeneration: vi.fn(),
+  },
 }));
 const generations = vi.mocked(api.generations);
 const generation = vi.mocked(api.generation);
@@ -70,11 +77,14 @@ function Harness({ busy }: { busy?: boolean }) {
 }
 const renderApp = (props: { busy?: boolean } = {}) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <Harness {...props} />
-    </QueryClientProvider>,
-  );
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <Harness {...props} />
+      </QueryClientProvider>,
+    ),
+  };
 };
 const here = () => window.location.pathname;
 const dialog = () => screen.findByRole("dialog");
@@ -396,5 +406,161 @@ describe("preload (spec §6)", () => {
     fireEvent.keyDown(await dialog(), { key: "ArrowLeft" }); // to 4: only an older neighbour
     await waitFor(() => expect(srcs).toEqual([summary(3).thumbnail.url]));
     vi.unstubAllGlobals();
+  });
+});
+
+const olderBtn = () => screen.getByRole("button", { name: /^Older/, hidden: true });
+const newerBtn = () => screen.getByRole("button", { name: /^Newer/, hidden: true });
+const arrows = (d: HTMLElement) => {
+  fireEvent.keyDown(d, { key: "ArrowRight" });
+  fireEvent.keyDown(d, { key: "ArrowLeft" });
+};
+
+describe("busy inside the dialog (AC-09)", () => {
+  it("an unsaved comment draft disables stepping until it is cancelled", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fireEvent.click(within(d).getByRole("button", { name: "Add comment" }));
+    expect(olderBtn()).not.toBeDisabled(); // an empty draft is not unsaved
+    fireEvent.change(within(d).getByLabelText("Comment"), { target: { value: "draft" } });
+    await waitFor(() => expect(olderBtn()).toBeDisabled());
+    expect(newerBtn()).toBeDisabled();
+    arrows(d);
+    expect(here()).toBe(`/generations/${idOf(2)}`);
+    fireEvent.click(within(d).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(olderBtn()).not.toBeDisabled());
+  });
+
+  it("typed-but-not-added tag text disables stepping", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(2);
+    const tag = await within(d).findByPlaceholderText("Add a tag…");
+    fireEvent.change(tag, { target: { value: "cat" } });
+    await waitFor(() => expect(olderBtn()).toBeDisabled());
+    arrows(d);
+    expect(here()).toBe(`/generations/${idOf(2)}`);
+    fireEvent.change(tag, { target: { value: "" } });
+    await waitFor(() => expect(olderBtn()).not.toBeDisabled());
+  });
+
+  it("an open delete confirmation and an unsaved draft both count (neither clears the other)", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fireEvent.change(within(d).getByPlaceholderText("Add a tag…"), { target: { value: "cat" } });
+    fireEvent.click(within(d).getByRole("button", { name: /Delete/ }));
+    await screen.findByText("Delete this generation?");
+    expect(olderBtn()).toBeDisabled();
+    arrows(d);
+    expect(here()).toBe(`/generations/${idOf(2)}`);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Delete this generation?")).not.toBeInTheDocument());
+    expect(olderBtn()).toBeDisabled(); // the tag text is still pending
+  });
+});
+
+describe("Esc inside the dialog (AC-09)", () => {
+  it("cancels an open comment edit and leaves the dialog open", async () => {
+    serve(3);
+    const back = vi.spyOn(window.history, "back");
+    renderApp();
+    const d = await openCard(2);
+    await within(d).findByText("Detail prompt 2");
+    fireEvent.click(within(d).getByRole("button", { name: "Add comment" }));
+    fireEvent.keyDown(within(d).getByLabelText("Comment"), { key: "Escape" });
+    await waitFor(() => expect(within(d).queryByLabelText("Comment")).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(back).not.toHaveBeenCalled();
+    // with nothing to cancel, Esc closes as usual
+    fireEvent.keyDown(d, { key: "Escape" });
+    await waitFor(() => expect(back).toHaveBeenCalled());
+  });
+});
+
+describe("curation inside the dialog patches the card (ADR-0034, AC-07)", () => {
+  const cards = (client: QueryClient) =>
+    (client.getQueryData(["generations"]) as { pages: GenerationPage[] }).pages.flatMap((p) => p.items);
+
+  it("tag add, tag remove and comment save update the card, 0 list reads, narrow invalidation", async () => {
+    serve(3);
+    let tags: string[] = []; // what the server holds, so the refreshed detail agrees with each answer
+    generation.mockImplementation(async (id) => gen(Number(id.slice(3)), { tags }));
+    vi.mocked(api.addTag).mockImplementation(async () => {
+      tags = ["cat"];
+      return { tags };
+    });
+    vi.mocked(api.removeTag).mockImplementation(async () => {
+      tags = [];
+      return { tags };
+    });
+    vi.mocked(api.setComment).mockResolvedValue({ comment: { body: "hi", updatedAt: "2026-10-18T14:02:11.000Z" } });
+    const { client } = renderApp();
+    const d = await openCard(3);
+    const tag = await within(d).findByPlaceholderText("Add a tag…");
+    const listReads = generations.mock.calls.length;
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+
+    fireEvent.change(tag, { target: { value: "cat" } });
+    fireEvent.keyDown(tag, { key: "Enter" });
+    await waitFor(() => expect(cards(client).find((c) => c.id === idOf(3))?.tags).toEqual(["cat"]));
+    fireEvent.click(await within(d).findByRole("button", { name: "Remove tag cat" }));
+    await waitFor(() => expect(cards(client).find((c) => c.id === idOf(3))?.tags).toEqual([]));
+    fireEvent.click(within(d).getByRole("button", { name: "Add comment" }));
+    fireEvent.change(within(d).getByLabelText("Comment"), { target: { value: "hi" } });
+    fireEvent.click(within(d).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(cards(client).find((c) => c.id === idOf(3))?.hasComment).toBe(true));
+
+    expect(generations.mock.calls.length).toBe(listReads);
+    const filters = invalidate.mock.calls.map((c) => c[0]);
+    expect(filters).toContainEqual({ queryKey: ["generation", idOf(3)] });
+    expect(filters).toContainEqual({ queryKey: ["generations", "recent"], exact: true });
+    expect(filters.some((f) => JSON.stringify(f?.queryKey) === '["generations"]')).toBe(false);
+  });
+});
+
+describe("lineage, re-run and reuse inside the dialog (AC-07, AC-08)", () => {
+  const withSource = () =>
+    generation.mockImplementation(async (id) =>
+      gen(Number(id.slice(3)), {
+        source: { id: idOf(1), relation: "rerun", output: null, exists: true, prompt: "Origin" },
+      }),
+    );
+
+  it("a lineage link replaces the dialog's entry: history length unchanged", async () => {
+    serve(3);
+    withSource();
+    renderApp();
+    const d = await openCard(3);
+    const len = window.history.length;
+    fireEvent.click(await within(d).findByRole("link", { name: /Re-run of/ }));
+    await waitFor(() => expect(here()).toBe(`/generations/${idOf(1)}`));
+    expect(window.history.length).toBe(len);
+    expect(window.history.state).toMatchObject({ dialog: "gallery" });
+  });
+
+  it("re-run replaces the dialog's entry with the generate address; Back lands on the grid", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(3);
+    const len = window.history.length;
+    fireEvent.click(await within(d).findByRole("link", { name: /Re-run/ }));
+    expect(here() + window.location.search).toBe(`/?rerun=${idOf(3)}`);
+    expect(window.history.length).toBe(len);
+    await act(async () => window.history.back());
+    await waitFor(() => expect(here()).toBe("/gallery"));
+  });
+
+  it("use as input replaces the entry the same way", async () => {
+    serve(3);
+    renderApp();
+    const d = await openCard(3);
+    const len = window.history.length;
+    fireEvent.click((await within(d).findAllByRole("button", { name: /Use as input/ }))[0] as HTMLElement);
+    expect(here() + window.location.search).toBe(`/?reuse=${idOf(3)}&output=1`);
+    expect(window.history.length).toBe(len);
   });
 });

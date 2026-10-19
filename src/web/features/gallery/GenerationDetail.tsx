@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, api } from "@/lib/api";
 import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
-import { Link, navigate } from "@/lib/router";
+import { Link, navigate, replace } from "@/lib/router";
 import { type Generation, MAX_INPUT_BYTES, type RequestedParams } from "../../../shared/generations";
 import { DeleteGeneration } from "./DeleteGeneration";
 import { Lineage } from "./Lineage";
@@ -75,7 +75,17 @@ function Inputs({ g }: { g: Generation }) {
 }
 
 /** «Use as input» for one output: refused in place when it can't be an input (spec AC-09), else open the panel. */
-function UseAsInput({ g, position, byteSize }: { g: Generation; position: number; byteSize: number }) {
+function UseAsInput({
+  g,
+  position,
+  byteSize,
+  inDialog = false,
+}: {
+  g: Generation;
+  position: number;
+  byteSize: number;
+  inDialog?: boolean;
+}) {
   const [refused, setRefused] = useState<string | null>(null);
   return (
     <div className="flex flex-col items-start gap-1">
@@ -84,7 +94,10 @@ function UseAsInput({ g, position, byteSize }: { g: Generation; position: number
         size="sm"
         onClick={() => {
           if (byteSize > MAX_INPUT_BYTES) return setRefused("Can't be used as an input: larger than 10 MB");
-          navigate(`/?reuse=${encodeURIComponent(g.id)}&output=${position}`);
+          const to = `/?reuse=${encodeURIComponent(g.id)}&output=${position}`;
+          if (inDialog)
+            replace(to); // the dialog's entry becomes the generate address, so Back lands on the grid
+          else navigate(to);
         }}
       >
         <ImagePlus /> Use as input
@@ -113,7 +126,7 @@ function OutputPicker({ g }: { g: Generation }) {
             className="mx-auto max-h-[60vh] w-auto max-w-full rounded-lg border bg-muted object-contain"
           />
         </a>
-        <UseAsInput g={g} position={img.position} byteSize={img.byteSize} />
+        <UseAsInput g={g} position={img.position} byteSize={img.byteSize} inDialog />
       </div>
       {g.images.length > 1 && (
         <div className="flex flex-wrap gap-2">
@@ -142,7 +155,18 @@ export function Detail({ g, layout = "page" }: { g: Generation; layout?: "page" 
   const actions = (
     <div className="flex justify-end gap-2">
       <Button variant="outline" asChild>
-        <Link to={`/?rerun=${encodeURIComponent(g.id)}`}>
+        <Link
+          to={`/?rerun=${encodeURIComponent(g.id)}`}
+          onClick={
+            layout === "dialog"
+              ? (e) => {
+                  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  replace(`/?rerun=${encodeURIComponent(g.id)}`);
+                }
+              : undefined
+          }
+        >
           <RotateCcw /> Re-run
         </Link>
       </Button>
@@ -220,7 +244,7 @@ export function Detail({ g, layout = "page" }: { g: Generation; layout?: "page" 
           {actions}
           {deleteAlert}
           <Inputs g={g} />
-          <Lineage g={g} />
+          <Lineage g={g} inDialog />
           <Notes g={g} />
           {cards}
         </div>

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
 import { checkComment, MAX_COMMENT_CHARS, normalizeTag } from "../../../shared/curation";
 import type { Generation } from "../../../shared/generations";
+import { patchCard } from "./cardPatch";
+import { useDialogEscape, useReportDialogBusy } from "./DialogBusy";
 
 /** A field error from the server, or the generic message; NOT_FOUND is handled by the caller. */
 function fieldMessage(err: unknown, field: string): string {
@@ -24,10 +25,7 @@ function fieldMessage(err: unknown, field: string): string {
 export function Notes({ g }: { g: Generation }) {
   const qc = useQueryClient();
   const key = ["generation", g.id];
-  const patch = (fields: Partial<Generation>) => {
-    qc.setQueryData<Generation>(key, (old) => (old ? { ...old, ...fields } : old));
-    qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
-  };
+  const patch = (fields: { tags?: Generation["tags"]; comment?: Generation["comment"] }) => patchCard(qc, g.id, fields);
   // A curation action on a generation deleted elsewhere: refetch the detail, which then says it no longer exists.
   const onGone = (err: unknown) => {
     if (err instanceof ApiError && err.code === "NOT_FOUND") {
@@ -70,6 +68,18 @@ export function Notes({ g }: { g: Generation }) {
       if (!onGone(err)) setTagError(fieldMessage(err, "tag"));
     },
   });
+
+  // Inside the dialog: unsaved changes block stepping, and Esc cancels an open edit before it can close the dialog.
+  useReportDialogBusy((editing && draft !== (g.comment?.body ?? "")) || tagText.trim() !== "");
+  useDialogEscape(
+    editing
+      ? () => {
+          setEditing(false);
+          setCommentError(null);
+          return true;
+        }
+      : null,
+  );
 
   function startEdit() {
     setDraft(g.comment?.body ?? "");

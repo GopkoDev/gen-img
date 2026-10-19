@@ -62,7 +62,7 @@
         "src/web/features/gallery/GenerationDialog.test.tsx"
       ],
       "file": "docs/features/generation-detail-modal/tasks/t4-dialog-aware-detail-body.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

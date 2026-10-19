@@ -111,4 +111,15 @@ describe("GenerationDetail — re-run, reuse and lineage (SCR-03)", () => {
     expect(screen.getByText("Re-run", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("and 51 more")).toBeInTheDocument();
   });
+
+  it("a lineage link pushes a history entry on the full page", async () => {
+    generation.mockResolvedValue(
+      gen({ source: { id: "01SRC", relation: "rerun", output: null, exists: true, prompt: "A dog" } }),
+    );
+    renderWithQuery(<GenerationDetail id="01X" />);
+    const len = window.history.length;
+    fireEvent.click(await screen.findByRole("link", { name: /Re-run of/ }));
+    expect(window.location.pathname).toBe("/generations/01SRC");
+    expect(window.history.length).toBe(len + 1);
+  });
 });

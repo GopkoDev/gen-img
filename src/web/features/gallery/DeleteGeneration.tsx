@@ -14,6 +14,7 @@ import { GALLERY_QUERY_KEY } from "@/features/gallery/Gallery";
 import { ApiError, api } from "@/lib/api";
 import { navigate } from "@/lib/router";
 import type { Generation } from "../../../shared/generations";
+import { useReportDialogBusy } from "./DialogBusy";
 
 const excerpt = (prompt: string) => (prompt.length > 80 ? `${prompt.slice(0, 80)}…` : prompt);
 
@@ -21,6 +22,7 @@ const excerpt = (prompt: string) => (prompt.length > 80 ? `${prompt.slice(0, 80)
 export function DeleteGeneration({ g, onFailed }: { g: Generation; onFailed: (message: string | null) => void }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  useReportDialogBusy(open);
   const del = useMutation({
     mutationFn: () => api.deleteGeneration(g.id),
     onMutate: () => onFailed(null),
