@@ -72,7 +72,7 @@
         "src/web/features/generate/RecentGenerations.test.tsx"
       ],
       "file": "docs/features/gallery-grid/tasks/t5-pending-cost-per-card.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

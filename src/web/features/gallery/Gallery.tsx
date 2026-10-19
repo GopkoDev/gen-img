@@ -9,13 +9,19 @@ import { excerpt, formatRelative } from "@/lib/format";
 import { Link, replace } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 import { CardBadges } from "./CardBadges";
+import { usePendingCost } from "./usePendingCost";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
-const PENDING_REFETCH_MS = 10_000;
 const SENTINEL_MARGIN = "600px";
 
 /** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
 const savedScroll = { y: 0 };
+
+/** Mounted for pending cards only: refreshes that card's cost on its own (ADR-0031). */
+function PendingCostWatcher({ g }: { g: GenerationSummary }) {
+  usePendingCost(g);
+  return null;
+}
 
 function Tile({ g }: { g: GenerationSummary }) {
   const [broken, setBroken] = useState(false);
@@ -38,6 +44,7 @@ function Tile({ g }: { g: GenerationSummary }) {
             />
           )}
           <CardBadges g={g} />
+          {g.costStatus === "pending" && <PendingCostWatcher g={g} />}
         </div>
         <div className="flex flex-col gap-2 px-3 pb-3">
           <p className="line-clamp-2 text-sm">{g.prompt}</p>
@@ -90,9 +97,6 @@ export function Gallery() {
     // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: "always",
-    // Re-read while any loaded tile still waits for its price (spec §6, sad §8).
-    refetchInterval: (query) =>
-      query.state.data?.pages.some((p) => p.items.some((g) => g.costStatus === "pending")) ? PENDING_REFETCH_MS : false,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
