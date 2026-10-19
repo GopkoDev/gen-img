@@ -150,3 +150,23 @@ Committed approach: the gallery gets a view choice that lives in its address, so
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | model choice lists used models with counts newest first; filtered grid newest first | integration + component | T2, T4 |
+| AC-02 | sections per model newest first, count, ≤ 4 cards, «Show all N» | integration + component | T2, T5 |
+| AC-03 | view in the address through reload/Back/new tab; per-view scroll; «All» | unit (view parse) + component | T3, T4 |
+| AC-04 | dialog keeps the view behind, steps within the model, close per view, delete in the view | component | T6 |
+| AC-05 | each generation once; counts = pages; updates and removals in every cached view; refresh scope | integration + unit + component | T1, T2, T3, T6, T7 |
+| AC-06 | unknown/mistyped/emptied model → empty-model state; exact matching; ids round-trip | integration + unit + component | T2, T3, T4 |
+| AC-07 | failed choice / groups → message + Try again, grid usable | component | T4, T5 |
+| AC-08 | same model id under two providers = two entries | integration | T2 |
+| AC-09 | foreign page refused | integration | T2 |
+| AC-10 | sidebar Gallery opens «All»; Back returns to the view | component | T4 |
+
+- **NFR:** filtered page and models read ≤ 300 ms p95 at 1 000 generations / 30 models — `nfr` (T2); refresh and revisit request counts — component (T7).
+- **Test data:** `seedGeneration` across 30 models (incl. ids with `/`, `:`, `+`, same id under both providers); web api mocks.
