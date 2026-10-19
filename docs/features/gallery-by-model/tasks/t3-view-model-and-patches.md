@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/galleryView.ts", "src/web/features/galler
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

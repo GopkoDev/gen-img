@@ -33,7 +33,7 @@
         "src/web/lib/api.ts"
       ],
       "file": "docs/features/gallery-by-model/tasks/t2-filtered-list-and-models-read.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T3",
@@ -52,7 +52,7 @@
         "src/web/features/gallery/GenerationDialog.tsx"
       ],
       "file": "docs/features/gallery-by-model/tasks/t3-view-model-and-patches.md",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "T4",

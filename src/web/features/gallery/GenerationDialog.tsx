@@ -1,4 +1,4 @@
-import { type InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,13 +7,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ApiError } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { dialogState, replace } from "@/lib/router";
-import type { GenerationPage } from "../../../shared/generations";
 import { DialogBusyContext, DialogDeleteContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
 import { GALLERY_QUERY_KEY, galleryQueryOptions } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { showGalleryNotice } from "./galleryNotice";
 import { bringCardIntoView } from "./gridPlace";
 import { anchoredAtEnd, neighbours } from "./neighbours";
+import { patchSummaries } from "./summaryPatch";
 
 const isTextTarget = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
@@ -160,10 +160,7 @@ export function GenerationDialog({ id }: { id: string }) {
     const before = nav;
     const loadNext = !before.older && before.inOrder && before.atEnd && grid.hasNextPage;
     // The card leaves the grid first: a failed page load afterwards then keeps its own error on the grid.
-    qc.setQueryData<InfiniteData<GenerationPage, string | undefined>>(
-      GALLERY_QUERY_KEY,
-      (d) => d && { ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((g) => g.id !== deletedId) })) },
-    );
+    patchSummaries(qc, deletedId, "remove");
     let target = before.older;
     let pageFailed = false;
     if (loadNext) {
