@@ -12,6 +12,7 @@ import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
 import { type GalleryView, viewKey } from "./galleryView";
 import { isOwnScroll } from "./gridPlace";
 import { modelsQueryOptions, providerName } from "./modelsQuery";
+import { isNotFound, PromptHeading, PromptUnknown, usePromptGroup } from "./PromptView";
 import { resetGalleryScroll, useSavedScroll } from "./scrollMemory";
 import { Tile } from "./Tile";
 import { useGalleryView } from "./useGalleryView";
@@ -27,10 +28,14 @@ export const SENTINEL_MARGIN = "600px";
  * options, so both see one flattened list and one in-flight page request; with staleTime ∞ it never refetches.
  */
 export function galleryQueryOptionsFor(view: ListView) {
-  const filter = view.kind === "model" ? { provider: view.provider, model: view.model } : undefined;
   return infiniteQueryOptions({
     queryKey: viewKey(view),
-    queryFn: ({ pageParam }) => (filter ? api.generations(pageParam, undefined, filter) : api.generations(pageParam)),
+    queryFn: ({ pageParam }) => {
+      if (view.kind === "prompt") return api.generations(pageParam, undefined, { prompt: view.key });
+      if (view.kind === "model")
+        return api.generations(pageParam, undefined, { provider: view.provider, model: view.model });
+      return api.generations(pageParam);
+    },
     initialPageParam: undefined as string | undefined,
     // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
     // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
@@ -51,6 +56,7 @@ export function Gallery() {
   if (view.kind === "models") return <ByModel />;
   if (view.kind === "prompts") return <ByPrompt single={view.single} />;
   // One grid per view: its own query, scroll position and paging state.
+  if (view.kind === "prompt" && view.invalid) return <PromptUnknown />;
   return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
 }
 
@@ -65,6 +71,8 @@ function Grid({ view }: { view: ListView }) {
   }, [justDeleted]);
   const handedOver = useGalleryNotice(); // the dialog closed after a delete
   useEffect(() => clearGalleryNotice, []);
+  const prompt = view.kind === "prompt" ? view : undefined;
+  const group = usePromptGroup(prompt?.key ?? "", prompt !== undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const q = useInfiniteQuery(galleryQueryOptionsFor(view));
   // While the dialog is open the grid loads nothing by itself; after it closes the sentinel is re-armed by the
@@ -121,6 +129,7 @@ function Grid({ view }: { view: ListView }) {
 
   const items = q.data.pages.flatMap((p) => p.items);
   const notice = (justDeleted || handedOver) && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
+  if (prompt && (items.length === 0 || isNotFound(group.error))) return <PromptUnknown />;
   if (items.length === 0 && one)
     return (
       <div className="flex flex-col items-start gap-3">
@@ -145,6 +154,7 @@ function Grid({ view }: { view: ListView }) {
   return (
     <div className="flex flex-col gap-4">
       {notice}
+      {prompt && <PromptHeading prompt={group.data?.prompt} count={group.data?.count} />}
       {one && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-medium">{modelHeading(one, models.data?.models)}</h3>

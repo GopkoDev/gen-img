@@ -122,6 +122,15 @@ describe("ByPrompt (SCR-11)", () => {
     expect(screen.queryByText("No generations yet.")).not.toBeInTheDocument();
   });
 
+  it("none reused when the plain-list read fails: never 'No generations yet.'", async () => {
+    m.promptGroups.mockResolvedValue({ groups: [], nextCursor: null });
+    m.generations.mockRejectedValue(new Error("x"));
+    renderWithQuery(<ByPrompt single={false} />);
+    expect(await screen.findByText("No prompt is used more than once yet.")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Include single-use prompts" })).toBeInTheDocument();
+    expect(screen.queryByText("No generations yet.")).not.toBeInTheDocument();
+  });
+
   it("empty gallery: No generations yet. + Write a prompt", async () => {
     m.promptGroups.mockResolvedValue({ groups: [], nextCursor: null });
     m.generations.mockResolvedValue({ items: [], nextCursor: null });

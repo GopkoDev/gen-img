@@ -102,7 +102,7 @@
         "src/web/features/gallery/PromptView.test.tsx"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t6-prompt-grid-and-dialog.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }
