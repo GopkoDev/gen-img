@@ -1,0 +1,104 @@
+openapi: 3.1.0
+info:
+  title: Ukiyo — gallery-by-prompt
+  version: 0.1.0
+  description: >
+    Delta for roadmap step 14 over the gallery-by-model contract: the list takes an optional `prompt` key
+    (32 lowercase hex — the first 32 hex of SHA-256 over the exact prompt text, ADR-0037), and a new paged read
+    returns prompt groups, reused prompts only unless `single=1` (ADR-0038). A prompt filter and a model filter
+    are never combined. Every /api route passes the request guard (ADR-0007).
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []
+paths:
+  /generations:
+    get:
+      operationId: listGenerations
+      summary: One page of summaries, newest first — optionally one provider + model, or one prompt key (AC-02, AC-03, AC-07)
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string, pattern: "^[0-9A-Z]{1,26}$" } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 24 } }
+        - { name: provider, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: model, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: prompt, in: query, required: false, schema: { type: string, pattern: "^[0-9a-f]{32}$" }, description: "prompt key; not with provider/model" }
+      responses:
+        "200":
+          description: A page (empty + null nextCursor when the key matches nothing)
+          content: { application/json: { schema: { $ref: "#/components/schemas/GenerationPage" } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /generations/prompts/{key}:
+    get:
+      operationId: getPromptGroup
+      summary: One prompt group by key — the prompt grid's heading (AC-02, AC-07)
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{32}$" } }
+      responses:
+        "200": { description: The group (single-use included), content: { application/json: { schema: { $ref: "#/components/schemas/PromptGroup" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { description: "NOT_FOUND — no generation uses this prompt key", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  /generations/prompts:
+    get:
+      operationId: listPromptGroups
+      summary: A page of prompt groups, the most recently used first (AC-01, AC-05, AC-06, AC-10)
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string, pattern: "^[0-9A-Z]{1,26}$" }, description: "the latestId of the last group shown" }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 24 } }
+        - { name: single, in: query, required: false, schema: { type: integer, enum: [0, 1], default: 0 }, description: "1 includes prompts used once" }
+      responses:
+        "200":
+          description: A page of groups; `nextCursor` null on the last page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromptGroupPage" }
+              example: { groups: [{ key: "3f2a9c0b1d4e5f6a7b8c9d0e1f2a3b4c", prompt: "A neon city at night", count: 5, images: 9, models: [{ provider: openrouter, model: "bytedance/seedream-4" }], moreModels: 0, latestId: "01K7ZQ3XJ0000000000000000", cover: { url: "/api/files/generations/01K7ZQ3XJ0000000000000000/output-1.png", width: 1024, height: 1024 } }], nextCursor: null }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+components:
+  responses:
+    Error:
+      description: VALIDATION_ERROR (400) or FORBIDDEN (403)
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+  schemas:
+    GenerationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { type: object, description: "GenerationSummary (unchanged)" } }
+        nextCursor: { type: [string, "null"] }
+    PromptGroup:
+      type: object
+      required: [key, prompt, count, images, models, moreModels, latestId, cover]
+      properties:
+        key: { type: string, pattern: "^[0-9a-f]{32}$" }
+        prompt: { type: string, maxLength: 10000 }
+        count: { type: integer, minimum: 1 }
+        images: { type: integer, minimum: 0 }
+        models:
+          type: array
+          maxItems: 3
+          items: { type: object, required: [provider, model], properties: { provider: { type: string }, model: { type: string } } }
+        moreModels: { type: integer, minimum: 0 }
+        latestId: { type: string }
+        cover:
+          type: object
+          required: [url, width, height]
+          properties: { url: { type: string }, width: { type: integer }, height: { type: integer } }
+    PromptGroupPage:
+      type: object
+      required: [groups, nextCursor]
+      properties:
+        groups: { type: array, items: { $ref: "#/components/schemas/PromptGroup" } }
+        nextCursor: { type: [string, "null"] }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
