@@ -146,3 +146,23 @@ Committed approach: a «By prompt» view lists one group card per distinct promp
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | groups latest first, reused by default, switch, paging, none-reused state | integration + component | T3, T5 |
+| AC-02 | prompt grid with full-prompt heading and count | integration + component | T3, T6 |
+| AC-03 | dialog steps within the prompt (more at the end), delete within it | component | T4, T6 |
+| AC-04 | address keeps the view and switch, key only (32 hex), dialog after reload | unit + component | T4 |
+| AC-05 | literal identity: case, spaces, line breaks, Unicode forms → separate groups | unit + integration | T1, T2, T3 |
+| AC-06 | exactly one group per generation; counts; re-run joins; 1↔2 moves; cover follows deletions | integration + component | T3, T6 |
+| AC-07 | unknown or malformed key → «no generations use this prompt any more» | integration + unit + component | T3, T4, T6 |
+| AC-08 | groups fail → message / kept with a note | component | T5 |
+| AC-09 | foreign page refused | integration | T3 |
+| AC-10 | pre-feature generations keyed on boot | integration | T2 |
+
+- **NFR:** groups page and prompt page ≤ 300 ms p95 (1 000 generations / 200 prompts) — `nfr` (T3); backfill 1 000 rows ≤ 2 s — integration (T2); refresh scope as gallery-by-model — existing request tests extended if needed (T6).
+- **Test data:** `seedGeneration` (keys via the repo) + `clearPromptKey` for pre-feature rows; prompts with look-alike variants.
