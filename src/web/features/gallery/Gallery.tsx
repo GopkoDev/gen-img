@@ -54,9 +54,9 @@ export { resetGalleryScroll };
 export function Gallery() {
   const view = useGalleryView();
   if (view.kind === "models") return <ByModel />;
-  if (view.kind === "prompts") return <ByPrompt single={view.single} />;
+  if (view.kind === "prompts") return <ByPrompt key={String(view.single)} single={view.single} />;
   // One grid per view: its own query, scroll position and paging state.
-  if (view.kind === "prompt" && view.invalid) return <PromptUnknown />;
+  if (view.kind === "prompt" && view.invalid) return <PromptUnknown single={view.single === true} />;
   return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
 }
 
@@ -129,7 +129,8 @@ function Grid({ view }: { view: ListView }) {
 
   const items = q.data.pages.flatMap((p) => p.items);
   const notice = (justDeleted || handedOver) && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
-  if (prompt && (items.length === 0 || isNotFound(group.error))) return <PromptUnknown />;
+  if (prompt && (items.length === 0 || isNotFound(group.error)))
+    return <PromptUnknown single={prompt.single === true} />;
   if (items.length === 0 && one)
     return (
       <div className="flex flex-col items-start gap-3">
@@ -154,7 +155,15 @@ function Grid({ view }: { view: ListView }) {
   return (
     <div className="flex flex-col gap-4">
       {notice}
-      {prompt && <PromptHeading prompt={group.data?.prompt} count={group.data?.count} />}
+      {prompt && (
+        <PromptHeading
+          prompt={group.data?.prompt ?? (group.isError ? items[0]?.prompt : undefined)}
+          count={group.data?.count}
+          countFailed={group.isError && !group.data}
+          onRetry={() => group.refetch()}
+          single={prompt.single === true}
+        />
+      )}
       {one && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-medium">{modelHeading(one, models.data?.models)}</h3>

@@ -4,14 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { navigate, replace } from "@/lib/router";
 import { summary } from "@/test-utils";
-import type { Generation, GenerationSummary } from "../../../shared/generations";
+import type { Generation, GenerationSummary, PromptGroup } from "../../../shared/generations";
 import { RecentGenerations } from "../generate/RecentGenerations";
 import { patchCard } from "./cardPatch";
 import { Gallery, resetGalleryScroll } from "./Gallery";
 
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
-  api: { generations: vi.fn(), generationModels: vi.fn(), generation: vi.fn() },
+  api: {
+    generations: vi.fn(),
+    generationModels: vi.fn(),
+    generation: vi.fn(),
+    promptGroups: vi.fn(),
+    promptGroup: vi.fn(),
+  },
 }));
 const m = vi.mocked(api);
 
@@ -139,6 +145,133 @@ describe("requests per view (spec §6)", () => {
     expect(await screen.findByText("x")).toBeInTheDocument();
     await settle();
     expect(delta(before)).toMatchObject({ all: 0, model: 0, models: 0 });
+  });
+});
+
+const KEY = "0123456789abcdef0123456789abcdef";
+const SHARED = "Shared prompt";
+const promptGroup = (i: number, key = KEY): PromptGroup => ({
+  key,
+  prompt: `Group prompt ${i}`,
+  count: 3,
+  images: 3,
+  models: [],
+  moreModels: 0,
+  latestId: summary(i).id,
+  cover: { url: "/x.png", width: 1, height: 1 },
+});
+/** The prompt-related mocked calls: group pages, the one-group read, a prompt's list, the plain All list. */
+const promptReads = () => ({
+  groups: m.promptGroups.mock.calls.length,
+  group: m.promptGroup.mock.calls.length,
+  list: m.generations.mock.calls.filter(([, , f]) => f && "prompt" in f).length,
+  all: m.generations.mock.calls.filter(([, l, f]) => !f && l === undefined).length,
+  recent: m.generations.mock.calls.filter(([, l]) => l === 10).length,
+});
+const promptDelta = (before: ReturnType<typeof promptReads>) => {
+  const now = promptReads();
+  return {
+    groups: now.groups - before.groups,
+    group: now.group - before.group,
+    list: now.list - before.list,
+    all: now.all - before.all,
+    recent: now.recent - before.recent,
+  };
+};
+const invalidate = () =>
+  act(async () => {
+    await client.invalidateQueries({ queryKey: ["generations"] });
+  });
+
+describe("requests per prompt view (R4, spec §6)", () => {
+  beforeEach(() => {
+    m.promptGroups.mockImplementation(async (cursor) =>
+      cursor
+        ? { groups: [promptGroup(2, "f".repeat(32))], nextCursor: null }
+        : { groups: [promptGroup(1)], nextCursor: "c1" },
+    );
+    m.promptGroup.mockImplementation(async () => promptGroup(1));
+    const impl = m.generations.getMockImplementation();
+    m.generations.mockImplementation(async (cursor, limit, filter) => {
+      if (filter && "prompt" in filter) {
+        const rest = store.filter((g) => !cursor || g.id < cursor);
+        const items = rest.slice(0, 2).map((g) => ({ ...g, prompt: SHARED }));
+        return { items, nextCursor: rest.length > 2 ? (items[1]?.id ?? null) : null };
+      }
+      return (impl as NonNullable<typeof impl>)(cursor, limit, filter);
+    });
+  });
+
+  it("«By prompt»: a change costs one request per loaded page and the recent strip; a revisit costs none", async () => {
+    renderApp();
+    await screen.findByText("A test prompt number 5");
+    await show("/gallery?view=prompts", "Group prompt 1");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await screen.findByText("Group prompt 2");
+    const before = promptReads();
+    await invalidate();
+    await settle();
+    expect(promptDelta(before)).toEqual({ groups: 2, group: 0, list: 0, all: 0, recent: 1 });
+
+    await show("/gallery", "A test prompt number 5");
+    await show("/gallery?view=prompts", "Group prompt 2");
+    const settled = promptReads();
+    await show("/gallery", "A test prompt number 5");
+    await show("/gallery?view=prompts", "Group prompt 2");
+    expect(promptDelta(settled)).toEqual({ groups: 0, group: 0, list: 0, all: 0, recent: 0 });
+  });
+
+  it("«By prompt» off screen: a change reads none of its pages", async () => {
+    renderApp();
+    await screen.findByText("A test prompt number 5");
+    await show("/gallery?view=prompts", "Group prompt 1");
+    await show("/gallery", "A test prompt number 5");
+    const before = promptReads();
+    await invalidate();
+    await settle();
+    expect(promptDelta(before)).toMatchObject({ groups: 0, group: 0, list: 0 });
+  });
+
+  it("a prompt's grid: a change costs one request per loaded page, one group read and the recent strip; a revisit costs none", async () => {
+    renderApp();
+    await screen.findByText("A test prompt number 5");
+    await show(`/gallery?prompt=${KEY}`, "Group prompt 1");
+    const before = promptReads();
+    await invalidate();
+    await settle();
+    expect(promptDelta(before)).toEqual({ groups: 0, group: 1, list: 1, all: 0, recent: 1 });
+
+    await show("/gallery", "A test prompt number 5");
+    const settled = promptReads();
+    await show(`/gallery?prompt=${KEY}`, "Group prompt 1");
+    await show("/gallery", "A test prompt number 5");
+    expect(promptDelta(settled).list).toBeLessThanOrEqual(1); // stale after the change: re-read once when shown
+    const again = promptReads();
+    await show(`/gallery?prompt=${KEY}`, "Group prompt 1");
+    expect(promptDelta(again)).toEqual({ groups: 0, group: 0, list: 0, all: 0, recent: 0 });
+  });
+
+  it("a prompt's grid off screen: a change reads none of it", async () => {
+    renderApp();
+    await screen.findByText("A test prompt number 5");
+    await show(`/gallery?prompt=${KEY}`, "Group prompt 1");
+    await show("/gallery", "A test prompt number 5");
+    const before = promptReads();
+    await invalidate();
+    await settle();
+    expect(promptDelta(before)).toMatchObject({ groups: 0, group: 0, list: 0 });
+  });
+
+  it("«By prompt» with none reused: a change re-reads the one-card probe, never the All pages (R3)", async () => {
+    m.promptGroups.mockResolvedValue({ groups: [], nextCursor: null });
+    renderApp();
+    await screen.findByText("A test prompt number 5");
+    await show("/gallery?view=prompts", "No prompt is used more than once yet.");
+    const before = promptReads();
+    await invalidate();
+    await settle();
+    expect(promptDelta(before).all).toBe(0);
+    expect(promptDelta(before).groups).toBe(1);
   });
 });
 

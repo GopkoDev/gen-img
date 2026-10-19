@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,9 @@ import { api } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { Link } from "@/lib/router";
 import type { PromptGroup, PromptGroupPage } from "../../../shared/generations";
-import { galleryQueryOptions, SENTINEL_MARGIN } from "./Gallery";
+import { SENTINEL_MARGIN } from "./Gallery";
 import { showView } from "./GalleryViews";
 import { viewKey, viewSearch } from "./galleryView";
-import { isOwnScroll } from "./gridPlace";
 import { providerName } from "./modelsQuery";
 import { useSavedScroll } from "./scrollMemory";
 
@@ -35,20 +34,16 @@ export function ByPrompt({ single }: { single: boolean }) {
   const groups = q.data?.pages.flatMap((p) => p.groups);
   const empty = groups?.length === 0;
   // An empty page tells "none reused" from "no generations at all" by the plain list (single-use shows everything).
-  const any = useInfiniteQuery({ ...galleryQueryOptions, enabled: empty === true && !single });
-  const [armed, setArmed] = useState(true);
-  useEffect(() => {
-    if (armed) return;
-    const onScroll = () => {
-      if (isOwnScroll()) setArmed(true);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [armed]);
+  // One card is enough to tell, and it leaves the All grid's pages alone (a change re-reads only this probe).
+  const any = useQuery({
+    queryKey: ["generations", "probe"],
+    queryFn: () => api.generations(undefined, 1),
+    enabled: empty === true && !single,
+  });
   useSavedScroll(view, groups !== undefined);
 
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
-  const canLoadMore = groups !== undefined && armed && hasNextPage && !q.isFetching && !isFetchNextPageError;
+  const canLoadMore = groups !== undefined && hasNextPage && !q.isFetching && !isFetchNextPageError;
   useEffect(() => {
     const el = sentinelRef.current;
     if (!canLoadMore || !el) return;
@@ -84,7 +79,7 @@ export function ByPrompt({ single }: { single: boolean }) {
 
   if (groups?.length === 0) {
     if (!single && any.isPending) return <p className="text-muted-foreground text-sm">Loading…</p>;
-    const noGenerations = single || (any.data?.pages[0]?.items.length ?? 0) === 0;
+    const noGenerations = single || (any.data?.items.length ?? 0) === 0;
     if (noGenerations && !(any.isError && !any.data))
       return (
         <div className="flex flex-col items-start gap-3">
@@ -115,7 +110,7 @@ export function ByPrompt({ single }: { single: boolean }) {
       )}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {groups?.map((g) => (
-          <GroupCard key={g.key} g={g} />
+          <GroupCard key={g.key} g={g} single={single} />
         ))}
       </div>
       {isFetchNextPageError && (
@@ -150,11 +145,11 @@ export function ByPrompt({ single }: { single: boolean }) {
   );
 }
 
-function GroupCard({ g }: { g: PromptGroup }) {
+function GroupCard({ g, single }: { g: PromptGroup; single: boolean }) {
   const [broken, setBroken] = useState(false);
   return (
     <Link
-      to={`/gallery${viewSearch({ kind: "prompt", key: g.key })}`}
+      to={`/gallery${viewSearch({ kind: "prompt", key: g.key, ...(single ? { single: true } : {}) })}`}
       className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Card className="gap-3 overflow-hidden py-0 transition-colors hover:bg-accent">

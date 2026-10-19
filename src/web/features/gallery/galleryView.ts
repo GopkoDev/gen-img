@@ -4,7 +4,7 @@ export type GalleryView =
   | { kind: "model"; provider: string; model: string }
   | { kind: "models" }
   | { kind: "prompts"; single: boolean }
-  | { kind: "prompt"; key: string; invalid?: true };
+  | { kind: "prompt"; key: string; single?: true; invalid?: true };
 
 const PROMPT_KEY = /^[0-9a-f]{32}$/;
 
@@ -17,8 +17,12 @@ export function parseView(search: string): GalleryView {
   if (!provider && !model) {
     if (p.get("view") === "prompts") return { kind: "prompts", single: p.get("single") === "1" };
     const prompt = p.get("prompt");
-    if (prompt !== null)
-      return PROMPT_KEY.test(prompt) ? { kind: "prompt", key: prompt } : { kind: "prompt", key: prompt, invalid: true };
+    if (prompt !== null) {
+      const single = p.get("single") === "1" ? ({ single: true } as const) : {};
+      return PROMPT_KEY.test(prompt)
+        ? { kind: "prompt", key: prompt, ...single }
+        : { kind: "prompt", key: prompt, ...single, invalid: true };
+    }
   }
   return { kind: "all" };
 }
@@ -27,7 +31,10 @@ export function viewSearch(view: GalleryView): string {
   if (view.kind === "all") return "";
   if (view.kind === "models") return "?view=models";
   if (view.kind === "prompts") return view.single ? "?view=prompts&single=1" : "?view=prompts";
-  if (view.kind === "prompt") return `?${new URLSearchParams({ prompt: view.key }).toString()}`;
+  if (view.kind === "prompt") {
+    const q = `?${new URLSearchParams({ prompt: view.key }).toString()}`;
+    return view.single ? `${q}&single=1` : q;
+  }
   return `?${new URLSearchParams({ provider: view.provider, model: view.model }).toString()}`;
 }
 
@@ -45,8 +52,12 @@ function viewFromState(v: unknown): GalleryView | undefined {
     | null
     | undefined;
   if (o?.kind === "prompts") return { kind: "prompts", single: o.single === true };
-  if (o?.kind === "prompt" && typeof o.key === "string")
-    return o.invalid === true ? { kind: "prompt", key: o.key, invalid: true } : { kind: "prompt", key: o.key };
+  if (o?.kind === "prompt" && typeof o.key === "string") {
+    const single = o.single === true ? ({ single: true } as const) : {};
+    return o.invalid === true
+      ? { kind: "prompt", key: o.key, ...single, invalid: true }
+      : { kind: "prompt", key: o.key, ...single };
+  }
   if (o?.kind === "all" || o?.kind === "models") return { kind: o.kind };
   if (o?.kind === "model" && typeof o.provider === "string" && typeof o.model === "string")
     return { kind: "model", provider: o.provider, model: o.model };

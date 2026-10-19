@@ -1,10 +1,11 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { renderWithQuery, summary } from "@/test-utils";
 import { intersect } from "../../../../tests/helpers/intersection";
 import type { PromptGroup } from "../../../shared/generations";
 import { ByPrompt } from "./ByPrompt";
+import { Gallery } from "./Gallery";
 import { resetGalleryScroll } from "./scrollMemory";
 
 vi.mock("@/lib/api", () => ({ api: { promptGroups: vi.fn(), generations: vi.fn() } }));
@@ -137,5 +138,53 @@ describe("ByPrompt (SCR-11)", () => {
     renderWithQuery(<ByPrompt single={false} />);
     expect(await screen.findByText("No generations yet.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Write a prompt" })).toBeInTheDocument();
+  });
+});
+
+describe("the switch in the address (R10)", () => {
+  const address = () => window.location.pathname + window.location.search;
+
+  it("pushes the single-use address and the browser back returns to the reused-only view", async () => {
+    m.promptGroups.mockImplementation(async (_c, single) => ({
+      groups: single ? [group(1), group(2, { count: 1 })] : [group(1)],
+      nextCursor: null,
+    }));
+    renderWithQuery(<Gallery />);
+    expect(await screen.findAllByRole("link")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("switch", { name: "Include single-use prompts" }));
+    expect(address()).toBe("/gallery?view=prompts&single=1");
+    await waitFor(() => expect(screen.getAllByRole("link")).toHaveLength(2));
+    expect(screen.getByRole("switch", { name: "Include single-use prompts" })).toBeChecked();
+    expect(m.promptGroups).toHaveBeenLastCalledWith(undefined, true);
+
+    act(() => window.history.back());
+    await waitFor(() => expect(address()).toBe("/gallery?view=prompts"));
+    await waitFor(() => expect(screen.getAllByRole("link")).toHaveLength(1));
+    expect(screen.getByRole("switch", { name: "Include single-use prompts" })).not.toBeChecked();
+  });
+
+  it("keeps a separate scroll position for the reused-only and the single-use view (R8)", async () => {
+    m.promptGroups.mockResolvedValue({ groups: [group(1)], nextCursor: null });
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo;
+    const scrollAt = (y: number) => {
+      Object.defineProperty(window, "scrollY", { value: y, configurable: true });
+      fireEvent.scroll(window);
+    };
+    renderWithQuery(<Gallery />);
+    const toggle = async () => {
+      fireEvent.click(await screen.findByRole("switch", { name: "Include single-use prompts" }));
+      await screen.findAllByRole("link");
+    };
+    await screen.findAllByRole("link");
+    scrollAt(400);
+    await toggle(); // single-use view, never scrolled: starts at the top
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+    scrollAt(900);
+    await toggle(); // back to the reused-only view
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 400);
+    await toggle();
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 900);
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
   });
 });

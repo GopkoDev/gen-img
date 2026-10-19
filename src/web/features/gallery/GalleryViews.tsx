@@ -18,6 +18,7 @@ export function GalleryViews() {
   const view = useGalleryView();
   const [open, setOpen] = useState(false);
   const models = useQuery({ ...modelsQueryOptions, enabled: open });
+  const byPrompt = view.kind === "prompts" || view.kind === "prompt"; // a prompt's grid belongs to «By prompt»
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -37,9 +38,9 @@ export function GalleryViews() {
         By model
       </Button>
       <Button
-        variant={view.kind === "prompts" ? "secondary" : "outline"}
+        variant={byPrompt ? "secondary" : "outline"}
         size="sm"
-        aria-pressed={view.kind === "prompts"}
+        aria-pressed={byPrompt}
         onClick={() => showView({ kind: "prompts", single: false })}
       >
         By prompt

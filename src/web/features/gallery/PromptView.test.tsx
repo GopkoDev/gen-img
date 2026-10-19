@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/lib/api";
-import { isDialogVisit, replace, useRoute } from "@/lib/router";
+import { APP_LOAD, isDialogVisit, replace, useRoute } from "@/lib/router";
 import { summary } from "@/test-utils";
 import type { Generation, GenerationSummary, PromptGroup } from "../../../shared/generations";
 import { Gallery, resetGalleryScroll } from "./Gallery";
+import { GalleryViews } from "./GalleryViews";
 import { GenerationDialog } from "./GenerationDialog";
 
 vi.mock("@/lib/api", async (orig) => ({
@@ -16,6 +17,7 @@ vi.mock("@/lib/api", async (orig) => ({
     generation: vi.fn(),
     deleteGeneration: vi.fn(),
     promptGroup: vi.fn(),
+    promptGroups: vi.fn(),
   },
 }));
 const m = vi.mocked(api);
@@ -55,6 +57,10 @@ function serve(prompt = SHARED) {
     if (!store.some((g) => g.prompt === SHARED)) throw new ApiError(404, "NOT_FOUND", "no");
     return groupOf(prompt);
   });
+  m.promptGroups.mockImplementation(async (_c, single) => ({
+    groups: store.some((g) => g.prompt === SHARED) ? [{ ...groupOf(prompt), prompt: SHARED }] : [],
+    nextCursor: single ? null : null,
+  }));
   m.generation.mockImplementation(async (id) => {
     const s = store.find((g) => g.id === id) ?? summary(Number(id.slice(3)));
     return {
@@ -80,6 +86,7 @@ function Harness() {
   const route = useRoute();
   return (
     <>
+      <GalleryViews />
       <Gallery />
       {route.name === "detail" && isDialogVisit(route) && <GenerationDialog id={route.id} />}
     </>
@@ -87,7 +94,7 @@ function Harness() {
 }
 const renderApp = () =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } })}>
       <Harness />
     </QueryClientProvider>,
   );
@@ -127,6 +134,111 @@ describe("prompt grid (SCR-02, AC-02)", () => {
   });
 });
 
+describe("the single-use switch survives the prompt grid (R1)", () => {
+  it("«Back to prompts» from a group opened under ?view=prompts&single=1 lands on that address", async () => {
+    replace("/gallery?view=prompts&single=1", null);
+    renderApp();
+    fireEvent.click(await screen.findByRole("link", { name: new RegExp(SHARED) }));
+    expect(window.location.search).toBe(`?prompt=${KEY}&single=1`);
+    const back = await screen.findByRole("link", { name: "Back to prompts" });
+    expect(back).toHaveAttribute("href", "/gallery?view=prompts&single=1");
+    fireEvent.click(back);
+    expect(window.location.pathname + window.location.search).toBe("/gallery?view=prompts&single=1");
+  });
+
+  it("without the switch the group's address and way back stay plain", async () => {
+    replace("/gallery?view=prompts", null);
+    renderApp();
+    fireEvent.click(await screen.findByRole("link", { name: new RegExp(SHARED) }));
+    expect(window.location.search).toBe(`?prompt=${KEY}`);
+    expect(await screen.findByRole("link", { name: "Back to prompts" })).toHaveAttribute(
+      "href",
+      "/gallery?view=prompts",
+    );
+  });
+
+  it("the unknown state's «Back to prompts» keeps the switch too", async () => {
+    seed([], [2]);
+    replace(`/gallery?prompt=${KEY}&single=1`, null);
+    renderApp();
+    await screen.findByText(UNKNOWN);
+    expect(screen.getByRole("link", { name: "Back to prompts" })).toHaveAttribute(
+      "href",
+      "/gallery?view=prompts&single=1",
+    );
+  });
+});
+
+describe("«By prompt» stays pressed on a prompt's grid (R7)", () => {
+  it("is pressed on ?prompt=<key> and nothing else is", async () => {
+    renderApp();
+    await screen.findByRole("heading", { name: SHARED });
+    expect(screen.getByRole("button", { name: "By prompt" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("long prompt heading (R2, R6)", () => {
+  const measure = (client: number, scroll: number) => {
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => client });
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", { configurable: true, get: () => scroll });
+  };
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+  });
+
+  it("always clamps to 6 lines and offers the toggle when a few very long lines overflow", async () => {
+    measure(100, 240);
+    serve("one single very long line that wraps over many rows");
+    renderApp();
+    const heading = await screen.findByRole("heading", { name: /one single very long line/ });
+    expect(heading.className).toMatch(/line-clamp-6/);
+    fireEvent.click(await screen.findByRole("button", { name: "Show more" }));
+    expect(heading.className).not.toMatch(/line-clamp-6/);
+    expect(screen.getByRole("button", { name: "Show less" })).toBeInTheDocument();
+  });
+
+  it("shows no toggle when the text fits, and re-checks on resize", async () => {
+    measure(100, 100);
+    serve("short");
+    renderApp();
+    await screen.findByRole("heading", { name: "short" });
+    expect(screen.queryByRole("button", { name: /^Show (more|less)$/ })).not.toBeInTheDocument();
+    measure(100, 300);
+    fireEvent(window, new Event("resize"));
+    expect(await screen.findByRole("button", { name: "Show more" })).toBeInTheDocument();
+  });
+
+  it("the toggle says whether it is expanded and what it controls", async () => {
+    measure(100, 240);
+    serve("one single very long line that wraps over many rows");
+    renderApp();
+    const heading = await screen.findByRole("heading", { name: /one single very long line/ });
+    const toggle = await screen.findByRole("button", { name: "Show more" });
+    expect(heading.id).not.toBe("");
+    expect(toggle).toHaveAttribute("aria-controls", heading.id);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+describe("one-group read failure (R5)", () => {
+  it("falls back to the first card's prompt, says the count is unavailable and retries", async () => {
+    m.promptGroup.mockRejectedValueOnce(new ApiError(500, "INTERNAL", "boom"));
+    m.promptGroup.mockRejectedValueOnce(new ApiError(500, "INTERNAL", "boom"));
+    m.promptGroup.mockRejectedValueOnce(new ApiError(500, "INTERNAL", "boom"));
+    renderApp();
+    expect(await screen.findByRole("heading", { name: SHARED })).toBeInTheDocument();
+    expect(await screen.findByText(/count unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(UNKNOWN)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("5 generations")).toBeInTheDocument();
+    expect(screen.queryByText(/count unavailable/)).not.toBeInTheDocument();
+  });
+});
+
 describe("unknown key (AC-07)", () => {
   it("a malformed key shows the unknown state with no request", async () => {
     replace("/gallery?prompt=xyz", null);
@@ -163,6 +275,25 @@ describe("dialog from a prompt grid (AC-03)", () => {
       await waitFor(() => expect(here()).toBe(`/generations/${idOf(i)}`));
     }
     expect(m.generations).not.toHaveBeenCalledWith(undefined);
+  });
+
+  it("a dialog address reached with a prompt grid/order state (reload) steps within the prompt", async () => {
+    const state = {
+      dialog: "gallery",
+      load: APP_LOAD,
+      grid: { kind: "prompt", key: KEY },
+      order: { kind: "prompt", key: KEY },
+    };
+    replace(`/generations/${idOf(9)}`, state);
+    renderApp();
+    await screen.findByRole("dialog");
+    expect(await screen.findByRole("heading", { name: SHARED })).toBeInTheDocument(); // the prompt grid behind
+    const older = () => screen.getByRole("button", { name: /^Older/ });
+    await waitFor(() => expect(older()).not.toHaveAttribute("aria-disabled", "true"));
+    fireEvent.click(older());
+    await waitFor(() => expect(here()).toBe(`/generations/${idOf(7)}`));
+    expect(m.generations).not.toHaveBeenCalledWith(undefined);
+    expect(m.generations).toHaveBeenCalledWith(undefined, undefined, { prompt: KEY });
   });
 
   it("deleting the prompt's last generation closes onto the unknown state", async () => {

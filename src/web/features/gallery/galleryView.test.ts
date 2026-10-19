@@ -63,6 +63,19 @@ describe("galleryView", () => {
     expect(viewKey({ kind: "prompts", single: true })).toEqual(["generations", "prompts", true]);
     expect(viewKey({ kind: "prompt", key: KEY })).toEqual(["generations", "prompt", KEY]);
   });
+  it("carries the single-use switch in a prompt view's address, state and nothing else (R1)", () => {
+    expect(parseView(`?prompt=${KEY}&single=1`)).toEqual({ kind: "prompt", key: KEY, single: true });
+    expect(parseView(`?prompt=${KEY}&single=0`)).toEqual({ kind: "prompt", key: KEY });
+    expect(viewSearch({ kind: "prompt", key: KEY, single: true })).toBe(`?prompt=${KEY}&single=1`);
+    expect(parseView(viewSearch({ kind: "prompt", key: KEY, single: true }))).toEqual({
+      kind: "prompt",
+      key: KEY,
+      single: true,
+    });
+    expect(viewKey({ kind: "prompt", key: KEY, single: true })).toEqual(viewKey({ kind: "prompt", key: KEY }));
+    const grid = { kind: "prompt", key: KEY, single: true };
+    expect(dialogViews({ grid, order: grid })).toEqual({ grid, order: grid });
+  });
   it("dialog state accepts the prompt kinds", () => {
     const grid = { kind: "prompt", key: KEY };
     const order = { kind: "prompts", single: true };
