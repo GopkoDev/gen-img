@@ -16,7 +16,7 @@ import { Tile } from "./Tile";
 import { useGalleryView } from "./useGalleryView";
 
 /** A view with a paged list behind it: «By model» has none (its read is the models query). */
-export type ListView = Exclude<GalleryView, { kind: "models" }>;
+export type ListView = Exclude<GalleryView, { kind: "models" | "prompts" }>;
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
 const SENTINEL_MARGIN = "600px";
@@ -47,7 +47,7 @@ export { resetGalleryScroll };
 /** The gallery's body for the view in the address: the grid (all or one model) or «By model». */
 export function Gallery() {
   const view = useGalleryView();
-  if (view.kind === "models") return <ByModel />;
+  if (view.kind === "models" || view.kind === "prompts") return <ByModel />; // prompts: placeholder until T5
   // One grid per view: its own query, scroll position and paging state.
   return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
 }

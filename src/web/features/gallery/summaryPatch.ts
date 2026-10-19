@@ -17,11 +17,12 @@ function apply(items: GenerationSummary[], id: string, patch: Partial<Generation
 
 /**
  * Updates (or removes) one card in every cached view under ["generations"] by data shape: infinite pages and
- * model groups. The recent strip (["generations","recent"]) and any other shape are left alone.
+ * model groups. The recent strip, the prompts overview and a prompt's one-group cache (["generations","recent"]) and any other shape are left alone.
  */
 export function patchSummaries(qc: QueryClient, id: string, patch: Partial<GenerationSummary> | "remove") {
   for (const [key, data] of qc.getQueriesData({ queryKey: ["generations"] })) {
-    if (key[1] === "recent") continue;
+    if (key[1] === "recent" || key[1] === "prompts") continue;
+    if (key[1] === "prompt" && key[3] === "group") continue; // group pages hold `groups`, not `items`
     if (isPages(data)) {
       qc.setQueryData(key, { ...data, pages: data.pages.map((p) => ({ ...p, items: apply(p.items, id, patch) })) });
     } else if (isGroups(data)) {

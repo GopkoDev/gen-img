@@ -23,12 +23,12 @@ export function useGalleryView(): GalleryView {
   return lastView;
 }
 
-/** The list a dialog steps through: the state's order, All when it names none or «By model» (which has no list). */
+/** The list a dialog steps through: the state's order, All when it names none or an overview («By model», «By prompt»: no list). */
 export function useOrderView(): { grid: GalleryView; order: ListView } {
   const route = useRoute();
   const grid = useGalleryView();
   const order = dialogViews(route.state).order;
-  return { grid, order: !order || order.kind === "models" ? ALL_LIST : order };
+  return { grid, order: !order || order.kind === "models" || order.kind === "prompts" ? ALL_LIST : order };
 }
 
 const ALL_LIST: ListView = { kind: "all" };

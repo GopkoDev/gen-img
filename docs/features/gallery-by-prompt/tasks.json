@@ -53,7 +53,7 @@
         "src/web/lib/api.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t3-prompt-reads.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T4",
@@ -70,7 +70,7 @@
         "src/web/features/gallery/useGalleryView.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t4-prompt-views.md",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "T5",
