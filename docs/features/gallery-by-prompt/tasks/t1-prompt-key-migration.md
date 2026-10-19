@@ -9,8 +9,8 @@ files_hint: ["docs/features/gallery-by-prompt/migrations/01_add_generation_promp
 owner: "dmytro.hopko"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

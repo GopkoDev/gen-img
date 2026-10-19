@@ -23,6 +23,28 @@ describe("migration runner", () => {
     while (appliedVersions(db).at(-1) !== version) migrateDown(db);
   }
 
+  it("0010_add_generation_prompt_key keys prompts with a fixed length, serves a prompt's page from an index, and reverts", () => {
+    migrateUp(db);
+    const cols = db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all();
+    expect(cols).toContain("prompt_key");
+    const insert = db.prepare(
+      `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
+         cost_micros, cost_status, created_at, duration_ms, raw_request, raw_response, prompt_key)
+       VALUES (?, 'openrouter', 'm', 'p', '{}', NULL, 1, NULL, 'unavailable', '2026-10-19T00:00:00.000Z', 1, '{}', '{}', ?)`,
+    );
+    insert.run("01A", "0123456789abcdef0123456789abcdef");
+    insert.run("01B", null); // NULL until the boot backfill (ADR-0037)
+    expect(() => insert.run("01C", "short")).toThrow(/CHECK/);
+    const plan = db
+      .prepare(
+        "EXPLAIN QUERY PLAN SELECT id FROM generations WHERE prompt_key = ? AND id < ? ORDER BY id DESC LIMIT 25",
+      )
+      .all("x", "01Z") as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/generations_by_prompt/);
+    downTo("0009");
+    expect(db.prepare("SELECT name FROM pragma_table_info('generations')").pluck().all()).not.toContain("prompt_key");
+  });
+
   it("0009_index_generations_by_model serves one model's page newest first from an index, and reverts", () => {
     migrateUp(db);
     const plan = db
@@ -126,10 +148,23 @@ describe("migration runner", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"]);
+    expect(appliedVersions(db)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+      "0004",
+      "0005",
+      "0006",
+      "0007",
+      "0008",
+      "0009",
+      "0010",
+    ]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0010");
     expect(migrateDown(db)?.version).toBe("0009");
     expect(migrateDown(db)?.version).toBe("0008");
     expect(migrateDown(db)?.version).toBe("0007");
@@ -152,6 +187,7 @@ describe("migration runner", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
   });
 

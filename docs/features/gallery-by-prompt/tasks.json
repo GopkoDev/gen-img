@@ -15,7 +15,7 @@
         "src/server/db/migrate.int.test.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t1-prompt-key-migration.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
@@ -70,7 +70,7 @@
         "src/web/features/gallery/useGalleryView.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t4-prompt-views.md",
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "T5",
