@@ -177,7 +177,7 @@ function Grid({ view }: { view: GalleryView }) {
       )}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {items.map((g) => (
-          <Tile key={g.id} g={g} />
+          <Tile key={g.id} g={g} views={{ grid: view, order: view }} />
         ))}
       </div>
       {isFetchNextPageError && (

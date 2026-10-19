@@ -101,7 +101,7 @@
         "src/web/features/gallery/GenerationDialog.test.tsx"
       ],
       "file": "docs/features/gallery-by-model/tasks/t6-dialog-per-view.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

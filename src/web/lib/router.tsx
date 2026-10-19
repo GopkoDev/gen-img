@@ -1,4 +1,5 @@
 import { type AnchorHTMLAttributes, type MouseEvent, useSyncExternalStore } from "react";
+import type { GalleryView } from "@/features/gallery/galleryView";
 
 // History API only (ADR-0009). A generation's address is the detail route; every other path is a page path
 // that the section registry matches (ADR-0022). The server falls back to index.html for all of them.
@@ -9,8 +10,8 @@ export type Route = RouteBase & { state?: unknown };
 export const APP_LOAD: string = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 /** The history state the grid pushes when it opens a generation as a dialog over itself. */
-export function dialogState() {
-  return { dialog: "gallery", load: APP_LOAD } as const;
+export function dialogState(views?: { grid: GalleryView; order: GalleryView }) {
+  return { dialog: "gallery", load: APP_LOAD, ...views } as const;
 }
 
 /** A detail route reached from this load's grid: show the grid with the dialog, not the full page. */

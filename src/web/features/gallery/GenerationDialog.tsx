@@ -8,12 +8,13 @@ import { ApiError } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { dialogState, replace } from "@/lib/router";
 import { DialogBusyContext, DialogDeleteContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
-import { GALLERY_QUERY_KEY, galleryQueryOptions } from "./Gallery";
+import { GALLERY_QUERY_KEY, galleryQueryOptionsFor } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { showGalleryNotice } from "./galleryNotice";
 import { bringCardIntoView } from "./gridPlace";
 import { anchoredAtEnd, neighbours } from "./neighbours";
 import { patchSummaries } from "./summaryPatch";
+import { useOrderView } from "./useGalleryView";
 
 const isTextTarget = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
@@ -65,7 +66,8 @@ function Step({
  * The `DialogBusyContext` setter the detail body reports through (and a delete in progress) disables stepping.
  */
 export function GenerationDialog({ id }: { id: string }) {
-  const grid = useInfiniteQuery(galleryQueryOptions);
+  const { grid: behind, order } = useOrderView();
+  const grid = useInfiniteQuery(galleryQueryOptionsFor(order));
   const detail = useGeneration(id);
   const items = grid.data?.pages.flatMap((p) => p.items) ?? [];
   // A refresh can push the shown, last loaded generation off the tail of the list: keep it at the end of the order
@@ -104,12 +106,14 @@ export function GenerationDialog({ id }: { id: string }) {
 
   // The last generation of the grid the dialog showed: where the grid scrolls to on close (sad §8).
   const lastGridId = useRef<string | null>(null);
+  const keepsScroll = useRef(false);
+  keepsScroll.current = behind.kind === "models"; // «By model» keeps its scroll on close (sad §4)
   if (nav.inOrder) lastGridId.current = id;
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (lastGridId.current) bringCardIntoView(lastGridId.current);
+      if (lastGridId.current && !keepsScroll.current) bringCardIntoView(lastGridId.current);
     };
   }, []);
 
@@ -120,7 +124,7 @@ export function GenerationDialog({ id }: { id: string }) {
     for (const url of [newerUrl, olderUrl]) if (url) new Image().src = url;
   }, [newerUrl, olderUrl]);
 
-  const go = (to: string) => replace(`/generations/${to}`, dialogState());
+  const go = (to: string) => replace(`/generations/${to}`, dialogState({ grid: behind, order }));
   const stepNewer = () => {
     if (!busy && nav.newer) go(nav.newer);
   };
@@ -272,7 +276,7 @@ export function GenerationDialog({ id }: { id: string }) {
                   onClick={() => void stepOlder()}
                 />
               </>
-            ) : (
+            ) : grid.isPending ? null : (
               <span className="text-muted-foreground text-sm">Not in the gallery's current order</span>
             )}
             <DialogClose asChild>

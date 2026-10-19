@@ -50,7 +50,11 @@ export function ByModel() {
             </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
               {g.items.slice(0, 4).map((s) => (
-                <Tile key={s.id} g={s} />
+                <Tile
+                  key={s.id}
+                  g={s}
+                  views={{ grid: { kind: "models" }, order: { kind: "model", provider: g.provider, model: g.model } }}
+                />
               ))}
             </div>
           </section>

@@ -6,7 +6,10 @@ import { excerpt, formatRelative } from "@/lib/format";
 import { dialogState, Link, navigate } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
 import { CardBadges } from "./CardBadges";
+import type { GalleryView } from "./galleryView";
 import { usePendingCost } from "./usePendingCost";
+
+const ALL: GalleryView = { kind: "all" };
 
 /** Mounted for pending cards only: refreshes that card's cost on its own (ADR-0031). */
 function PendingCostWatcher({ g }: { g: GenerationSummary }) {
@@ -14,7 +17,7 @@ function PendingCostWatcher({ g }: { g: GenerationSummary }) {
   return null;
 }
 
-export function Tile({ g }: { g: GenerationSummary }) {
+export function Tile({ g, views }: { g: GenerationSummary; views?: { grid: GalleryView; order: GalleryView } }) {
   const [broken, setBroken] = useState(false);
   return (
     <Link
@@ -24,7 +27,7 @@ export function Tile({ g }: { g: GenerationSummary }) {
         // A plain click opens the dialog over the grid (ADR-0033); modified clicks keep the link's own behaviour.
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
-        navigate(`/generations/${g.id}`, dialogState());
+        navigate(`/generations/${g.id}`, dialogState(views ?? { grid: ALL, order: ALL }));
       }}
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
     >
