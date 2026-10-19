@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { seedGeneration } from "../../../../tests/helpers/generations";
 import { createTestApp } from "../../../../tests/helpers/test-app";
+import { promptKey } from "./promptKey";
 
 // curate-gallery spec §6 NFRs, measured in-process (server time only).
 const p95 = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.ceil(xs.length * 0.95) - 1] ?? Number.NaN;
@@ -248,5 +249,37 @@ describe("model-price-preview NFRs — price", () => {
     const cached = await timed(20, async () => expect((await t.app.request(url)).status).toBe(200));
     expect(p95(first)).toBeLessThanOrEqual(100);
     expect(p95(cached)).toBeLessThanOrEqual(50);
+  });
+});
+
+describe("gallery-by-prompt NFRs", () => {
+  let t: ReturnType<typeof createTestApp>;
+  afterEach(() => t?.cleanup());
+
+  it("a groups page (single=1) and a prompt page ≤ 300 ms p95 with 1 000 generations across 200 prompts × 10 tags + comment", async () => {
+    t = createTestApp();
+    const tags = Array.from({ length: 10 }, (_, i) => `tag ${i}`);
+    t.db.transaction(() => {
+      for (let i = 0; i < 1000; i++)
+        seedGeneration(t.db, t.dataDir, {
+          id: `01PRM${String(i).padStart(21, "0")}`,
+          prompt: `prompt number ${i % 200}`,
+          tags,
+          comment: "A note",
+        });
+    })();
+    const key = promptKey("prompt number 7");
+    const groupRuns = await timed(20, async () => {
+      const res = await t.app.request("/api/generations/prompts?single=1&limit=24");
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { groups: unknown[] }).groups).toHaveLength(24);
+    });
+    const pageRuns = await timed(20, async () => {
+      const res = await t.app.request(`/api/generations?prompt=${key}&limit=24`);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { items: unknown[] }).items).toHaveLength(5);
+    });
+    expect(p95(groupRuns)).toBeLessThanOrEqual(300);
+    expect(p95(pageRuns)).toBeLessThanOrEqual(300);
   });
 });

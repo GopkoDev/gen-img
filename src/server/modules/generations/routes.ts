@@ -12,8 +12,10 @@ import type {
   JobResponse,
   ModelGroupsResponse,
   OutputImage,
+  PromptGroup,
+  PromptGroupPage,
 } from "../../../shared/generations";
-import { MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
+import { MAX_INPUT_BYTES, MAX_INPUT_IMAGES, PromptKey } from "../../../shared/generations";
 import type { CostHistory } from "../../../shared/pricing";
 import { ProviderId } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
@@ -47,8 +49,25 @@ const ListQuery = z
       .regex(/^[0-9A-Z]{1,26}$/, { error: "Cursor must be a generation id" })
       .optional(),
     limit: LimitField,
+    prompt: PromptKey.optional(),
   })
-  .refine((q) => (q.provider === undefined) === (q.model === undefined), { error: FILTER_MSG, path: ["model"] });
+  .refine((q) => (q.provider === undefined) === (q.model === undefined), { error: FILTER_MSG, path: ["model"] })
+  .refine((q) => q.prompt === undefined || (q.provider === undefined && q.model === undefined), {
+    error: "A prompt filter cannot be combined with provider and model",
+    path: ["prompt"],
+  });
+
+const CursorField = z.string().regex(/^[0-9A-Z]{1,26}$/, { error: "Cursor must be a generation id" });
+const PromptGroupsQuery = z.object({
+  cursor: CursorField.optional(),
+  limit: LimitField,
+  single: z.enum(["0", "1"], { error: "Single must be 0 or 1" }).default("0"),
+});
+const PromptKeyParam = z.object({ key: PromptKey });
+const invalidQuery = (what: string, error: z.ZodError) =>
+  new AppError("VALIDATION_ERROR", `Invalid ${what}`, 400, {
+    fields: Object.fromEntries(error.issues.map((i) => [i.path.join("."), i.message])),
+  });
 
 const ModelsQuery = z.object({
   latest: z.coerce
@@ -123,6 +142,12 @@ const toSummary = (g: SummaryRecord): GenerationSummary => ({
   thumbnail: toImage(g.thumbnail),
 });
 
+const toGroup = (g: ReturnType<GenerationsService["promptGroup"]> & object): PromptGroup => ({
+  ...g,
+  models: g.models.map((m) => ({ provider: ProviderId.parse(m.provider), model: m.model })),
+  cover: { url: `${FILES_PREFIX}${g.cover.path}`, width: g.cover.width, height: g.cover.height },
+});
+
 export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps) {
   const { service } = deps;
 
@@ -147,11 +172,31 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
       throw new AppError("VALIDATION_ERROR", "Invalid gallery query", 400, {
         fields: Object.fromEntries(q.error.issues.map((i) => [i.path.join("."), i.message])),
       });
-    const page = service.list(q.data);
+    const { prompt, ...rest } = q.data;
+    const page = service.list({ ...rest, promptKey: prompt });
     return c.json({
       items: page.items.map(toSummary),
       nextCursor: page.nextCursor,
     } satisfies GenerationPage);
+  });
+
+  // Before `/generations/:id`, so «prompts» is never read as an id.
+  app.get("/generations/prompts", (c) => {
+    const q = PromptGroupsQuery.safeParse(c.req.query());
+    if (!q.success) throw invalidQuery("prompts query", q.error);
+    const page = service.promptGroups({ cursor: q.data.cursor, limit: q.data.limit, single: q.data.single === "1" });
+    return c.json({
+      groups: page.groups.map(toGroup),
+      nextCursor: page.nextCursor,
+    } satisfies PromptGroupPage);
+  });
+
+  app.get("/generations/prompts/:key", (c) => {
+    const p = PromptKeyParam.safeParse({ key: c.req.param("key") });
+    if (!p.success) throw invalidQuery("prompt key", p.error);
+    const g = service.promptGroup(p.data.key);
+    if (!g) throw new AppError("NOT_FOUND", "No generation uses this prompt", 404);
+    return c.json(toGroup(g) satisfies PromptGroup);
   });
 
   // Before `/generations/:id`, so «models» is never read as an id.

@@ -273,3 +273,29 @@ export function checkInputFile(
   const image = sniffImage(bytes);
   return image ? { ok: true, image } : { ok: false, message: `${name} — not a supported image` };
 }
+
+/** A prompt key: the first 32 hex of SHA-256 over the exact prompt text (ADR-0037). */
+export const PromptKey = z
+  .string()
+  .regex(/^[0-9a-f]{32}$/, { error: "Prompt key must be 32 lowercase hex characters" });
+export type PromptKey = z.infer<typeof PromptKey>;
+
+/** One distinct prompt: exact counts, its newest generation and that generation's first output, up to 3 models (ADR-0038). */
+export const PromptGroup = z.object({
+  key: PromptKey,
+  prompt: z.string(),
+  count: z.number().int().min(1),
+  images: z.number().int().min(0),
+  models: z.array(z.object({ provider: ProviderId, model: z.string() })).max(3),
+  moreModels: z.number().int().min(0),
+  latestId: z.string(),
+  cover: z.object({ url: z.string(), width: z.number().int(), height: z.number().int() }),
+});
+export type PromptGroup = z.infer<typeof PromptGroup>;
+
+export const PromptGroupPage = z.object({ groups: z.array(PromptGroup), nextCursor: z.string().nullable() });
+export type PromptGroupPage = z.infer<typeof PromptGroupPage>;
+
+/** The list filter by prompt: one prompt key (never combined with a model filter). */
+export const PromptFilter = z.object({ prompt: PromptKey });
+export type PromptFilter = z.infer<typeof PromptFilter>;

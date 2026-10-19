@@ -53,7 +53,7 @@
         "src/web/lib/api.ts"
       ],
       "file": "docs/features/gallery-by-prompt/tasks/t3-prompt-reads.md",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "T4",
