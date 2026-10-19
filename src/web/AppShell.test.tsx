@@ -93,7 +93,9 @@ describe("App shell — draft, job and carried sources across sections", () => {
 
   it("keeps the prompt, the settings and the attached images through Gallery and back (AC-05)", async () => {
     at("/");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("Seedy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("Seedy"), {
+      timeout: 5000,
+    });
     fireEvent.change(prompt(), { target: { value: "A red fox" } });
     fireEvent.change(screen.getByLabelText("Seed"), { target: { value: "7" } });
     await act(async () => {

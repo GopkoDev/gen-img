@@ -11,6 +11,7 @@ import { DialogBusyContext, DialogDeleteContext, DialogEscapeContext, type Escap
 import { GALLERY_QUERY_KEY, galleryQueryOptionsFor } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { showGalleryNotice } from "./galleryNotice";
+import { viewKey } from "./galleryView";
 import { bringCardIntoView } from "./gridPlace";
 import { anchoredAtEnd, neighbours } from "./neighbours";
 import { patchSummaries } from "./summaryPatch";
@@ -173,7 +174,13 @@ export function GenerationDialog({ id }: { id: string }) {
       else target = r.data.pages.flatMap((p) => p.items).find((g) => g.id < deletedId)?.id ?? null;
     }
     if (!pageFailed) target ??= before.newer;
-    if (!pageFailed) qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
+    // Every view re-reads (the models read and the other lists included); only the order's own list keeps the
+    // error its failed page left on the grid, as a refetch would clear it.
+    const orderKey = JSON.stringify(viewKey(order));
+    qc.invalidateQueries({
+      queryKey: GALLERY_QUERY_KEY,
+      predicate: (q) => !pageFailed || JSON.stringify(q.queryKey) !== orderKey,
+    });
     if (!mounted.current || closingRef.current) {
       showGalleryNotice(); // closed meanwhile: the grid says so, and no second Back
     } else if (target) {

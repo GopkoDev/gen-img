@@ -1,6 +1,6 @@
 import { infiniteQueryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { isDialogVisit, Link, replace, useRoute } from "@/lib/router";
@@ -11,8 +11,12 @@ import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
 import { type GalleryView, viewKey } from "./galleryView";
 import { isOwnScroll } from "./gridPlace";
 import { modelsQueryOptions, providerName } from "./modelsQuery";
+import { resetGalleryScroll, useSavedScroll } from "./scrollMemory";
 import { Tile } from "./Tile";
 import { useGalleryView } from "./useGalleryView";
+
+/** A view with a paged list behind it: «By model» has none (its read is the models query). */
+export type ListView = Exclude<GalleryView, { kind: "models" }>;
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
 const SENTINEL_MARGIN = "600px";
@@ -21,7 +25,7 @@ const SENTINEL_MARGIN = "600px";
  * The grid's list query. The dialog (a sibling of the grid in App) reads the very same cache entry with these
  * options, so both see one flattened list and one in-flight page request; with staleTime ∞ it never refetches.
  */
-export function galleryQueryOptionsFor(view: GalleryView) {
+export function galleryQueryOptionsFor(view: ListView) {
   const filter = view.kind === "model" ? { provider: view.provider, model: view.model } : undefined;
   return infiniteQueryOptions({
     queryKey: viewKey(view),
@@ -38,13 +42,7 @@ export function galleryQueryOptionsFor(view: GalleryView) {
 
 export const galleryQueryOptions = galleryQueryOptionsFor({ kind: "all" });
 
-/** Where the Owner left each view's list (by view key); kept for the page's lifetime. A view never shown starts at 0. */
-const savedScroll = new Map<string, number>();
-
-/** Test-only: forget the saved positions so one test's scroll does not leak into the next. */
-export function resetGalleryScroll() {
-  savedScroll.clear();
-}
+export { resetGalleryScroll };
 
 /** The gallery's body for the view in the address: the grid (all or one model) or «By model». */
 export function Gallery() {
@@ -55,8 +53,7 @@ export function Gallery() {
 }
 
 /** SCR-02 — newest-first grid (all generations or one model's) with on-demand paging. */
-function Grid({ view }: { view: GalleryView }) {
-  const scrollKey = JSON.stringify(viewKey(view));
+function Grid({ view }: { view: ListView }) {
   const one = view.kind === "model" ? view : undefined;
   const models = useQuery({ ...modelsQueryOptions, enabled: one !== undefined });
   // A one-off notice after a deletion (SCR-01); the flag is dropped from the address right away.
@@ -91,20 +88,7 @@ function Grid({ view }: { view: GalleryView }) {
   const ready = q.data !== undefined;
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
 
-  // Keep the position current while the list is on screen: at unmount the next page may already have replaced it
-  // and the browser clamped scrollY. Restore once the cached pages render, before the sentinel is armed.
-  useEffect(() => {
-    const onScroll = () => {
-      savedScroll.set(scrollKey, window.scrollY);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [scrollKey]);
-  useLayoutEffect(() => {
-    if (!ready) return;
-    const y = savedScroll.get(scrollKey) ?? 0;
-    if (y > 0 || window.scrollY > 0) window.scrollTo(0, y);
-  }, [ready, scrollKey]);
+  useSavedScroll(view, ready);
 
   // Armed only while a request is allowed: more pages, nothing in flight (a full refresh included: paging would
   // cancel it), the last one not failed (no auto retry).

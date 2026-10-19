@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { renderWithQuery, summary } from "@/test-utils";
@@ -77,6 +77,30 @@ describe("ByModel (SCR-10)", () => {
     expect(await screen.findByText("Couldn't load the models.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "x" })).toBeInTheDocument());
+  });
+
+  it("keeps the sections it has when a later refresh fails, with a stale note and Try again", async () => {
+    m.generationModels.mockResolvedValueOnce({ models: [group("x", 1, "openrouter", 5, 1)] });
+    const { client } = renderWithQuery(<ByModel />);
+    await screen.findByRole("heading", { name: "x" });
+    m.generationModels.mockRejectedValueOnce(new Error("boom"));
+    m.generationModels.mockResolvedValue({ models: [group("x", 2, "openrouter", 6, 2)] });
+    await act(() => client.invalidateQueries({ queryKey: ["generations", "models"] }));
+    expect(await screen.findByText("These may be out of date.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "x" })).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load the models.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByText("These may be out of date.")).not.toBeInTheDocument());
+    expect(screen.getByText("OpenRouter · 2 generations")).toBeInTheDocument();
+  });
+
+  it("names every section by its own heading when model names differ only by a space or an underscore", async () => {
+    m.generationModels.mockResolvedValue({
+      models: [group("a b", 1, "openrouter", 5, 1), group("a_b", 1, "openrouter", 3, 1)],
+    });
+    renderWithQuery(<ByModel />);
+    expect(await screen.findByRole("region", { name: "a b" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "a_b" })).toBeInTheDocument();
   });
 
   it("with no generations at all shows the main grid's empty state", async () => {

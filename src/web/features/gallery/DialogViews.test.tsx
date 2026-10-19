@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "@/lib/api";
-import { isDialogVisit, replace, useRoute } from "@/lib/router";
+import { ApiError, api } from "@/lib/api";
+import { APP_LOAD, isDialogVisit, navigate, replace, useRoute } from "@/lib/router";
 import { summary } from "@/test-utils";
 import type { Generation, GenerationSummary } from "../../../shared/generations";
 import { Gallery, resetGalleryScroll } from "./Gallery";
@@ -159,6 +159,50 @@ describe("dialog from a filtered grid (AC-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close", hidden: true }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(into).toHaveBeenCalled();
+  });
+});
+
+describe("a delete whose next page failed (R3)", () => {
+  it("still refreshes the models read: the heading count drops although the card was beyond the four shown", async () => {
+    seed({ [A]: [1, 3, 5, 7, 9, 11, 13], [B]: [2] });
+    replace(MODEL_A, null);
+    renderApp();
+    expect(await screen.findByText(/7 generations/)).toBeInTheDocument();
+    const d = await openCard(13);
+    for (const i of [11, 9, 7, 5, 3]) {
+      await waitFor(() => expect(older()).not.toHaveAttribute("aria-disabled", "true"));
+      fireEvent.click(older());
+      await waitFor(() => expect(here()).toBe(`/generations/${idOf(i)}`));
+    }
+    const list = m.generations.getMockImplementation();
+    m.generations.mockImplementation(async (cursor, l, filter) => {
+      if (cursor) throw new ApiError(500, "UPSTREAM", "boom");
+      return (list as NonNullable<typeof list>)(cursor, l, filter);
+    });
+    fireEvent.click(await within(d).findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete generation" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText(/6 generations/)).toBeInTheDocument();
+  });
+});
+
+describe("a dialog address with an incomplete state (R4)", () => {
+  it("steps through All when the order is missing or «models», and keeps the grid behind that the Gallery shows", async () => {
+    replace(MODEL_A, null);
+    renderApp();
+    await screen.findByText("A test prompt number 9");
+    // an old history entry: no grid, and «models» as the order
+    act(() => navigate(`/generations/${idOf(9)}`, { dialog: "gallery", load: APP_LOAD, order: { kind: "models" } }));
+    await dialog();
+    expect(screen.getByRole("button", { name: /Model: /, hidden: true })).toBeInTheDocument(); // the Gallery still shows the model
+    await waitFor(() => expect(m.generations).toHaveBeenCalledWith(undefined)); // the order is All, not the models key
+    await waitFor(() => expect(older()).not.toHaveAttribute("aria-disabled", "true"));
+    fireEvent.click(older());
+    await waitFor(() => expect(here()).toBe(`/generations/${idOf(7)}`));
+    expect(window.history.state).toMatchObject({
+      grid: { kind: "model", provider: "openrouter", model: A },
+      order: { kind: "all" },
+    });
   });
 });
 

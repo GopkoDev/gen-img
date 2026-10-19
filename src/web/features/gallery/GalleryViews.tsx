@@ -44,34 +44,33 @@ export function GalleryViews() {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="flex max-h-96 w-96 max-w-[90vw] flex-col gap-1 overflow-y-auto p-2">
-          {models.isError ? (
+          {models.isError && (
             <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-2">
-              <p className="text-sm">Couldn't load your models.</p>
+              <p className="text-sm">{models.data ? "These may be out of date." : "Couldn't load your models."}</p>
               <Button variant="outline" size="sm" onClick={() => models.refetch()}>
                 Try again
               </Button>
             </div>
-          ) : models.data ? (
-            models.data.models.map((g) => (
-              <Button
-                key={`${g.provider}\n${g.model}`}
-                variant="ghost"
-                className="h-auto justify-between gap-3 py-2 text-left"
-                onClick={() => {
-                  setOpen(false);
-                  showView({ kind: "model", provider: g.provider, model: g.model });
-                }}
-              >
-                <span className="flex min-w-0 flex-col items-start">
-                  <span className="max-w-full truncate">{g.model}</span>
-                  <span className="text-muted-foreground text-xs">{providerName(g.provider)}</span>
-                </span>
-                <Badge variant="secondary">{g.count}</Badge>
-              </Button>
-            ))
-          ) : (
-            <p className="p-2 text-muted-foreground text-sm">Loading models…</p>
           )}
+          {models.data
+            ? models.data.models.map((g) => (
+                <Button
+                  key={`${g.provider}\n${g.model}`}
+                  variant="ghost"
+                  className="h-auto justify-between gap-3 py-2 text-left"
+                  onClick={() => {
+                    setOpen(false);
+                    showView({ kind: "model", provider: g.provider, model: g.model });
+                  }}
+                >
+                  <span className="flex min-w-0 flex-col items-start">
+                    <span className="max-w-full truncate">{g.model}</span>
+                    <span className="text-muted-foreground text-xs">{providerName(g.provider)}</span>
+                  </span>
+                  <Badge variant="secondary">{g.count}</Badge>
+                </Button>
+              ))
+            : !models.isError && <p className="p-2 text-muted-foreground text-sm">Loading models…</p>}
         </PopoverContent>
       </Popover>
     </div>

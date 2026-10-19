@@ -18,9 +18,10 @@ export function patchCard(
     ...(fields.tags ? { tags: fields.tags } : {}),
     ...("comment" in fields ? { hasComment: fields.comment !== null } : {}),
   });
-  // A list refresh already in flight was read before this change and would put the old card back: refresh again.
-  if (qc.isFetching({ queryKey: GALLERY_QUERY_KEY, exact: true }) > 0)
-    qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY, exact: true });
+  // A list or models refresh already in flight was read before this change and would put the old card back:
+  // refresh each again (the recent strip is invalidated below on its own).
+  for (const q of qc.getQueryCache().findAll({ queryKey: GALLERY_QUERY_KEY, fetchStatus: "fetching" }))
+    if (q.queryKey[1] !== "recent") qc.invalidateQueries({ queryKey: q.queryKey, exact: true });
   qc.invalidateQueries({ queryKey: ["generation", id] });
   qc.invalidateQueries({ queryKey: RECENT_QUERY_KEY, exact: true });
 }

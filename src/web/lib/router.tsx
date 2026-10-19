@@ -10,7 +10,7 @@ export type Route = RouteBase & { state?: unknown };
 export const APP_LOAD: string = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 /** The history state the grid pushes when it opens a generation as a dialog over itself. */
-export function dialogState(views?: { grid: GalleryView; order: GalleryView }) {
+export function dialogState(views: { grid: GalleryView; order: GalleryView }) {
   return { dialog: "gallery", load: APP_LOAD, ...views } as const;
 }
 

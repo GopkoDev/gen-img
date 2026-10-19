@@ -10,6 +10,8 @@ import { Gallery, resetGalleryScroll } from "./Gallery";
 import { GenerationDialog } from "./GenerationDialog";
 import { showGalleryNotice } from "./galleryNotice";
 
+const ALL_VIEWS = { grid: { kind: "all" }, order: { kind: "all" } } as const;
+
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
   api: {
@@ -201,7 +203,7 @@ describe("stepping (AC-02, AC-09)", () => {
     serve(3);
     renderApp();
     await screen.findByText("A test prompt number 3");
-    act(() => navigate(`/generations/${idOf(9)}`, dialogState()));
+    act(() => navigate(`/generations/${idOf(9)}`, dialogState(ALL_VIEWS)));
     const d = await dialog();
     expect(await within(d).findByText("Not in the gallery's current order")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Older/ })).not.toBeInTheDocument();

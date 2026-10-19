@@ -204,6 +204,43 @@ describe("view and address (AC-03)", () => {
   });
 });
 
+describe("scroll of «By model» (R1)", () => {
+  it("keeps its own position beside All's: All 300 → By model 0 → All 300 → By model its own", async () => {
+    renderViews();
+    await screen.findByText("A test prompt number 3");
+    setScrollY(300);
+    fireEvent.scroll(window);
+    (window.scrollTo as ReturnType<typeof vi.fn>).mockClear();
+    popTo("/gallery?view=models");
+    await screen.findByRole("heading", { name: "Seedream 4" });
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 0);
+    setScrollY(150);
+    fireEvent.scroll(window);
+    popTo("/gallery");
+    await screen.findByText("A test prompt number 3");
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 300);
+    setScrollY(300);
+    popTo("/gallery?view=models");
+    await screen.findByRole("heading", { name: "Seedream 4" });
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 150);
+  });
+});
+
+describe("model choice with a failed refresh (R5)", () => {
+  it("keeps the models it has, says they may be out of date and offers Try again", async () => {
+    const { client } = renderViews();
+    fireEvent.click(screen.getByRole("button", { name: "Choose a model" }));
+    await screen.findByRole("button", { name: /Seedream 4/ });
+    m.generationModels.mockRejectedValueOnce(new Error("boom"));
+    await act(() => client.invalidateQueries({ queryKey: ["generations", "models"] }));
+    expect(await screen.findByText("These may be out of date.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Seedream 4/ })).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load your models.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByText("These may be out of date.")).not.toBeInTheDocument());
+  });
+});
+
 describe("sidebar entry (AC-10)", () => {
   it("goes to /gallery (All) from a filtered view; Back returns to the view left", async () => {
     m.health.mockResolvedValue({ status: "ok" });
