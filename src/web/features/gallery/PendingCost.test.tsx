@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { renderWithQuery, summary } from "@/test-utils";
@@ -122,6 +122,34 @@ describe("pending costs (SCR-02, SCR-03)", () => {
       const calls = m.generation.mock.calls.length;
       await tick(30_000);
       expect(m.generation.mock.calls.length).toBe(calls);
+    });
+
+    it("the recent strip keeps showing the ten newest ids before and after paging", async () => {
+      const all = Array.from({ length: 25 }, (_, i) => summary(25 - i));
+      m.generations.mockImplementation(async (cursor?: string, limit?: number) => {
+        const rest = cursor ? all.filter((g) => g.id < cursor) : all;
+        const size = limit ?? 2;
+        const items = rest.slice(0, size);
+        return { items, nextCursor: rest.length > size ? (items[size - 1]?.id ?? null) : null };
+      });
+      renderWithQuery(
+        <>
+          <Gallery />
+          <RecentGenerations />
+        </>,
+      );
+      const recent = () =>
+        within(screen.getByRole("region", { name: "Recent generations" }))
+          .getAllByRole("link")
+          .map((a) => a.getAttribute("href"));
+      const newestTen = all.slice(0, 10).map((g) => `/generations/${g.id}`);
+      await vi.waitFor(() => expect(recent()).toEqual(newestTen));
+      for (let n = 0; n < 3; n++) {
+        const before = screen.getAllByRole("link").length;
+        fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+        await vi.waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(before));
+      }
+      expect(recent()).toEqual(newestTen);
     });
 
     it("pending -> unavailable says «cost unavailable» and stops polling", async () => {

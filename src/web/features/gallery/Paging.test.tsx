@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { summary } from "@/test-utils";
-import { intersect } from "../../../../tests/helpers/intersection";
+import { intersect, intersectAll } from "../../../../tests/helpers/intersection";
 import type { GenerationPage } from "../../../shared/generations";
-import { Gallery } from "./Gallery";
+import { Gallery, resetGalleryScroll } from "./Gallery";
 
 vi.mock("@/lib/api", () => ({ api: { generations: vi.fn() } }));
 const generations = vi.mocked(api.generations);
@@ -36,6 +36,10 @@ describe("auto-paging (SCR-02, AC-04..AC-06, AC-08)", () => {
     generations.mockReset();
     setScrollY(0);
     window.scrollTo = vi.fn();
+  });
+  afterEach(() => {
+    resetGalleryScroll();
+    vi.useRealTimers();
   });
 
   it("requests the next page once when the sentinel comes into view, then shows it", async () => {
@@ -93,6 +97,7 @@ describe("auto-paging (SCR-02, AC-04..AC-06, AC-08)", () => {
     generations.mockRejectedValueOnce(new Error("boom"));
     intersect(el);
     expect(await screen.findByText("Couldn't load more.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
     expect(hrefs()).toHaveLength(2);
     expect(screen.queryByText("Couldn't load the gallery")).not.toBeInTheDocument();
     intersect(el);
@@ -124,6 +129,8 @@ describe("auto-paging (SCR-02, AC-04..AC-06, AC-08)", () => {
     const first = render(ui(client));
     await screen.findByText("A test prompt number 3");
     setScrollY(740);
+    window.dispatchEvent(new Event("scroll"));
+    setScrollY(0); // the detail page replaced the gallery: the browser clamped the position before cleanup ran
     first.unmount();
     const calls = generations.mock.calls.length;
     render(ui(client));
@@ -148,5 +155,77 @@ describe("auto-paging (SCR-02, AC-04..AC-06, AC-08)", () => {
     const ids = hrefs();
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual([6, 5, 4, 3].map((i) => summary(i).id));
+  });
+
+  it("keeps the pages for the whole session: no request after more than five minutes away", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    serve(() => 3);
+    const client = newClient();
+    const first = render(ui(client));
+    await screen.findByText("A test prompt number 3");
+    first.unmount();
+    const calls = generations.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6 * 60_000);
+    });
+    render(ui(client));
+    expect(screen.getByText("A test prompt number 3")).toBeInTheDocument();
+    await act(async () => {});
+    expect(generations.mock.calls.length).toBe(calls);
+  });
+
+  it("after a change made while away, shows the refreshed list at the saved place and pages only once the refresh settled", async () => {
+    let top = 5;
+    serve(() => top);
+    const client = newClient();
+    const first = render(ui(client));
+    await screen.findByText("A test prompt number 5");
+    setScrollY(500);
+    window.dispatchEvent(new Event("scroll"));
+    first.unmount();
+    top = 6;
+    await client.invalidateQueries({ queryKey: ["generations"] });
+    const fresh: GenerationPage = {
+      items: [summary(6), summary(5)],
+      nextCursor: summary(5).id,
+    };
+    let release: (p: GenerationPage) => void = () => {};
+    generations.mockClear();
+    generations.mockImplementationOnce(() => new Promise<GenerationPage>((r) => (release = r)));
+    intersectAll();
+    render(ui(client));
+    await waitFor(() => expect(generations).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(generations).toHaveBeenCalledTimes(1); // the refresh is not cancelled by a next-page request
+    expect(generations).toHaveBeenLastCalledWith(undefined);
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 500);
+    expect(screen.getByRole("button", { name: "Load more" })).toBeDisabled();
+    await act(async () => release(fresh));
+    await screen.findByText("A test prompt number 6");
+    expect(hrefs().slice(0, 2)).toEqual([6, 5].map((i) => summary(i).id));
+    await waitFor(() => expect(generations).toHaveBeenCalledTimes(2)); // now the sentinel may page
+    expect(generations).toHaveBeenLastCalledWith(summary(5).id);
+  });
+
+  it("drops a deleted generation near a page boundary with no duplicates or gaps", async () => {
+    let ids = [6, 5, 4, 3, 2, 1];
+    generations.mockImplementation(async (cursor) => {
+      const rest = cursor ? ids.filter((i) => summary(i).id < cursor) : ids;
+      const items = rest.slice(0, PAGE).map((i) => summary(i));
+      return { items, nextCursor: rest.length > PAGE ? (items[PAGE - 1]?.id ?? null) : null };
+    });
+    const client = newClient();
+    render(ui(client));
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    await screen.findByText("A test prompt number 4");
+    expect(hrefs()).toEqual([6, 5, 4, 3].map((i) => summary(i).id));
+    ids = ids.filter((i) => i !== 5); // the last card of page one
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["generations"] });
+    });
+    await waitFor(() => expect(screen.queryByText("A test prompt number 5")).not.toBeInTheDocument());
+    const shown = hrefs();
+    expect(new Set(shown).size).toBe(shown.length);
+    expect(shown).toEqual([6, 4, 3, 2].map((i) => summary(i).id));
   });
 });

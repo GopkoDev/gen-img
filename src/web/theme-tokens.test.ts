@@ -37,4 +37,18 @@ describe("theme tokens", () => {
     expect(bg).not.toBe("");
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it.each([":root", ".dark"])("--muted-foreground on --background has contrast >= 4.5:1 in %s", (selector) => {
+    const fg = token(selector, "--muted-foreground");
+    const bg = token(selector, "--background");
+    expect(fg).not.toBe("");
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each([":root", ".dark"])("--secondary-foreground on --secondary has contrast >= 4.5:1 in %s", (selector) => {
+    const fg = token(selector, "--secondary-foreground");
+    const bg = token(selector, "--secondary");
+    expect(fg).not.toBe("");
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
 });

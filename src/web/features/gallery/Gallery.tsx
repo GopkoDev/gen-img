@@ -17,6 +17,11 @@ const SENTINEL_MARGIN = "600px";
 /** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
 const savedScroll = { y: 0 };
 
+/** Test-only: forget the saved position so one test's scroll does not leak into the next. */
+export function resetGalleryScroll() {
+  savedScroll.y = 0;
+}
+
 /** Mounted for pending cards only: refreshes that card's cost on its own (ADR-0031). */
 function PendingCostWatcher({ g }: { g: GenerationSummary }) {
   usePendingCost(g);
@@ -96,6 +101,7 @@ export function Gallery() {
     // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
     // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
     staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
     refetchOnWindowFocus: "always",
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -103,19 +109,22 @@ export function Gallery() {
   const ready = q.data !== undefined;
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
 
-  // Save on leaving; restore once the cached pages render, before the sentinel is armed (effects run after this).
-  useEffect(
-    () => () => {
+  // Keep the position current while the list is on screen: at unmount the next page may already have replaced it
+  // and the browser clamped scrollY. Restore once the cached pages render, before the sentinel is armed.
+  useEffect(() => {
+    const onScroll = () => {
       savedScroll.y = window.scrollY;
-    },
-    [],
-  );
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   useLayoutEffect(() => {
     if (ready && savedScroll.y > 0) window.scrollTo(0, savedScroll.y);
   }, [ready]);
 
-  // Armed only while a request is allowed: more pages, none in flight, the last one not failed (no auto retry).
-  const canLoadMore = ready && hasNextPage && !isFetchingNextPage && !isFetchNextPageError;
+  // Armed only while a request is allowed: more pages, nothing in flight (a full refresh included: paging would
+  // cancel it), the last one not failed (no auto retry).
+  const canLoadMore = ready && hasNextPage && !q.isFetching && !isFetchNextPageError;
   useEffect(() => {
     const el = sentinelRef.current;
     if (!canLoadMore || !el) return;
@@ -172,7 +181,7 @@ export function Gallery() {
       {isFetchNextPageError && (
         <div className="flex items-center gap-3 self-center text-sm">
           <p className="text-destructive">Couldn't load more.</p>
-          <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
+          <Button variant="outline" size="sm" disabled={q.isFetching} onClick={() => fetchNextPage()}>
             Try again
           </Button>
         </div>
@@ -180,17 +189,19 @@ export function Gallery() {
       {hasNextPage ? (
         <>
           <div ref={sentinelRef} data-testid="gallery-sentinel" aria-hidden className="h-px" />
-          <div className="flex items-center justify-center gap-3">
-            {isFetchingNextPage && (
-              <span className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="size-4 animate-spin" />
-                Loading more…
-              </span>
-            )}
-            <Button variant="outline" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
-              Load more
-            </Button>
-          </div>
+          {!isFetchNextPageError && (
+            <div className="flex items-center justify-center gap-3">
+              {isFetchingNextPage && (
+                <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading more…
+                </span>
+              )}
+              <Button variant="outline" disabled={q.isFetching} onClick={() => fetchNextPage()}>
+                Load more
+              </Button>
+            </div>
+          )}
         </>
       ) : (
         <p className="text-center text-muted-foreground text-sm">That's everything</p>

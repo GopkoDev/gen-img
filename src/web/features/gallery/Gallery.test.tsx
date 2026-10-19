@@ -1,8 +1,8 @@
 import { fireEvent, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api";
 import { renderWithQuery, summary } from "@/test-utils";
-import { Gallery } from "./Gallery";
+import { Gallery, resetGalleryScroll } from "./Gallery";
 
 vi.mock("@/lib/api", () => ({ api: { generations: vi.fn() } }));
 const generations = vi.mocked(api.generations);
@@ -11,6 +11,7 @@ describe("Gallery (SCR-02)", () => {
   beforeEach(() => {
     generations.mockReset();
   });
+  afterEach(resetGalleryScroll);
 
   it("shows an empty state whose call to action goes to Generate with the prompt focused", async () => {
     generations.mockResolvedValue({ items: [], nextCursor: null });
@@ -83,7 +84,7 @@ describe("Gallery (SCR-02)", () => {
   });
 
   describe("badge strip over the preview", () => {
-    const strip = () => screen.getByRole("group", { name: "Cost, duration and size" });
+    const strip = () => screen.getAllByRole("link")[0] as HTMLElement;
 
     it("shows cost, duration and size, and no count for a single image", async () => {
       generations.mockResolvedValue({
@@ -130,9 +131,17 @@ describe("Gallery (SCR-02)", () => {
       renderWithQuery(<Gallery />);
       await screen.findAllByRole("img");
       const pending = screen.getByText("cost pending");
-      expect(pending.closest("[role=group]")).toHaveAccessibleName("Cost, duration and size");
+      expect(pending.closest("a")).toHaveAccessibleName(/Cost\s*cost pending/);
       expect(screen.getAllByText("cost pending")).toHaveLength(1);
       expect(screen.getByText("cost unavailable")).toBeInTheDocument();
+    });
+
+    it("names each value for assistive tech inside the card link", async () => {
+      generations.mockResolvedValue({ items: [summary(1)], nextCursor: null });
+      renderWithQuery(<Gallery />);
+      const link = (await screen.findAllByRole("link"))[0] as HTMLElement;
+      expect(link).toHaveAccessibleName(/Cost\s*\$0\.04\s*Duration\s*1\.2 s\s*Size\s*4\u00d73/);
+      expect(link.querySelector("[role=group]")).toBeNull();
     });
 
     it("keeps the strip when the preview image fails", async () => {
