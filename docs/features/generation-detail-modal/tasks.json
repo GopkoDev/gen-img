@@ -43,7 +43,7 @@
         "src/web/App.tsx"
       ],
       "file": "docs/features/generation-detail-modal/tasks/t3-generation-dialog.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",

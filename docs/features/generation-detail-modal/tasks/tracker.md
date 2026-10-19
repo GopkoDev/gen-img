@@ -9,7 +9,7 @@
 |---|---|---|---|---|---|---|---|
 | T1 | Carry a dialog state in history and keep one Gallery instance under it | app | dmytro.hopko | M | — | done | COMMIT |
 | T2 | Find a generation's newer and older neighbours in the loaded order | domain | dmytro.hopko | S | — | done | COMMIT |
-| T3 | Show the generation in a dialog over the grid and step through neighbours | ui | dmytro.hopko | L | T1, T2 | todo | — |
+| T3 | Show the generation in a dialog over the grid and step through neighbours | ui | dmytro.hopko | L | T1, T2 | done | COMMIT |
 | T4 | Make the detail body safe and dialog-aware: busy, lineage, re-run and in-place card edits | ui | dmytro.hopko | M | T1, T3 | todo | — |
 | T5 | Delete from the dialog and move to a neighbour | ui | dmytro.hopko | S | T4 | todo | — |
 | T6 | Prove the dialog's timing, request counts and preloads | tests | dmytro.hopko | S | T5 | todo | — |

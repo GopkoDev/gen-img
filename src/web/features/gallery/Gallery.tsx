@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
 import { ImageIcon, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -6,13 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { excerpt, formatRelative } from "@/lib/format";
-import { Link, replace } from "@/lib/router";
-import type { GenerationSummary } from "../../../shared/generations";
+import { dialogState, isDialogVisit, Link, navigate, replace, useRoute } from "@/lib/router";
+import type { GenerationPage, GenerationSummary } from "../../../shared/generations";
 import { CardBadges } from "./CardBadges";
+import { isOwnScroll } from "./gridPlace";
 import { usePendingCost } from "./usePendingCost";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
 const SENTINEL_MARGIN = "600px";
+
+/**
+ * The grid's list query. The dialog (a sibling of the grid in App) reads the very same cache entry with these
+ * options, so both see one flattened list and one in-flight page request; with staleTime ∞ it never refetches.
+ */
+export const galleryQueryOptions = infiniteQueryOptions({
+  queryKey: GALLERY_QUERY_KEY,
+  queryFn: ({ pageParam }) => api.generations(pageParam),
+  initialPageParam: undefined as string | undefined,
+  // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
+  // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
+  refetchOnWindowFocus: "always",
+  getNextPageParam: (last: GenerationPage) => last.nextCursor ?? undefined,
+});
 
 /** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
 const savedScroll = { y: 0 };
@@ -33,6 +50,13 @@ function Tile({ g }: { g: GenerationSummary }) {
   return (
     <Link
       to={`/generations/${g.id}`}
+      data-generation-id={g.id}
+      onClick={(e) => {
+        // A plain click opens the dialog over the grid (ADR-0033); modified clicks keep the link's own behaviour.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        navigate(`/generations/${g.id}`, dialogState());
+      }}
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
     >
       <Card className="gap-3 overflow-hidden py-0 transition-colors hover:bg-accent">
@@ -94,17 +118,22 @@ export function Gallery() {
     if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const q = useInfiniteQuery({
-    queryKey: GALLERY_QUERY_KEY,
-    queryFn: ({ pageParam }) => api.generations(pageParam),
-    initialPageParam: undefined as string | undefined,
-    // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
-    // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
-    refetchOnWindowFocus: "always",
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
+  const q = useInfiniteQuery(galleryQueryOptions);
+  // While the dialog is open the grid loads nothing by itself; after it closes the sentinel is re-armed by the
+  // Owner's next scroll (never by the scroll that brought the last shown card into view).
+  const paused = isDialogVisit(useRoute());
+  const [armed, setArmed] = useState(true);
+  useEffect(() => {
+    if (paused) setArmed(false);
+  }, [paused]);
+  useEffect(() => {
+    if (paused || armed) return;
+    const onScroll = () => {
+      if (isOwnScroll()) setArmed(true);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [paused, armed]);
 
   const ready = q.data !== undefined;
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
@@ -124,7 +153,7 @@ export function Gallery() {
 
   // Armed only while a request is allowed: more pages, nothing in flight (a full refresh included: paging would
   // cancel it), the last one not failed (no auto retry).
-  const canLoadMore = ready && hasNextPage && !q.isFetching && !isFetchNextPageError;
+  const canLoadMore = ready && !paused && armed && hasNextPage && !q.isFetching && !isFetchNextPageError;
   useEffect(() => {
     const el = sentinelRef.current;
     if (!canLoadMore || !el) return;

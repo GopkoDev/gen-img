@@ -9,8 +9,8 @@ files_hint: ["src/web/features/gallery/GenerationDialog.tsx", "src/web/features/
 owner: "dmytro.hopko"
 estimate: "L"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

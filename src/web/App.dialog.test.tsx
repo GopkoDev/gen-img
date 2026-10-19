@@ -53,9 +53,13 @@ describe("dialog visit over the gallery (ADR-0033)", () => {
     window.history.replaceState(dialogState(), "", "/generations/01ABC");
     renderWithQuery(<App />);
     expect(screen.getByTestId("grid")).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Generation" })).toHaveTextContent("01ABC");
+    expect(screen.getByRole("dialog", { name: "Generation" })).toHaveTextContent("Loading…");
     expect(
-      within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: /^Gallery/ }),
+      // the modal dialog hides the rest of the page from assistive tech, so look past that
+      within(screen.getByRole("navigation", { name: "Sections", hidden: true })).getByRole("link", {
+        name: /^Gallery/,
+        hidden: true,
+      }),
     ).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Generation", { selector: "[aria-current=page]" })).toBeInTheDocument();
   });
