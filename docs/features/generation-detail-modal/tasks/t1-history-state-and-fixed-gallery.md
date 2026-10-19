@@ -9,8 +9,8 @@ files_hint: ["src/web/lib/router.tsx", "src/web/lib/router.test.tsx", "src/web/A
 owner: "dmytro.hopko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Self-contained task: work from what is inlined here; if a slice is insufficient, ambiguous, or

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Link, navigate, parseRoute, replace, useRoute } from "./router";
+import { APP_LOAD, dialogState, isDialogVisit, Link, navigate, parseRoute, replace, useRoute } from "./router";
 
 function Show() {
   const route = useRoute();
@@ -59,5 +59,35 @@ describe("router", () => {
     expect(window.location.search).toBe("");
     expect(window.history.length).toBe(depth);
     expect(screen.getByText("page /")).toBeInTheDocument();
+  });
+});
+
+describe("history state (ADR-0033)", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  function State() {
+    const route = useRoute();
+    return <p>state {JSON.stringify(route.state)}</p>;
+  }
+
+  it("navigate() and replace() carry a state into history.state and useRoute()", () => {
+    render(<State />);
+    expect(screen.getByText("state null")).toBeInTheDocument();
+    act(() => navigate("/generations/01A", dialogState()));
+    expect(window.history.state).toEqual({ dialog: "gallery", load: APP_LOAD });
+    expect(screen.getByText(`state ${JSON.stringify({ dialog: "gallery", load: APP_LOAD })}`)).toBeInTheDocument();
+    act(() => replace("/generations/01B", { dialog: "gallery", load: "x" }));
+    expect(window.history.state).toEqual({ dialog: "gallery", load: "x" });
+    act(() => navigate("/gallery"));
+    expect(window.history.state).toBeNull();
+  });
+
+  it("isDialogVisit is true only for a detail route carrying this load's dialog state", () => {
+    const detail = { name: "detail", id: "01A" } as const;
+    expect(isDialogVisit({ ...detail, state: dialogState() })).toBe(true);
+    expect(isDialogVisit({ ...detail, state: { dialog: "gallery", load: "older" } })).toBe(false);
+    expect(isDialogVisit({ ...detail, state: null })).toBe(false);
+    expect(isDialogVisit({ name: "page", pathname: "/gallery", search: "", state: dialogState() })).toBe(false);
+    expect(typeof APP_LOAD).toBe("string");
   });
 });

@@ -12,7 +12,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { GenerationDetail } from "@/features/gallery/GenerationDetail";
-import { Link, type Route, useRoute } from "@/lib/router";
+import { GenerationDialog } from "@/features/gallery/GenerationDialog";
+import { isDialogVisit, Link, type Route, useRoute } from "@/lib/router";
 import { SECTIONS, type Section, sectionFor } from "@/sections";
 
 /** Where the Owner is: the section, then «Generation» on a detail page; «Page not found» otherwise. */
@@ -56,6 +57,7 @@ function HeaderIndicators({ sections }: { sections: readonly Section[] }) {
  * sections stay rendered, hidden (ADR-0023). */
 export function App({ sections = SECTIONS }: { sections?: readonly Section[] }) {
   const route = useRoute();
+  const dialog = isDialogVisit(route);
   const current = sectionFor(route, sections);
 
   useEffect(() => {
@@ -82,13 +84,15 @@ export function App({ sections = SECTIONS }: { sections?: readonly Section[] }) 
                 <s.page />
               </div>
             ))}
-          {route.name === "detail" ? (
+          {/* The section page (the grid) sits at this one place for /gallery and a dialog visit, so it never remounts. */}
+          {route.name === "detail" && !dialog ? (
             <GenerationDetail id={route.id} />
           ) : !current ? (
             <NotFound />
           ) : (
             !current.keepMounted && <current.page />
           )}
+          {route.name === "detail" && dialog && <GenerationDialog id={route.id} />}
         </div>
       </SidebarInset>
     </SidebarProvider>
