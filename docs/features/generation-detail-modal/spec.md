@@ -162,3 +162,24 @@ Committed approach: a card opened from the gallery grid shows the generation in 
 ## 8. Open questions
 
 <!-- none — all decisions resolved during specify (see §1 and the AC). -->
+
+## Test plan
+
+<!-- quick route: inline per the size matrix (XS/S). -->
+
+| AC | Test(s) | Level | Task |
+|---|---|---|---|
+| AC-01 | dialog over the grid, images left / metadata right, address = the generation's; narrow stacks | component + nfr-web timing | T3, T6 |
+| AC-02 | Newer/Older by keys and buttons; first/last; no skip/repeat when a generation arrives | unit (neighbours) + component | T2, T3 |
+| AC-03 | past the end loads the next page; failure stays with a message | component | T3 |
+| AC-04 | Esc/×/outside/Back close to the same grid; last grid card in view without a page load; one Back; Forward reopens | component (popstate) | T1, T3 |
+| AC-05 | typed / reload / new tab / recent strip → full page | component (router + App) | T1 |
+| AC-06 | delete → neighbour + notice; only one → grid + notice; next page needed / fails; Back never to the deleted one | component | T5 |
+| AC-07 | re-run/reuse close and open Generate, Back → grid; edits patch the card with 0 list reads | component | T4 |
+| AC-08 | lineage stays in the dialog, one Back; outside the order → no Newer/Older | unit + component | T2, T4 |
+| AC-09 | no step from a text field or while busy (draft, tag text, confirmation); Esc innermost-first | component | T3, T4 |
+| AC-10 | loading / error / gone inside the dialog, stepping and closing still work | component | T3 |
+| AC-11 | foreign page refused for the detail read | integration (existing request-guard tests) | T1, T6 |
+
+- **NFR:** step render ≤ 100 ms p95 for read generations — `nfr-web` (T6) + manual check at ship; request counts and preloads — component tests (T6).
+- **Test data:** web api mocks per the gallery tests; `tests/helpers/intersection.ts`; popstate-driven history in jsdom.
