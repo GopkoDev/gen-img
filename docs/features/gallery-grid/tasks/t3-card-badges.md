@@ -35,7 +35,7 @@ This task puts cost, duration, size and count where the Owner looks — over the
 
 ## Inlined context
 
-> one `CardBadges` row absolutely positioned along the bottom of the preview, opaque `bg-background/90` + `text-foreground`, `Badge` primitives, single line with overflow hidden; the footer's duplicate «cost pending» badge is removed
+> one `CardBadges` row absolutely positioned along the bottom of the preview, opaque `bg-background` + `text-foreground`, `Badge` primitives, single line with overflow hidden; the footer's duplicate «cost pending» badge is removed
 >
 > — `sad.md §4, item 5, verbatim` · full text: [sad.md](../sad.md)
 

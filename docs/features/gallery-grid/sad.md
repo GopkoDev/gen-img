@@ -61,7 +61,7 @@ C4Context
 2. **Auto-paging from a sentinel, scroll restored per visit** — an IntersectionObserver on an end-of-grid sentinel requests the next page only when `hasNextPage && !isFetchingNextPage && !isFetchNextPageError`; the existing «Load more» button stays (disabled while `isFetchingNextPage`, hidden when `!hasNextPage`); `scrollY` saved on unmount and restored in a layout effect once the cached pages render, before the sentinel is armed → [ADR-0032](./adr/0032-load-the-next-gallery-page-from-an-end-of-grid-sentinel-and-restore-the-scroll-position-per-visit.md).
 3. **The summary carries `durationMs`** (inline — additive field): the list read adds `g.duration_ms`; the thumbnail already carries the first output's `width`/`height`; `imagesRequested` / `imagesReceived` give the count badge.
 4. **Errors with data keep the data** (inline): `isError && data` renders the loaded cards plus an inline message — «Couldn't load more.» + Try again after a failed next page (`isFetchNextPageError`), «These cards may be out of date.» after a failed refresh; only `isError && !data` shows the full-page error.
-5. **Badge strip** (inline): one `CardBadges` row absolutely positioned along the bottom of the preview, opaque `bg-background/90` + `text-foreground`, `Badge` primitives, single line with overflow hidden; the footer's duplicate «cost pending» badge is removed.
+5. **Badge strip** (inline): one `CardBadges` row absolutely positioned along the bottom of the preview, opaque `bg-background` + `text-foreground`, `Badge` primitives, single line with overflow hidden; the footer's duplicate «cost pending» badge is removed.
 
 ## 5. Building block view
 
@@ -159,7 +159,7 @@ The flow covers AC-02 (pending refresh), AC-04, AC-05 and AC-08; AC-01 and AC-03
 | Duration | `formatDuration(durationMs)` — the stored provider round trip | `src/web/lib/format.ts` |
 | Paging guard | sentinel → `fetchNextPage()` only if `hasNextPage && !isFetchingNextPage && !isFetchNextPageError`; rootMargin 600px; «Load more» calls the same function (disabled while fetching, hidden after the last page); «Try again» after a failed page is the only retry | `Gallery.tsx` |
 | Scroll restore | module-level `{ y }` saved on unmount; restored in a layout effect after pages render; reset on reload | `Gallery.tsx` |
-| Pending refresh | `useQuery(["generation", id], { refetchInterval: pending ? 10 s : false, staleTime: ∞, refetchOnWindowFocus: false })` per pending card (no request on mount or focus beyond the 10 s poll); on resolve `setQueryData` patches the card in the gallery's pages (exact key) — no invalidation, so the recent strip makes no request (app-shell §6) | `usePendingCost.ts` |
+| Pending refresh | `useQuery(["generation", id], { refetchInterval: pending ? 10 s : false, staleTime: ∞, refetchOnWindowFocus: false })` per pending card (one read when the card mounts, then every 10 s; none on focus); on resolve `setQueryData` patches the card in the gallery's pages (exact key) — no invalidation, so the recent strip makes no request (app-shell §6) | `usePendingCost.ts` |
 | Errors | `!data` → full-page error (unchanged); with data → inline «Couldn't load more.» / «These cards may be out of date.» | `Gallery.tsx` |
 
 ## 9. Architecture decisions

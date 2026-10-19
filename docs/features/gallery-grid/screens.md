@@ -21,7 +21,7 @@ updated_at: "2026-10-19"
 
 | State | Trigger / condition | Components (from the inventory) | Source-ref |
 |---|---|---|---|
-| default | ≥ 1 page loaded (AC-01) | grid of `Card`s; over each preview a one-line strip along the bottom (`bg-background/90`, `text-foreground`, `text-xs`): `Badge` secondary cost · `Badge` outline duration · `Badge` outline size · `Badge` outline count when > 1; below the preview: prompt (2 lines), tags, comment marker, `provider · model` badge, `N inputs`, relative time (no «cost pending» badge any more) | wireframe A |
+| default | ≥ 1 page loaded (AC-01) | grid of `Card`s; over each preview a one-line strip along the bottom (`bg-background`, `text-foreground`, `text-xs`): `Badge` secondary cost · `Badge` outline duration · `Badge` outline size · `Badge` outline count when > 1; below the preview: prompt (2 lines), tags, comment marker, `provider · model` badge, `N inputs`, relative time (no «cost pending» badge any more) | wireframe A |
 | cost pending | `costStatus = pending` (AC-02) | cost badge «cost pending» (outline) | wireframe A |
 | cost unavailable | `costStatus = unavailable` (AC-02) | cost badge «cost unavailable» (outline, muted) | wireframe A |
 | partial result | `imagesReceived < imagesRequested` (AC-01) | count badge «2 of 4 images» | wireframe A |

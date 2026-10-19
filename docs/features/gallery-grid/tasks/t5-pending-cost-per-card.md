@@ -40,7 +40,7 @@ This task keeps pending cards current without re-reading every loaded page.
 
 ## Inlined context
 
-> `useQuery(["generation", id], { refetchInterval: pending ? 10 s : false, staleTime: ∞, refetchOnWindowFocus: false })` per pending card (no request on mount or focus beyond the 10 s poll); on resolve `setQueryData` patches the card in the gallery's pages (exact key) — no invalidation, so the recent strip makes no request (app-shell §6)
+> `useQuery(["generation", id], { refetchInterval: pending ? 10 s : false, staleTime: ∞, refetchOnWindowFocus: false })` per pending card (one read when the card mounts, then every 10 s; none on focus); on resolve `setQueryData` patches the card in the gallery's pages (exact key) — no invalidation, so the recent strip makes no request (app-shell §6)
 >
 > — `sad.md §8, Pending refresh, verbatim` · full text: [sad.md](../sad.md)
 
