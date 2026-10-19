@@ -1,0 +1,118 @@
+{
+  "slug": "gallery-by-model",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Promote the by-model index migration",
+      "layer": "migration",
+      "deps": [],
+      "acs": ["AC-05"],
+      "dod": "migration 0009 applies and reverts; integration test shows the filtered page query uses generations_by_model",
+      "files_hint": [
+        "docs/features/gallery-by-model/migrations/01_index_generations_by_model.up.sql",
+        "docs/features/gallery-by-model/migrations/01_index_generations_by_model.down.sql",
+        "migrations/",
+        "src/server/db/migrate.int.test.ts"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t1-by-model-index.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Filter the list by model and read the models with counts and latest cards",
+      "layer": "ports",
+      "deps": ["T1"],
+      "acs": ["AC-01", "AC-02", "AC-05", "AC-06", "AC-08", "AC-09"],
+      "dod": "integration tests: filtered pages newest first with cursor, exact matching incl. special characters and case, two providers separate, counts equal pages, unknown pair empty, half pair 400, foreign page 403; models read ordered by latest with counts and ≤ 4 items; nfr p95 ≤ 300 ms for both",
+      "files_hint": [
+        "src/shared/generations.ts",
+        "src/server/modules/generations/repo.ts",
+        "src/server/modules/generations/routes.ts",
+        "src/server/modules/generations/by-model.int.test.ts",
+        "src/server/modules/generations/nfr.int.test.ts",
+        "src/web/lib/api.ts"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t2-filtered-list-and-models-read.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Parse gallery views from the address and patch summaries in every view",
+      "layer": "app",
+      "deps": [],
+      "acs": ["AC-03", "AC-05"],
+      "dod": "unit tests: view parse/serialize round-trips any model id and defaults to all; patchSummaries updates/removes a card in all, filtered and groups caches and never touches the recent strip; existing cost/curation/delete tests green",
+      "files_hint": [
+        "src/web/features/gallery/galleryView.ts",
+        "src/web/features/gallery/galleryView.test.ts",
+        "src/web/features/gallery/summaryPatch.ts",
+        "src/web/features/gallery/summaryPatch.test.tsx",
+        "src/web/features/gallery/cardPatch.ts",
+        "src/web/features/gallery/usePendingCost.ts",
+        "src/web/features/gallery/GenerationDialog.tsx"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t3-view-model-and-patches.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Add the view switch, the model choice and the filtered grid",
+      "layer": "ui",
+      "deps": ["T2", "T3"],
+      "acs": ["AC-01", "AC-03", "AC-06", "AC-07", "AC-10"],
+      "dod": "component tests: the model choice lists models with counts newest first and filters the grid; the address carries the view through reload/Back/new tab; per-view scroll; empty-model state; failed choice keeps the grid; the sidebar opens All",
+      "files_hint": [
+        "src/web/features/gallery/GalleryViews.tsx",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/sections.tsx",
+        "src/web/features/gallery/GalleryViews.test.tsx"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t4-view-switch-and-filtered-grid.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Show the gallery grouped by model",
+      "layer": "ui",
+      "deps": ["T4"],
+      "acs": ["AC-02", "AC-07"],
+      "dod": "component tests: one section per model newest first with count and ≤ 4 cards; «Show all N» opens that model's grid at the top; error and empty states",
+      "files_hint": [
+        "src/web/features/gallery/ByModel.tsx",
+        "src/web/features/gallery/ByModel.test.tsx",
+        "src/web/features/gallery/Gallery.tsx"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t5-by-model-view.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Step, close and delete in the dialog within the view it was opened from",
+      "layer": "ui",
+      "deps": ["T5"],
+      "acs": ["AC-04", "AC-05"],
+      "dod": "component tests: the view behind the dialog is kept; stepping stays within the filtered model (from By model: the whole model, loading more); close per view; delete neighbour from that model; last delete closes onto the empty-model state / removes the section",
+      "files_hint": [
+        "src/web/lib/router.tsx",
+        "src/web/features/gallery/GenerationDialog.tsx",
+        "src/web/features/gallery/Gallery.tsx",
+        "src/web/features/gallery/ByModel.tsx",
+        "src/web/App.tsx",
+        "src/web/features/gallery/GenerationDialog.test.tsx"
+      ],
+      "file": "docs/features/gallery-by-model/tasks/t6-dialog-per-view.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Prove that changes re-read only the views on screen",
+      "layer": "tests",
+      "deps": ["T6"],
+      "acs": ["AC-05"],
+      "dod": "component tests: a finished generation re-reads only on-screen views + the strip; revisits cost 0; one pending poll per generation across views; curation 0 list reads",
+      "files_hint": ["src/web/features/gallery/Views.requests.test.tsx"],
+      "file": "docs/features/gallery-by-model/tasks/t7-refresh-scope.md",
+      "status": "todo"
+    }
+  ]
+}
