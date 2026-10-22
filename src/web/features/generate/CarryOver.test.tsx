@@ -11,6 +11,8 @@ vi.mock("@/lib/api", async (orig) => ({
   api: {
     providers: vi.fn(),
     models: vi.fn(),
+    modelPreferences: vi.fn(),
+    setModelPreference: vi.fn(),
     currentJob: vi.fn(),
     startGeneration: vi.fn(),
     dismissJob: vi.fn(),
@@ -62,6 +64,7 @@ const SOURCE: Generation = {
 function setup(models: ImageModel[], address: string, source: () => Promise<Generation> = async () => SOURCE) {
   window.history.replaceState(null, "", address);
   m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] });
+  m.modelPreferences.mockResolvedValue({ preferences: [] });
   m.models.mockResolvedValue({ models, fetchedAt: new Date().toISOString() });
   m.currentJob.mockResolvedValue({ job: null });
   m.generation.mockImplementation(source);
@@ -70,12 +73,8 @@ function setup(models: ImageModel[], address: string, source: () => Promise<Gene
 }
 
 async function pickModel(name: string) {
-  fireEvent.pointerDown(screen.getByRole("combobox", { name: "Model" }), {
-    button: 0,
-    ctrlKey: false,
-    pointerType: "mouse",
-  });
-  fireEvent.click(await screen.findByRole("option", { name: new RegExp(name) }));
+  fireEvent.click(screen.getByRole("button", { name: "Model" }));
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^${name}`) }));
 }
 
 const SMALL: ImageModel = {

@@ -2,14 +2,14 @@
 status: Accepted
 owner: "dmytro.hopko"
 reviewers: []
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 feature_size: "S"
 ticket: "roadmap step 7"
 ---
 
 # 0020 — Load a model's price lazily through an optional port method
 
-- **Status:** Accepted
+- **Status:** Accepted — amended by [ADR-0027](../../model-picker-preferences/adr/0027-look-up-every-listed-models-price-when-the-picker-opens-deduplicated-and-capped-on-the-server.md) (2026-10-19): prices are also loaded for every model listed in an open picker
 - **Date:** 2026-10-18
 - **Deciders:** dmytro.hopko (Owner/Architect), Claude (design pass, answers delegated by the Owner)
 
@@ -36,11 +36,11 @@ OpenRouter publishes image prices per model (`/images/models/{id}/endpoints`), n
 ## Consequences
 
 **Positive**
-- Picker loading is unchanged; prices appear for the selected model only.
+- Picker loading is unchanged; prices appear for the selected model only. *(Superseded by ADR-0027: every listed model once the picker opens.)*
 - New providers add pricing by implementing one optional method.
 
 **Negative**
-- The picker's option list can't show prices (accepted, SAD §11).
+- The picker's option list can't show prices (accepted, SAD §11). *(Superseded by ADR-0027.)*
 - One extra request on the first selection of each OpenRouter model per 10 minutes.
 
 **Neutral**

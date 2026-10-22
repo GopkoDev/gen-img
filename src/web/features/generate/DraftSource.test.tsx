@@ -11,6 +11,8 @@ vi.mock("@/lib/api", async (orig) => ({
   api: {
     providers: vi.fn(),
     models: vi.fn(),
+    modelPreferences: vi.fn(),
+    setModelPreference: vi.fn(),
     currentJob: vi.fn(),
     startGeneration: vi.fn(),
     dismissJob: vi.fn(),
@@ -63,6 +65,7 @@ const SOURCE: Generation = {
 function setup(models: ImageModel[], address: string, source: () => Promise<Generation> = async () => SOURCE) {
   window.history.replaceState(null, "", address);
   m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] });
+  m.modelPreferences.mockResolvedValue({ preferences: [] });
   m.models.mockResolvedValue({ models, fetchedAt: new Date().toISOString() });
   m.currentJob.mockResolvedValue({ job: null });
   m.generation.mockImplementation(source);
@@ -83,7 +86,7 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     expect(await screen.findByText(/Re-run of/)).toBeInTheDocument();
     expect(screen.getByText("Sends the same inputs again — results can differ.")).toBeInTheDocument();
     expect(screen.getByLabelText("Prompt")).toHaveValue("A cat in a neon city");
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("Seedy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("Seedy"));
     expect(screen.getByLabelText("Seed")).toHaveValue(42);
     expect(screen.getByLabelText("Images")).toHaveValue(2);
     expect(screen.getByRole("button", { name: "Remove cat.png" })).toBeInTheDocument();
@@ -119,7 +122,7 @@ describe("GeneratePanel — draft from a source (SCR-01)", () => {
     setup([TEXT, EDITOR], "/?reuse=01SRC&output=2");
     expect(await screen.findByText(/Made from output 2 of/)).toBeInTheDocument();
     expect(screen.getByLabelText("Prompt")).toHaveValue("");
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("Editor"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("Editor"));
     expect(screen.getByText("Switched to Editor — it takes input images.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove output-2" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "Make it blue" } });

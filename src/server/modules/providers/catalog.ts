@@ -8,14 +8,25 @@ export const CATALOG_TTL_MS = 10 * 60 * 1000;
 export function createModelCatalog(providers: ProviderRegistry, now: () => number = Date.now) {
   const cache = new Map<string, { models: ImageModel[]; fetchedAt: number }>();
 
+  const loading = new Map<string, Promise<{ models: ImageModel[]; fetchedAt: number }>>();
+
   async function models(providerId: string): Promise<{ models: ImageModel[]; fetchedAt: number }> {
     const hit = cache.get(providerId);
     if (hit && now() - hit.fetchedAt < CATALOG_TTL_MS) return hit;
     const provider = providers.get(providerId);
     if (!provider) throw new ProviderError("openrouter", null, `Unknown provider: ${providerId}`);
-    const fresh = { models: await provider.listModels(), fetchedAt: now() };
-    cache.set(providerId, fresh);
-    return fresh;
+    const pending = loading.get(providerId);
+    if (pending) return pending;
+    const load = provider
+      .listModels()
+      .then((list) => {
+        const fresh = { models: list, fetchedAt: now() };
+        cache.set(providerId, fresh);
+        return fresh;
+      })
+      .finally(() => loading.delete(providerId));
+    loading.set(providerId, load);
+    return load;
   }
 
   return {

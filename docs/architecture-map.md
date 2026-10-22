@@ -83,6 +83,7 @@ Server modules live in `src/server/modules/<module>/`. "Status" = what exists af
 | system | `src/server/modules/system/` | routes | `src/server/app.ts` (`createApp`) | `GET /api/health` — baseline module & smoke-test target | scaffold [S1] |
 | generations | `src/server/modules/generations/` | domain / service / repo / routes | `src/server/app.ts` | create, list, get, re-run, comment, tag, delete generations; parent→child lineage | planned (roadmap) |
 | providers | `src/server/modules/providers/` | port (`ImageProvider`) + adapters | `src/server/app.ts` (adapter registry) | OpenRouter `/api/v1/images`; Vercel `/v1/images/generations` + `/v1/images/edits`; Vercel chat `modalities`; async Vercel cost lookup | planned (roadmap) |
+| models | `src/server/modules/models/` | repo / routes | `src/server/app.ts` | the Owner's per-model preferences (favorite, hidden) per provider + model id, checked against the provider catalog (ADR-0026) | built (step 9) |
 | storage | `src/server/modules/storage/` | infra | injected into services | write/read image files under `data/generations/<id>/` | planned (roadmap) |
 | db | `src/server/db/` | infra | `src/server/app.ts` | open SQLite, run pending migrations on boot | scaffold [S3] |
 | lib | `src/server/lib/` | shared | imported | `AppError` + error middleware, ULID ids, config (env via zod) | scaffold [S1] |

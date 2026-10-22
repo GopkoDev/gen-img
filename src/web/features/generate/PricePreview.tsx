@@ -6,13 +6,43 @@ import type { ProviderId } from "../../../shared/providers";
 
 const TEN_MINUTES = 10 * 60 * 1000; // the server caches prices for as long (ADR-0020)
 
-function usePrice(provider: ProviderId, model: string) {
+function usePrice(
+  provider: ProviderId,
+  model: string,
+  opts: { enabled?: boolean; retry?: false; retryOnMount?: false } = {},
+) {
   return useQuery({
     queryKey: ["price", provider, model],
     queryFn: () => api.price(provider, model),
-    enabled: model !== "",
+    enabled: model !== "" && (opts.enabled ?? true),
     staleTime: TEN_MINUTES,
+    ...(opts.retry === undefined ? {} : { retry: opts.retry }),
+    ...(opts.retryOnMount === undefined ? {} : { retryOnMount: opts.retryOnMount }),
   });
+}
+
+/**
+ * SCR-07: a model's price in short form for a picker entry — step 7's wording, lower-cased «price unknown»;
+ * `null` while loading. Shares the query with the price line; looks up only while `enabled`, never retries.
+ */
+export function useShortPrice(
+  provider: ProviderId,
+  model: string,
+  enabled: boolean,
+): { text: string; perToken: boolean } | null {
+  // A failed lookup is tried once per opening: a remounted row must not retry it (AC-02).
+  const q = usePrice(provider, model, { enabled, retry: false, retryOnMount: false });
+  if (q.isError)
+    return {
+      text: q.error instanceof ApiError && q.error.status === 404 ? "price unknown" : "price unknown — couldn't load",
+      perToken: false,
+    };
+  if (!q.data) return null;
+  const text = describeUnitPrice(q.data.price);
+  return {
+    text: q.data.price.kind === "unknown" ? text.toLowerCase() : text,
+    perToken: q.data.price.kind === "per-token",
+  };
 }
 
 /** SCR-01: the selected model's published price, under the model picker. Never blocks generating. */

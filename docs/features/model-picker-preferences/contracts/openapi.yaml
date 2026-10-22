@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: Ukiyo — model-picker-preferences
+  version: 0.1.0
+  description: >
+    Additions for roadmap step 9: the Owner's per-model preferences (favorite, hidden) for the model picker,
+    reused by the Models page (step 10). Every /api route passes the request guard (ADR-0007): a non-local
+    Host, a foreign Origin or a cross-site fetch is refused with 403 FORBIDDEN. Errors use the envelope
+    { error: { code, message, details? } } of earlier features. The price endpoint of step 7 is unchanged in
+    shape; its server-side limits change (ADR-0027): failures are cached for 60 s, lookups are shared while in
+    flight and capped at 4 in flight in total (one limit for all providers).
+servers:
+  - url: http://127.0.0.1:8787/api
+security: []  # no auth by design (single owner); the request guard replaces it
+paths:
+  /model-preferences:
+    get:
+      operationId: listModelPreferences
+      summary: Every stored preference of one provider (AC-03, AC-04, AC-08, AC-09, AC-13, AC-14) — including models the provider no longer lists
+      parameters:
+        - { name: provider, in: query, required: true, schema: { $ref: "#/components/schemas/ProviderId" } }
+      responses:
+        "200":
+          description: The provider's preferences (empty list = none)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PreferencesResponse" }
+              example: { preferences: [{ provider: openrouter, model: "google/gemini-2.5-flash-image", favorite: true, hidden: false, updatedAt: "2026-10-19T10:00:00.000Z" }] }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: setModelPreference
+      summary: Change one model's favorite and/or hidden flag (AC-03, AC-05, AC-06, AC-07) — a flag not named keeps its stored value; both off removes the stored row
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetPreferenceRequest" }
+            example: { provider: openrouter, model: "google/gemini-2.5-flash-image", favorite: true }
+      responses:
+        "200":
+          description: The model's preference after the change (both flags false and updatedAt null when nothing is stored any more)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelPreference" }
+              example: { provider: openrouter, model: "google/gemini-2.5-flash-image", favorite: true, hidden: false, updatedAt: "2026-10-19T10:00:00.000Z" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404":
+          description: NOT_FOUND — unknown provider, or a model the provider doesn't offer; nothing stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: { code: NOT_FOUND, message: "This model is not offered by the provider" } }
+        "409": { description: "PROVIDER_NOT_CONFIGURED — the provider has no key, so its catalog can't be checked", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "502": { description: "PROVIDER_ERROR — the provider's model list couldn't be loaded to check the model; nothing stored", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+components:
+  responses:
+    Error:
+      description: VALIDATION_ERROR (400) or FORBIDDEN (403)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: { code: VALIDATION_ERROR, message: "Set favorite or hidden", details: { fields: { favorite: "Set favorite or hidden" } } } }
+  schemas:
+    ProviderId: { type: string, enum: [openrouter, vercel] }
+    ModelPreference:
+      type: object
+      required: [provider, model, favorite, hidden, updatedAt]
+      properties:
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string, minLength: 1, maxLength: 200, description: "The provider's model id, case-sensitive" }
+        favorite: { type: boolean }
+        hidden: { type: boolean }
+        updatedAt: { type: [string, "null"], format: date-time }
+    PreferencesResponse:
+      type: object
+      required: [preferences]
+      properties:
+        preferences: { type: array, items: { $ref: "#/components/schemas/ModelPreference" } }
+    SetPreferenceRequest:
+      type: object
+      required: [provider, model]
+      minProperties: 3
+      additionalProperties: false
+      properties:
+        provider: { $ref: "#/components/schemas/ProviderId" }
+        model: { type: string, minLength: 1, maxLength: 200 }
+        favorite: { type: boolean }
+        hidden: { type: boolean }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }

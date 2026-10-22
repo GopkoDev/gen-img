@@ -11,6 +11,8 @@ vi.mock("@/lib/api", async (orig) => ({
   api: {
     providers: vi.fn(),
     models: vi.fn(),
+    modelPreferences: vi.fn(),
+    setModelPreference: vi.fn(),
     currentJob: vi.fn(),
     startGeneration: vi.fn(),
     dismissJob: vi.fn(),
@@ -38,6 +40,7 @@ function providers(openrouter: boolean, vercel: boolean) {
       { id: "vercel", name: "Vercel AI Gateway", configured: vercel },
     ],
   });
+  m.modelPreferences.mockResolvedValue({ preferences: [] });
   m.models.mockImplementation(async (id) => ({
     models: id === "vercel" ? [FLUX, GEMINI] : [QWEN],
     fetchedAt: new Date().toISOString(),
@@ -45,6 +48,11 @@ function providers(openrouter: boolean, vercel: boolean) {
 }
 
 async function pick(label: string, name: RegExp) {
+  if (label === "Model") {
+    fireEvent.click(await screen.findByRole("button", { name: "Model" }));
+    fireEvent.click(await screen.findByRole("button", { name }));
+    return;
+  }
   fireEvent.pointerDown(await screen.findByRole("combobox", { name: label }), {
     button: 0,
     ctrlKey: false,
@@ -66,7 +74,7 @@ describe("GeneratePanel — provider selector (SCR-01)", () => {
     providers(false, true);
     renderWithQuery(<GeneratePanel />);
     expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("Vercel AI Gateway");
-    expect(await screen.findByRole("combobox", { name: "Model" })).toHaveTextContent("FLUX.2 [pro]");
+    expect(await screen.findByRole("button", { name: "Model" })).toHaveTextContent("FLUX.2 [pro]");
     expect(m.models).toHaveBeenCalledWith("vercel");
   });
 
@@ -76,12 +84,12 @@ describe("GeneratePanel — provider selector (SCR-01)", () => {
     renderWithQuery(<GeneratePanel />);
     expect(await screen.findByLabelText("Seed")).toBeInTheDocument(); // OpenRouter model first
     await pick("Provider", /Vercel AI Gateway/);
-    expect(await screen.findByRole("combobox", { name: "Model" })).toHaveTextContent("FLUX.2 [pro]");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("FLUX.2 [pro]"));
     expect(screen.queryByLabelText("Seed")).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Aspect ratio" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Images")).toHaveAttribute("max", "4");
 
-    await pick("Model", /Gemini Image/);
+    await pick("Model", /^Gemini Image/);
     expect(screen.getByLabelText("Images")).toHaveAttribute("max", "1");
     fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "A red square" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));

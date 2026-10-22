@@ -23,6 +23,21 @@ describe("migration runner", () => {
     while (appliedVersions(db).at(-1) !== version) migrateDown(db);
   }
 
+  it("0008_create_model_preferences keeps one row per provider + model with at least one flag on, and reverts", () => {
+    migrateUp(db);
+    const insert = db.prepare(
+      "INSERT INTO model_preferences (provider, model, favorite, hidden, updated_at) VALUES (?, ?, ?, ?, 'x')",
+    );
+    insert.run("openrouter", "google/gemini-2.5-flash-image", 1, 0);
+    insert.run("vercel", "google/gemini-2.5-flash-image", 0, 1); // same id under another provider is another model
+    expect(() => insert.run("openrouter", "google/gemini-2.5-flash-image", 0, 1)).toThrow(/UNIQUE|PRIMARY/);
+    expect(() => insert.run("openrouter", "m", 0, 0)).toThrow(/CHECK/);
+    expect(() => insert.run("other", "m", 1, 0)).toThrow(/CHECK/);
+    expect(() => insert.run("openrouter", "", 1, 0)).toThrow(/CHECK/);
+    downTo("0007");
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'model_preferences'").pluck().all()).toEqual([]);
+  });
+
   it("0007_add_generation_source records lineage without a foreign key and serves the derived list from an index", () => {
     migrateUp(db);
     const insert = db.prepare(
@@ -89,10 +104,20 @@ describe("migration runner", () => {
   });
 
   it("applies → rolls back → re-applies the repo migrations; re-running up is a no-op", () => {
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+      "0004",
+      "0005",
+      "0006",
+      "0007",
+      "0008",
+    ]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0008");
     expect(migrateDown(db)?.version).toBe("0007");
     expect(migrateDown(db)?.version).toBe("0006");
     expect(migrateDown(db)?.version).toBe("0005");
@@ -103,7 +128,16 @@ describe("migration runner", () => {
     expect(appliedVersions(db)).toEqual([]);
     expect(migrateDown(db)).toBeUndefined();
 
-    expect(migrateUp(db).map((m) => m.version)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+    expect(migrateUp(db).map((m) => m.version)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+      "0004",
+      "0005",
+      "0006",
+      "0007",
+      "0008",
+    ]);
   });
 
   it("0004_create_generation_inputs keeps input copies consistent and reverts cleanly", () => {

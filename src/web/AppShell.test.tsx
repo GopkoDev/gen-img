@@ -13,6 +13,8 @@ vi.mock("@/lib/api", async (orig) => ({
     health: vi.fn(),
     providers: vi.fn(),
     models: vi.fn(),
+    modelPreferences: vi.fn(),
+    setModelPreference: vi.fn(),
     currentJob: vi.fn(),
     dismissJob: vi.fn(),
     deleteGeneration: vi.fn(),
@@ -80,6 +82,7 @@ describe("App shell — draft, job and carried sources across sections", () => {
     vi.resetAllMocks();
     m.health.mockResolvedValue({ status: "ok" });
     m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] });
+    m.modelPreferences.mockResolvedValue({ preferences: [] });
     m.models.mockResolvedValue({ models: [SEEDY], fetchedAt: new Date().toISOString() });
     m.price.mockResolvedValue({ price: { kind: "unknown" }, fetchedAt: new Date().toISOString() });
     m.currentJob.mockResolvedValue({ job: null });
@@ -90,7 +93,7 @@ describe("App shell — draft, job and carried sources across sections", () => {
 
   it("keeps the prompt, the settings and the attached images through Gallery and back (AC-05)", async () => {
     at("/");
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("Seedy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent("Seedy"));
     fireEvent.change(prompt(), { target: { value: "A red fox" } });
     fireEvent.change(screen.getByLabelText("Seed"), { target: { value: "7" } });
     await act(async () => {
@@ -221,9 +224,7 @@ describe("App shell — draft, job and carried sources across sections", () => {
     act(() => navigate("/?focus=prompt"));
     act(() => navigate("/gallery"));
     await act(async () => ready({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] }));
-    await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: "Model", hidden: true })).toHaveTextContent("Seedy"),
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model", hidden: true })).toHaveTextContent("Seedy"));
     fireEvent.click(entry("Generate"));
     await new Promise((r) => setTimeout(r, 50));
     expect(prompt()).not.toHaveFocus();
@@ -366,9 +367,7 @@ describe("App shell — draft, job and carried sources across sections", () => {
 
   it("applies nothing carried on a detail deep link (the panel is hidden there)", async () => {
     at("/generations/01SRC?rerun=01SRC");
-    await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: "Model", hidden: true })).toHaveTextContent("Seedy"),
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Model", hidden: true })).toHaveTextContent("Seedy"));
     expect(prompt()).toHaveValue("");
     expect(window.location.search).toBe("?rerun=01SRC");
   });

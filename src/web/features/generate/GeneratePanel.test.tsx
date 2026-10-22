@@ -11,6 +11,8 @@ vi.mock("@/lib/api", async (orig) => ({
   api: {
     providers: vi.fn(),
     models: vi.fn(),
+    modelPreferences: vi.fn(),
+    setModelPreference: vi.fn(),
     currentJob: vi.fn(),
     startGeneration: vi.fn(),
     dismissJob: vi.fn(),
@@ -36,13 +38,13 @@ const job = (over: Partial<Job>): Job => ({
 
 function configured(models: ImageModel[] = [QWEN, MUSE]) {
   m.providers.mockResolvedValue({ providers: [{ id: "openrouter", name: "OpenRouter", configured: true }] });
+  m.modelPreferences.mockResolvedValue({ preferences: [] });
   m.models.mockResolvedValue({ models, fetchedAt: new Date().toISOString() });
 }
 
 async function pickModel(name: string) {
-  const trigger = await screen.findByRole("combobox", { name: "Model" });
-  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
-  fireEvent.click(await screen.findByRole("option", { name: new RegExp(name) }));
+  fireEvent.click(await screen.findByRole("button", { name: "Model" }));
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^${name}`) }));
 }
 
 describe("GeneratePanel (SCR-01)", () => {
@@ -67,7 +69,7 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(await screen.findByText("Model list unavailable")).toBeInTheDocument();
     expect(screen.getByText("Could not reach OpenRouter")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("combobox", { name: "Model" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Model" })).toBeInTheDocument();
   });
 
   it("offers only the parameters the chosen model supports", async () => {
@@ -77,13 +79,9 @@ describe("GeneratePanel (SCR-01)", () => {
     expect(screen.getByLabelText("Seed")).toBeInTheDocument();
     expect(screen.getByLabelText("Images")).toHaveAttribute("max", "4");
 
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent(/^Qwen Image$/); // closed picker: name only
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "Model" }), {
-      button: 0,
-      ctrlKey: false,
-      pointerType: "mouse",
-    });
-    expect(await screen.findByRole("option", { name: /Qwen Image/ })).toHaveTextContent("qwen/qwen-image"); // name and id (AC-03)
+    expect(screen.getByRole("button", { name: "Model" })).toHaveTextContent(/^Qwen Image$/); // closed picker: name only
+    fireEvent.click(screen.getByRole("button", { name: "Model" }));
+    expect(await screen.findByRole("button", { name: /^Qwen Image/ })).toHaveTextContent("qwen/qwen-image"); // name and id (AC-03)
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await pickModel("Muse Image");
     expect(screen.queryByRole("combobox", { name: "Aspect ratio" })).not.toBeInTheDocument();
@@ -94,7 +92,7 @@ describe("GeneratePanel (SCR-01)", () => {
   it("flags invalid fields without sending anything", async () => {
     configured();
     renderWithQuery(<GeneratePanel />);
-    await screen.findByRole("combobox", { name: "Model" });
+    await screen.findByRole("button", { name: "Model" });
     fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "   " } });
     fireEvent.change(screen.getByLabelText("Images"), { target: { value: "9" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));
@@ -108,7 +106,7 @@ describe("GeneratePanel (SCR-01)", () => {
     configured();
     m.startGeneration.mockResolvedValue({ job: job({}) });
     renderWithQuery(<GeneratePanel />);
-    await screen.findByRole("combobox", { name: "Model" });
+    await screen.findByRole("button", { name: "Model" });
     fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "A red square" } });
     fireEvent.change(screen.getByLabelText("Seed"), { target: { value: "42" } });
     m.currentJob.mockResolvedValue({ job: job({}) });
@@ -159,7 +157,7 @@ describe("GeneratePanel (SCR-01)", () => {
     configured();
     m.startGeneration.mockResolvedValue({ job: job({}) });
     renderWithQuery(<GeneratePanel />);
-    await screen.findByRole("combobox", { name: "Model" });
+    await screen.findByRole("button", { name: "Model" });
     fireEvent.change(screen.getByLabelText("Prompt"), { target: { value: "Keep me" } });
     m.currentJob.mockResolvedValue({
       job: job({
@@ -225,7 +223,7 @@ describe("GeneratePanel (SCR-01)", () => {
       throw new ApiError(404, "NOT_FOUND", "Generation not found");
     });
     renderWithQuery(<GeneratePanel />);
-    await screen.findByRole("combobox", { name: "Model" });
+    await screen.findByRole("button", { name: "Model" });
     await waitFor(() => expect(m.generation).toHaveBeenCalledWith("01GONE"));
     await waitFor(() => expect(screen.queryByText("Saved to gallery")).not.toBeInTheDocument());
   });
