@@ -49,4 +49,21 @@ describe("model-picker-preferences NFRs", () => {
     expect(p95(reads)).toBeLessThanOrEqual(100);
     expect(p95(saves)).toBeLessThanOrEqual(50);
   });
+
+  it("saves an off-write (forget a retired id) ≤ 50 ms p95", async () => {
+    t = createTestApp({}, { fetch: fakeFetch(() => "network-error") });
+    t.db.transaction(() => {
+      for (let i = 0; i < 50; i++)
+        seedModelPreference(t.db, { provider: "openrouter", model: `gone/m-${i}`, favorite: true });
+    })();
+    const offs = await timed(50, async (i) => {
+      const res = await t.app.request("/api/model-preferences", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "openrouter", model: `gone/m-${i}`, favorite: false }),
+      });
+      expect(res.status).toBe(200);
+    });
+    expect(p95(offs)).toBeLessThanOrEqual(50);
+  });
 });

@@ -45,3 +45,17 @@ export function pickModel<M extends { id: string }>(
   const visible = [...arranged.favorites, ...arranged.others.filter((x) => x !== arranged.hiddenSelected)];
   return visible.find(suitable);
 }
+
+/**
+ * True when the Owner's hiding is why nothing can be picked (AC-13): no visible model is suitable, but a hidden
+ * one is. `prefs = null` (unreadable) hides nothing → false.
+ */
+export function hiddenSuitable<M extends { id: string }>(
+  models: readonly M[],
+  prefs: readonly ModelFlags[] | null,
+  suitable: (model: M) => boolean = () => true,
+): boolean {
+  if (prefs === null || pickModel(arrangeModels(models, prefs), suitable) !== undefined) return false;
+  const hidden = new Set(prefs.filter((p) => p.hidden).map((p) => p.model));
+  return models.some((x) => hidden.has(x.id) && suitable(x));
+}

@@ -40,7 +40,21 @@ export default defineConfig({
           name: "web",
           environment: "jsdom",
           include: ["src/web/**/*.test.tsx"],
+          exclude: ["src/web/**/*.nfr.test.tsx"],
           setupFiles: ["tests/helpers/setup-dom.ts"],
+        },
+      },
+      {
+        // Timing NFRs of web screens (jsdom) — like `nfr`: last and alone (group 2, so not in parallel with `nfr`).
+        plugins: [react()],
+        resolve: { alias },
+        test: {
+          name: "nfr-web",
+          environment: "jsdom",
+          include: ["src/web/**/*.nfr.test.tsx"],
+          setupFiles: ["tests/helpers/setup-dom.ts"],
+          fileParallelism: false,
+          sequence: { groupOrder: 2 },
         },
       },
     ],

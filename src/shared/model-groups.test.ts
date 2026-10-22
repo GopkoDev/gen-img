@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrangeModels, pickModel } from "./model-groups";
+import { arrangeModels, hiddenSuitable, pickModel } from "./model-groups";
 
 const m = (id: string, inputs = false) => ({ id, name: id.toUpperCase(), ...(inputs ? { takesInputs: true } : {}) });
 const list = [m("a"), m("b", true), m("c"), m("d", true)];
@@ -70,5 +70,35 @@ describe("pickModel (spec AC-11)", () => {
     const arranged = arrangeModels(list, [pref("b", false, true), pref("d", false, true)]);
     expect(pickModel(arranged, takesInputs)).toBeUndefined();
     expect(pickModel(arrangeModels([], []))).toBeUndefined();
+  });
+});
+
+describe("hiddenSuitable (spec AC-13)", () => {
+  const takes = (x: { takesInputs?: boolean }) => x.takesInputs === true;
+
+  it("is true when no visible model is suitable but a hidden one is", () => {
+    expect(hiddenSuitable(list, [pref("b", false, true), pref("d", false, true)], takes)).toBe(true);
+  });
+
+  it("is false when a visible model is suitable", () => {
+    expect(hiddenSuitable(list, [pref("b", false, true)], takes)).toBe(false);
+  });
+
+  it("is false when no model is suitable at all, hidden or not", () => {
+    expect(hiddenSuitable([m("a"), m("c")], [pref("a", false, true)], takes)).toBe(false);
+  });
+
+  it("is false when the preferences are unreadable", () => {
+    expect(hiddenSuitable(list, null, takes)).toBe(false);
+  });
+
+  it("defaults to every model being suitable: true only when all of them are hidden", () => {
+    expect(hiddenSuitable([m("a"), m("b")], [pref("a", false, true), pref("b", false, true)])).toBe(true);
+    expect(hiddenSuitable([m("a"), m("b")], [pref("a", false, true)])).toBe(false);
+    expect(hiddenSuitable([], [])).toBe(false);
+  });
+
+  it("ignores preferences of models the provider no longer lists", () => {
+    expect(hiddenSuitable([m("a")], [pref("gone", false, true)])).toBe(false);
   });
 });

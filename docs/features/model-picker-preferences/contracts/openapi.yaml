@@ -3,6 +3,7 @@ info:
   title: Ukiyo — model-picker-preferences
   version: 0.1.0
   description: >
+    (Amended by models-page, ADR-0029: an all-false PATCH skips the provider checks — 409/502/unknown-model only when a flag turns on.)
     Additions for roadmap step 9: the Owner's per-model preferences (favorite, hidden) for the model picker,
     reused by the Models page (step 10). Every /api route passes the request guard (ADR-0007): a non-local
     Host, a foreign Origin or a cross-site fetch is refused with 403 FORBIDDEN. Errors use the envelope

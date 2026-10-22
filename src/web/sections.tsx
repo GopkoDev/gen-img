@@ -1,9 +1,10 @@
-import { Images, type LucideIcon, Sparkles } from "lucide-react";
+import { Boxes, Images, type LucideIcon, Sparkles } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Gallery } from "@/features/gallery/Gallery";
 import { GeneratePanel } from "@/features/generate/GeneratePanel";
 import { JobIndicator } from "@/features/generate/job";
 import { RecentGenerations } from "@/features/generate/RecentGenerations";
+import { ModelsPage } from "@/features/models/ModelsPage";
 import type { Route } from "@/lib/router";
 
 /** One top-level area of Ukiyo (CONTEXT: Section). Adding a section = one entry here (ADR-0022). */
@@ -60,6 +61,7 @@ export const SECTIONS: readonly Section[] = [
     page: GalleryPage,
     owns: (route) => route.name === "detail",
   },
+  { id: "models", path: "/models", label: "Models", icon: Boxes, page: ModelsPage },
 ];
 
 /** The section an address belongs to; none means «page not found». Exact paths, one trailing slash tolerated. */

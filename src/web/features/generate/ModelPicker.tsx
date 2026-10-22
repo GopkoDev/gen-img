@@ -1,16 +1,13 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, StarIcon } from "lucide-react";
 import { type ButtonHTMLAttributes, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { arrangeModels } from "../../../shared/model-groups";
-import type { ModelPreference } from "../../../shared/models";
 import type { ImageModel, ProviderId } from "../../../shared/providers";
+import { useModelPreferences, useSetModelPreference } from "../models/preferences";
 import { useShortPrice } from "./PricePreview";
-import { modelPreferencesKey, useModelPreferences } from "./useModelPreferences";
 
 type Props = {
   provider: ProviderId;
@@ -21,8 +18,6 @@ type Props = {
   /** Extra attributes for the trigger button (the panel's label link and validation state). */
   triggerProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 };
-
-type Prefs = { preferences: ModelPreference[] };
 
 function Row({
   provider,
@@ -80,35 +75,13 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
   const [open, setOpen] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const client = useQueryClient();
-  const key = modelPreferencesKey(provider);
 
   const prefsQuery = useModelPreferences(provider, open);
   const unreadable = prefsQuery.isError;
   const prefs = prefsQuery.data?.preferences ?? null;
   const ready = open && (unreadable || prefs !== null);
 
-  const toggle = useMutation({
-    mutationFn: (v: { model: string; favorite: boolean }) => api.setModelPreference({ provider, ...v }),
-    onMutate: async ({ model, favorite }) => {
-      setSaveError(false);
-      await client.cancelQueries({ queryKey: key });
-      // Remember only this model's flag, so a rollback never touches another model's concurrent toggle.
-      const was = client.getQueryData<Prefs>(key)?.preferences.find((p) => p.model === model);
-      client.setQueryData<Prefs>(key, (old) => upsert(old, provider, model, { favorite }));
-      return { model, was };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx)
-        client.setQueryData<Prefs>(key, (old) =>
-          upsert(old, provider, ctx.model, { favorite: ctx.was?.favorite ?? false }),
-        );
-      setSaveError(true);
-    },
-    onSuccess: (saved) => client.setQueryData<Prefs>(key, (old) => upsert(old, provider, saved.model, saved)),
-    // cancelQueries above may have cancelled the on-open refetch: settle on the server's truth.
-    onSettled: () => client.invalidateQueries({ queryKey: key }),
-  });
+  const toggle = useSetModelPreference(provider, { onError: () => setSaveError(true) });
 
   // A ★ toggle can move its row to the other group; keep the keyboard on that ★ (SCR-07).
   const toggled = useRef<string | null>(null);
@@ -145,6 +118,7 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
       }}
       onToggle={() => {
         toggled.current = model.id;
+        setSaveError(false);
         toggle.mutate({ model: model.id, favorite: !(flagsOf.get(model.id)?.favorite ?? false) });
       }}
     />
@@ -219,19 +193,4 @@ export function ModelPicker({ provider, models, value, onChange, disabled, trigg
       </PopoverContent>
     </Popover>
   );
-}
-
-function upsert(old: Prefs | undefined, provider: ProviderId, model: string, change: Partial<ModelPreference>): Prefs {
-  const list = old?.preferences ?? [];
-  const current = list.find((p) => p.model === model);
-  const next: ModelPreference = {
-    provider,
-    model,
-    favorite: false,
-    hidden: false,
-    updatedAt: null,
-    ...current,
-    ...change,
-  };
-  return { preferences: current ? list.map((p) => (p.model === model ? next : p)) : [...list, next] };
 }
