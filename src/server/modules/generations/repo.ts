@@ -132,6 +132,7 @@ const SummaryRow = z
     images_requested: z.number().int(),
     images_received: z.number().int(),
     inputs_count: z.number().int(),
+    duration_ms: z.number().int().min(0),
   })
   .transform((r) => ({
     id: r.id,
@@ -144,6 +145,7 @@ const SummaryRow = z
     imagesRequested: r.images_requested,
     imagesReceived: r.images_received,
     inputsCount: r.inputs_count,
+    durationMs: r.duration_ms,
   }));
 export type GenerationSummaryRecord = z.infer<typeof SummaryRow> & {
   thumbnail: ImageRecord;
@@ -173,7 +175,7 @@ export function createGenerationsRepo(db: Db) {
   const selectImages = db.prepare(
     "SELECT position, path, media_type, width, height, byte_size FROM generation_images WHERE generation_id = ? ORDER BY position",
   );
-  const summaryCols = `g.id, g.provider, g.model, g.prompt, g.created_at, g.cost_micros, g.cost_status, g.images_requested,
+  const summaryCols = `g.id, g.provider, g.model, g.prompt, g.created_at, g.cost_micros, g.cost_status, g.images_requested, g.duration_ms,
     (SELECT count(*) FROM generation_images i WHERE i.generation_id = g.id) AS images_received,
     (SELECT count(*) FROM generation_inputs n WHERE n.generation_id = g.id) AS inputs_count`;
   const selectPage = db.prepare(`SELECT ${summaryCols} FROM generations g ORDER BY g.id DESC LIMIT ?`);

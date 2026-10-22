@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ImageIcon, Loader2, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,9 +8,25 @@ import { api } from "@/lib/api";
 import { excerpt, formatRelative } from "@/lib/format";
 import { Link, replace } from "@/lib/router";
 import type { GenerationSummary } from "../../../shared/generations";
+import { CardBadges } from "./CardBadges";
+import { usePendingCost } from "./usePendingCost";
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
-const PENDING_REFETCH_MS = 10_000;
+const SENTINEL_MARGIN = "600px";
+
+/** Where the Owner left the list; kept for the page's lifetime so coming back from a detail lands in the same place. */
+const savedScroll = { y: 0 };
+
+/** Test-only: forget the saved position so one test's scroll does not leak into the next. */
+export function resetGalleryScroll() {
+  savedScroll.y = 0;
+}
+
+/** Mounted for pending cards only: refreshes that card's cost on its own (ADR-0031). */
+function PendingCostWatcher({ g }: { g: GenerationSummary }) {
+  usePendingCost(g);
+  return null;
+}
 
 function Tile({ g }: { g: GenerationSummary }) {
   const [broken, setBroken] = useState(false);
@@ -20,7 +36,7 @@ function Tile({ g }: { g: GenerationSummary }) {
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
     >
       <Card className="gap-3 overflow-hidden py-0 transition-colors hover:bg-accent">
-        <div className="flex aspect-square items-center justify-center bg-muted">
+        <div className="relative flex aspect-square items-center justify-center bg-muted">
           {broken ? (
             <span className="text-muted-foreground text-sm">Image unavailable</span>
           ) : (
@@ -32,6 +48,8 @@ function Tile({ g }: { g: GenerationSummary }) {
               onError={() => setBroken(true)}
             />
           )}
+          <CardBadges g={g} />
+          {g.costStatus === "pending" && <PendingCostWatcher g={g} />}
         </div>
         <div className="flex flex-col gap-2 px-3 pb-3">
           <p className="line-clamp-2 text-sm">{g.prompt}</p>
@@ -53,7 +71,6 @@ function Tile({ g }: { g: GenerationSummary }) {
               <Badge variant="secondary" className="max-w-full truncate">
                 {g.provider} · {g.model}
               </Badge>
-              {g.costStatus === "pending" && <Badge variant="outline">cost pending</Badge>}
               {g.inputsCount > 0 && (
                 <Badge variant="outline">
                   <ImageIcon aria-hidden />
@@ -76,6 +93,7 @@ export function Gallery() {
   useEffect(() => {
     if (justDeleted) replace(window.location.pathname);
   }, [justDeleted]);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const q = useInfiniteQuery({
     queryKey: GALLERY_QUERY_KEY,
     queryFn: ({ pageParam }) => api.generations(pageParam),
@@ -83,15 +101,45 @@ export function Gallery() {
     // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
     // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
     staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY, // the loaded pages stay for the whole session, however long the Owner is away
     refetchOnWindowFocus: "always",
-    // Re-read while any loaded tile still waits for its price (spec §6, sad §8).
-    refetchInterval: (query) =>
-      query.state.data?.pages.some((p) => p.items.some((g) => g.costStatus === "pending")) ? PENDING_REFETCH_MS : false,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
+  const ready = q.data !== undefined;
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
+
+  // Keep the position current while the list is on screen: at unmount the next page may already have replaced it
+  // and the browser clamped scrollY. Restore once the cached pages render, before the sentinel is armed.
+  useEffect(() => {
+    const onScroll = () => {
+      savedScroll.y = window.scrollY;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  useLayoutEffect(() => {
+    if (ready && savedScroll.y > 0) window.scrollTo(0, savedScroll.y);
+  }, [ready]);
+
+  // Armed only while a request is allowed: more pages, nothing in flight (a full refresh included: paging would
+  // cancel it), the last one not failed (no auto retry).
+  const canLoadMore = ready && hasNextPage && !q.isFetching && !isFetchNextPageError;
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!canLoadMore || !el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) fetchNextPage();
+      },
+      { rootMargin: SENTINEL_MARGIN },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canLoadMore, fetchNextPage]);
+
   if (q.isPending) return <p className="text-muted-foreground text-sm">Loading…</p>;
-  if (q.isError)
+  if (q.isError && !q.data)
     return (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
         <p className="text-sm">Couldn't load the gallery</p>
@@ -117,21 +165,46 @@ export function Gallery() {
   return (
     <div className="flex flex-col gap-4">
       {notice}
+      {q.isError && !isFetchNextPageError && (
+        <p className="flex items-center gap-2 text-muted-foreground text-sm">
+          These cards may be out of date.
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => q.refetch()}>
+            Refresh
+          </Button>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {items.map((g) => (
           <Tile key={g.id} g={g} />
         ))}
       </div>
-      {q.hasNextPage && (
-        <Button
-          variant="outline"
-          className="self-center"
-          disabled={q.isFetchingNextPage}
-          onClick={() => q.fetchNextPage()}
-        >
-          {q.isFetchingNextPage && <Loader2 className="animate-spin" />}
-          Load more
-        </Button>
+      {isFetchNextPageError && (
+        <div className="flex items-center gap-3 self-center text-sm">
+          <p className="text-destructive">Couldn't load more.</p>
+          <Button variant="outline" size="sm" disabled={q.isFetching} onClick={() => fetchNextPage()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {hasNextPage ? (
+        <>
+          <div ref={sentinelRef} data-testid="gallery-sentinel" aria-hidden className="h-px" />
+          {!isFetchNextPageError && (
+            <div className="flex items-center justify-center gap-3">
+              {isFetchingNextPage && (
+                <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading more…
+                </span>
+              )}
+              <Button variant="outline" disabled={q.isFetching} onClick={() => fetchNextPage()}>
+                Load more
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-center text-muted-foreground text-sm">That's everything</p>
       )}
     </div>
   );
