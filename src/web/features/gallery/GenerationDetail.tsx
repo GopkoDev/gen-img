@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, api } from "@/lib/api";
 import { formatCost, formatDateTime, formatDuration } from "@/lib/format";
-import { Link, navigate } from "@/lib/router";
+import { Link, navigate, replace } from "@/lib/router";
 import { type Generation, MAX_INPUT_BYTES, type RequestedParams } from "../../../shared/generations";
 import { DeleteGeneration } from "./DeleteGeneration";
 import { Lineage } from "./Lineage";
@@ -75,7 +75,17 @@ function Inputs({ g }: { g: Generation }) {
 }
 
 /** «Use as input» for one output: refused in place when it can't be an input (spec AC-09), else open the panel. */
-function UseAsInput({ g, position, byteSize }: { g: Generation; position: number; byteSize: number }) {
+function UseAsInput({
+  g,
+  position,
+  byteSize,
+  inDialog = false,
+}: {
+  g: Generation;
+  position: number;
+  byteSize: number;
+  inDialog?: boolean;
+}) {
   const [refused, setRefused] = useState<string | null>(null);
   return (
     <div className="flex flex-col items-start gap-1">
@@ -84,7 +94,10 @@ function UseAsInput({ g, position, byteSize }: { g: Generation; position: number
         size="sm"
         onClick={() => {
           if (byteSize > MAX_INPUT_BYTES) return setRefused("Can't be used as an input: larger than 10 MB");
-          navigate(`/?reuse=${encodeURIComponent(g.id)}&output=${position}`);
+          const to = `/?reuse=${encodeURIComponent(g.id)}&output=${position}`;
+          if (inDialog)
+            replace(to); // the dialog's entry becomes the generate address, so Back lands on the grid
+          else navigate(to);
         }}
       >
         <ImagePlus /> Use as input
@@ -94,41 +107,80 @@ function UseAsInput({ g, position, byteSize }: { g: Generation; position: number
   );
 }
 
-function Detail({ g }: { g: Generation }) {
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+/** The dialog's left column: the first output large, the others as smaller choices that make themselves large (SCR-09). */
+function OutputPicker({ g }: { g: Generation }) {
+  const [selected, setSelected] = useState(0);
+  const img = g.images[selected] ?? g.images[0];
+  if (!img) return null;
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" asChild>
-          <Link to={`/?rerun=${encodeURIComponent(g.id)}`}>
-            <RotateCcw /> Re-run
-          </Link>
-        </Button>
-        <DeleteGeneration g={g} onFailed={setDeleteError} />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        {/* The area is sized from the stored dimensions before the file loads, so nothing jumps. */}
+        <a href={img.url} target="_blank" rel="noreferrer" className="block max-h-[60vh] overflow-hidden rounded-lg">
+          <img
+            src={img.url}
+            alt={`Output ${img.position} of: ${g.prompt}`}
+            width={img.width}
+            height={img.height}
+            style={{ aspectRatio: `${img.width} / ${img.height}` }}
+            className="mx-auto max-h-[60vh] w-auto max-w-full rounded-lg border bg-muted object-contain"
+          />
+        </a>
+        <UseAsInput g={g} position={img.position} byteSize={img.byteSize} inDialog />
       </div>
-      {deleteError && (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
-          <p className="font-medium">Couldn't delete this generation</p>
-          <p>{deleteError}</p>
+      {g.images.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {g.images.map((o, i) => (
+            <Button
+              key={o.position}
+              type="button"
+              variant="outline"
+              className={`h-16 w-16 p-0 ${i === selected ? "ring-2 ring-ring" : ""}`}
+              aria-label={`Show output ${o.position}`}
+              aria-pressed={i === selected}
+              onClick={() => setSelected(i)}
+            >
+              <img src={o.url} alt="" className="h-full w-full rounded-md object-cover" />
+            </Button>
+          ))}
         </div>
       )}
-      <Inputs g={g} />
-      <div className="flex gap-4 overflow-x-auto">
-        {g.images.map((img) => (
-          <div key={img.position} className="flex shrink-0 flex-col gap-1">
-            <a href={img.url} target="_blank" rel="noreferrer">
-              <img
-                src={img.url}
-                alt={`Output ${img.position} of: ${g.prompt}`}
-                className="max-h-[60vh] rounded-lg border object-contain"
-              />
-            </a>
-            <UseAsInput g={g} position={img.position} byteSize={img.byteSize} />
-          </div>
-        ))}
-      </div>
-      <Lineage g={g} />
-      <Notes g={g} />
+    </div>
+  );
+}
+
+/** `page` is the full page (SCR-03); `dialog` splits it into the images and the metadata columns (SCR-09). */
+export function Detail({ g, layout = "page" }: { g: Generation; layout?: "page" | "dialog" }) {
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const actions = (
+    <div className="flex justify-end gap-2">
+      <Button variant="outline" asChild>
+        <Link
+          to={`/?rerun=${encodeURIComponent(g.id)}`}
+          onClick={
+            layout === "dialog"
+              ? (e) => {
+                  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  replace(`/?rerun=${encodeURIComponent(g.id)}`);
+                }
+              : undefined
+          }
+        >
+          <RotateCcw /> Re-run
+        </Link>
+      </Button>
+      <DeleteGeneration g={g} onFailed={setDeleteError} />
+    </div>
+  );
+  const deleteAlert = deleteError && (
+    <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+      <p className="font-medium">Couldn't delete this generation</p>
+      <p>{deleteError}</p>
+    </div>
+  );
+  const cards = (
+    <>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -180,13 +232,53 @@ function Detail({ g }: { g: Generation }) {
           <Raw title="Response" value={g.rawResponse} />
         </CardContent>
       </Card>
+    </>
+  );
+  if (layout === "dialog")
+    return (
+      <div className="grid gap-6 lg:h-full lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="min-w-0 lg:overflow-y-auto">
+          <OutputPicker g={g} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-6 lg:overflow-y-auto">
+          {actions}
+          {deleteAlert}
+          <Inputs g={g} />
+          <Lineage g={g} inDialog />
+          <Notes g={g} />
+          {cards}
+        </div>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-6">
+      {actions}
+      {deleteAlert}
+      <Inputs g={g} />
+      <div className="flex gap-4 overflow-x-auto">
+        {g.images.map((img) => (
+          <div key={img.position} className="flex shrink-0 flex-col gap-1">
+            <a href={img.url} target="_blank" rel="noreferrer">
+              <img
+                src={img.url}
+                alt={`Output ${img.position} of: ${g.prompt}`}
+                className="max-h-[60vh] rounded-lg border object-contain"
+              />
+            </a>
+            <UseAsInput g={g} position={img.position} byteSize={img.byteSize} />
+          </div>
+        ))}
+      </div>
+      <Lineage g={g} />
+      <Notes g={g} />
+      {cards}
     </div>
   );
 }
 
-/** SCR-03 — one generation with all its stored metadata. */
-export function GenerationDetail({ id }: { id: string }) {
-  const q = useQuery({
+/** One generation's detail read; shared by the page and the dialog (same cache entry, one request). */
+export function useGeneration(id: string) {
+  return useQuery({
     queryKey: ["generation", id],
     queryFn: () => api.generation(id),
     // Like the gallery (spec §6): revisiting doesn't reload; changes invalidate it, focus catches other tabs.
@@ -194,6 +286,11 @@ export function GenerationDetail({ id }: { id: string }) {
     refetchOnWindowFocus: "always",
     refetchInterval: (query) => (query.state.data?.costStatus === "pending" ? PENDING_REFETCH_MS : false),
   });
+}
+
+/** SCR-03 — one generation with all its stored metadata. */
+export function GenerationDetail({ id }: { id: string }) {
+  const q = useGeneration(id);
   const back = (
     <Button variant="link" asChild className="px-0">
       <Link to="/gallery">
