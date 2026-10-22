@@ -1,7 +1,8 @@
-import type { InfiniteData, QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { RECENT_QUERY_KEY } from "@/features/generate/RecentGenerations";
-import type { Generation, GenerationPage } from "../../../shared/generations";
+import type { Generation } from "../../../shared/generations";
 import { GALLERY_QUERY_KEY } from "./Gallery";
+import { patchSummaries } from "./summaryPatch";
 
 /**
  * After a comment/tag change (ADR-0034): write tags / «has comment» into that card of the loaded gallery pages
@@ -13,27 +14,14 @@ export function patchCard(
   fields: { tags?: Generation["tags"]; comment?: Generation["comment"] },
 ) {
   qc.setQueryData<Generation>(["generation", id], (old) => (old ? { ...old, ...fields } : old));
-  qc.setQueryData<InfiniteData<GenerationPage>>(GALLERY_QUERY_KEY, (old) => {
-    if (!old) return old;
-    return {
-      ...old,
-      pages: old.pages.map((p) => ({
-        ...p,
-        items: p.items.map((c) =>
-          c.id !== id
-            ? c
-            : {
-                ...c,
-                ...(fields.tags ? { tags: fields.tags } : {}),
-                ...("comment" in fields ? { hasComment: fields.comment !== null } : {}),
-              },
-        ),
-      })),
-    };
+  patchSummaries(qc, id, {
+    ...(fields.tags ? { tags: fields.tags } : {}),
+    ...("comment" in fields ? { hasComment: fields.comment !== null } : {}),
   });
-  // A list refresh already in flight was read before this change and would put the old card back: refresh again.
-  if (qc.isFetching({ queryKey: GALLERY_QUERY_KEY, exact: true }) > 0)
-    qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY, exact: true });
+  // A list or models refresh already in flight was read before this change and would put the old card back:
+  // refresh each again (the recent strip is invalidated below on its own).
+  for (const q of qc.getQueryCache().findAll({ queryKey: GALLERY_QUERY_KEY, fetchStatus: "fetching" }))
+    if (q.queryKey[1] !== "recent") qc.invalidateQueries({ queryKey: q.queryKey, exact: true });
   qc.invalidateQueries({ queryKey: ["generation", id] });
   qc.invalidateQueries({ queryKey: RECENT_QUERY_KEY, exact: true });
 }

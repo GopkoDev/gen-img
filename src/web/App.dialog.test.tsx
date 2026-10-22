@@ -6,6 +6,8 @@ import { APP_LOAD, dialogState, navigate } from "@/lib/router";
 import { renderWithQuery } from "@/test-utils";
 import { App } from "./App";
 
+const ALL_VIEWS = { grid: { kind: "all" }, order: { kind: "all" } } as const;
+
 const mounts = vi.hoisted(() => ({ count: 0 }));
 vi.mock("@/features/gallery/Gallery", async (orig) => ({
   ...(await orig<typeof import("@/features/gallery/Gallery")>()),
@@ -50,7 +52,7 @@ describe("dialog visit over the gallery (ADR-0033)", () => {
   afterEach(() => window.history.replaceState(null, "", "/"));
 
   it("renders the grid plus a dialog for this load's dialog state, Gallery staying current", () => {
-    window.history.replaceState(dialogState(), "", "/generations/01ABC");
+    window.history.replaceState(dialogState(ALL_VIEWS), "", "/generations/01ABC");
     renderWithQuery(<App />);
     expect(screen.getByTestId("grid")).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Generation" })).toHaveTextContent("Loading…");
@@ -82,7 +84,7 @@ describe("dialog visit over the gallery (ADR-0033)", () => {
     expect(mounts.count).toBe(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    act(() => navigate("/generations/01ABC", dialogState()));
+    act(() => navigate("/generations/01ABC", dialogState(ALL_VIEWS)));
     expect(screen.getByRole("dialog", { name: "Generation" })).toBeInTheDocument();
     expect(screen.getByTestId("grid")).toBe(grid);
 
@@ -90,7 +92,7 @@ describe("dialog visit over the gallery (ADR-0033)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("grid")).toBe(grid);
 
-    popTo("/generations/01ABC", dialogState());
+    popTo("/generations/01ABC", dialogState(ALL_VIEWS));
     expect(screen.getByRole("dialog", { name: "Generation" })).toBeInTheDocument();
     expect(screen.getByTestId("grid")).toBe(grid);
     expect(mounts.count).toBe(1);

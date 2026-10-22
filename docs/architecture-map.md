@@ -81,7 +81,7 @@ Server modules live in `src/server/modules/<module>/`. "Status" = what exists af
 | Module | Path | Layers | Wired at | Responsibility | Status |
 |---|---|---|---|---|---|
 | system | `src/server/modules/system/` | routes | `src/server/app.ts` (`createApp`) | `GET /api/health` — baseline module & smoke-test target | scaffold [S1] |
-| generations | `src/server/modules/generations/` | domain / service / repo / routes | `src/server/app.ts` | create, list, get, re-run, comment, tag, delete generations; parent→child lineage | planned (roadmap) |
+| generations | `src/server/modules/generations/` | domain / service / repo / routes | `src/server/app.ts` | create, list (newest first, optionally one provider + model), get, re-run, comment, tag, delete generations; per-model counts; parent→child lineage | planned (roadmap) |
 | providers | `src/server/modules/providers/` | port (`ImageProvider`) + adapters | `src/server/app.ts` (adapter registry) | OpenRouter `/api/v1/images`; Vercel `/v1/images/generations` + `/v1/images/edits`; Vercel chat `modalities`; async Vercel cost lookup | planned (roadmap) |
 | models | `src/server/modules/models/` | repo / routes | `src/server/app.ts` | the Owner's per-model preferences (favorite, hidden) per provider + model id; turning a flag on is checked against the provider catalog (ADR-0026, ADR-0029); read by the generate picker and the Models section (`src/web/features/models/`) | built (steps 9–10) |
 | storage | `src/server/modules/storage/` | infra | injected into services | write/read image files under `data/generations/<id>/` | planned (roadmap) |

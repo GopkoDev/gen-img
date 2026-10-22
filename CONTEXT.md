@@ -14,6 +14,7 @@ updated_at: "2026-10-19"
 - Derived generation — a generation made by re-running or reusing another one; it records its source generation and keeps its own copies of every input. NOT a variation the provider made: deriving is the Owner's action in Ukiyo.
 - Favorite model — an image model the Owner marked with ★ under one provider; the model picker lists favorites first in their own group. NOT a default model: marking a favorite never selects it.
 - Gallery — the owner's browsable list of every saved generation, newest first, with a detail view per generation. NOT a provider's playground history: the gallery lives only on the owner's machine.
+- Gallery view — how the gallery is shown: every generation, one model's generations, or grouped by model (later by prompt, by folder); kept in the gallery's address. NOT a filter on the Generate form: views only change what the gallery shows.
 - Generation — one request the owner sent to a provider together with everything it produced and cost: prompt, model, parameters, output images, cost, duration, raw request/response. NOT a single image: one generation can hold several output images.
 - Hidden model — an image model the Owner chose to leave out of the model picker (set on the Models page, step 10); it stays usable when a re-run or the current selection needs it. NOT a deleted or unavailable model: hiding changes only the picker, never past generations.
 - Image model — a provider-offered model that can produce images, identified by the provider's model id. NOT a text-only chat model.

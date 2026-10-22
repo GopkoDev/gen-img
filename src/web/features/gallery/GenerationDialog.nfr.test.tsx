@@ -7,6 +7,8 @@ import { summary } from "@/test-utils";
 import type { Generation } from "../../../shared/generations";
 import { GenerationDialog } from "./GenerationDialog";
 
+const ALL_VIEWS = { grid: { kind: "all" }, order: { kind: "all" } } as const;
+
 // generation-detail-modal spec §6 row 1: ≤ 100 ms p95 from a step to the dialog rendering the large image and
 // the metadata, for an already read generation (details pre-read in the cache). jsdom has no paint timing.
 vi.mock("@/lib/api", async (orig) => ({
@@ -59,7 +61,7 @@ describe("generation dialog NFRs", () => {
       pageParams: [undefined],
     });
     for (const i of ids) client.setQueryData(["generation", summary(i).id], gen(i));
-    replace(`/generations/${summary(COUNT).id}`, dialogState());
+    replace(`/generations/${summary(COUNT).id}`, dialogState(ALL_VIEWS));
     render(
       <QueryClientProvider client={client}>
         <Shell />

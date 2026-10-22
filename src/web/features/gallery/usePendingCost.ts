@@ -1,10 +1,10 @@
-import { type InfiniteData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { api } from "@/lib/api";
-import type { GenerationPage, GenerationSummary } from "../../../shared/generations";
+import type { GenerationSummary } from "../../../shared/generations";
+import { patchSummaries } from "./summaryPatch";
 
 const PENDING_REFETCH_MS = 10_000;
-const GALLERY_KEY = ["generations"] as const;
 
 /**
  * Keeps one pending card current (ADR-0031): reads only that generation every 10 s, and once its cost is
@@ -25,18 +25,6 @@ export function usePendingCost(g: GenerationSummary) {
   const settled = q.data && q.data.costStatus !== "pending" ? q.data : undefined;
   useEffect(() => {
     if (!settled) return;
-    client.setQueryData<InfiniteData<GenerationPage, string | undefined>>(
-      GALLERY_KEY,
-      (old) =>
-        old && {
-          ...old,
-          pages: old.pages.map((p) => ({
-            ...p,
-            items: p.items.map((it) =>
-              it.id === settled.id ? { ...it, costMicros: settled.costMicros, costStatus: settled.costStatus } : it,
-            ),
-          })),
-        },
-    );
+    patchSummaries(client, settled.id, { costMicros: settled.costMicros, costStatus: settled.costStatus });
   }, [client, settled]);
 }

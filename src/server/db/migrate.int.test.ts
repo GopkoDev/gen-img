@@ -23,6 +23,18 @@ describe("migration runner", () => {
     while (appliedVersions(db).at(-1) !== version) migrateDown(db);
   }
 
+  it("0009_index_generations_by_model serves one model's page newest first from an index, and reverts", () => {
+    migrateUp(db);
+    const plan = db
+      .prepare(
+        "EXPLAIN QUERY PLAN SELECT id FROM generations WHERE provider = ? AND model = ? AND id < ? ORDER BY id DESC LIMIT 25",
+      )
+      .all("openrouter", "m", "01Z") as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/generations_by_model/);
+    downTo("0008");
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'generations_by_model'").pluck().all()).toEqual([]);
+  });
+
   it("0008_create_model_preferences keeps one row per provider + model with at least one flag on, and reverts", () => {
     migrateUp(db);
     const insert = db.prepare(
@@ -113,10 +125,12 @@ describe("migration runner", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
-    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"]);
+    expect(appliedVersions(db)).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"]);
     expect(migrateUp(db)).toEqual([]);
 
+    expect(migrateDown(db)?.version).toBe("0009");
     expect(migrateDown(db)?.version).toBe("0008");
     expect(migrateDown(db)?.version).toBe("0007");
     expect(migrateDown(db)?.version).toBe("0006");
@@ -137,6 +151,7 @@ describe("migration runner", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
   });
 

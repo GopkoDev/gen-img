@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRelative } from "@/lib/format";
-import { dialogState, Link, replace } from "@/lib/router";
+import { Link, replace } from "@/lib/router";
 import type { Generation } from "../../../shared/generations";
 
 const excerpt = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
@@ -14,7 +14,7 @@ export function Lineage({ g, inDialog = false }: { g: Generation; inDialog?: boo
       ? (e: MouseEvent<HTMLAnchorElement>) => {
           if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
           e.preventDefault();
-          replace(to, dialogState());
+          replace(to, window.history.state);
         }
       : undefined;
   const { source, derived } = g;

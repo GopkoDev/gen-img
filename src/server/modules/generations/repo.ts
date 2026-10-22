@@ -182,6 +182,21 @@ export function createGenerationsRepo(db: Db) {
   const selectPageAfter = db.prepare(
     `SELECT ${summaryCols} FROM generations g WHERE g.id < ? ORDER BY g.id DESC LIMIT ?`,
   );
+  const selectModelPage = db.prepare(
+    `SELECT ${summaryCols} FROM generations g WHERE g.provider = ? AND g.model = ? ORDER BY g.id DESC LIMIT ?`,
+  );
+  const selectModelPageAfter = db.prepare(
+    `SELECT ${summaryCols} FROM generations g WHERE g.provider = ? AND g.model = ? AND g.id < ? ORDER BY g.id DESC LIMIT ?`,
+  );
+  const selectModelGroups = db.prepare(
+    "SELECT provider, model, count(*) AS count, max(id) AS latest_id FROM generations GROUP BY provider, model ORDER BY latest_id DESC",
+  );
+  const GroupRow = z.object({
+    provider: z.string(),
+    model: z.string(),
+    count: z.number().int(),
+    latest_id: z.string(),
+  });
   const selectFirstImage = db.prepare(
     "SELECT position, path, media_type, width, height, byte_size FROM generation_images WHERE generation_id = ? ORDER BY position LIMIT 1",
   );
@@ -286,6 +301,20 @@ export function createGenerationsRepo(db: Db) {
     return new Set(rows);
   }
 
+  /** Parses summary rows and adds each one's thumbnail, tags and comment flag. */
+  function withExtras(rows: unknown[]): GenerationSummaryRecord[] {
+    const summaries = rows.map((r) => SummaryRow.parse(r));
+    const ids = summaries.map((s) => s.id);
+    const tags = tagsOf(ids);
+    const withComment = commented(ids);
+    return summaries.map((summary) => ({
+      ...summary,
+      thumbnail: ImageRow.parse(selectFirstImage.get(summary.id)),
+      tags: tags.get(summary.id) ?? [],
+      hasComment: withComment.has(summary.id),
+    }));
+  }
+
   const addTagTx = db.transaction((id: string, tag: string) => {
     if (!genExists.get(id)) return { status: "missing" as const };
     if (tagExists.get(id, tag)) return { status: "duplicate" as const, tags: selectTags.all(id) as string[] };
@@ -349,21 +378,38 @@ export function createGenerationsRepo(db: Db) {
       return { count: rows.length, perImageMicros: images > 0 ? Math.round(micros / images) : null };
     },
 
-    /** Newest first; `cursor` is the last id of the previous page. */
-    listPage({ cursor, limit }: { cursor?: string; limit: number }) {
-      const rows = cursor ? selectPageAfter.all(cursor, limit + 1) : selectPage.all(limit + 1);
-      const summaries = rows.slice(0, limit).map((r) => SummaryRow.parse(r));
-      const ids = summaries.map((s) => s.id);
-      const tags = tagsOf(ids);
-      const withComment = commented(ids);
-      const page = summaries.map((summary) => ({
-        ...summary,
-        thumbnail: ImageRow.parse(selectFirstImage.get(summary.id)),
-        tags: tags.get(summary.id) ?? [],
-        hasComment: withComment.has(summary.id),
-      }));
+    /** Newest first; `cursor` is the last id of the previous page; `provider` + `model` (both or neither) match exactly. */
+    listPage({
+      cursor,
+      limit,
+      provider,
+      model,
+    }: {
+      cursor?: string;
+      limit: number;
+      provider?: string;
+      model?: string;
+    }) {
+      const rows =
+        provider !== undefined && model !== undefined
+          ? cursor
+            ? selectModelPageAfter.all(provider, model, cursor, limit + 1)
+            : selectModelPage.all(provider, model, limit + 1)
+          : cursor
+            ? selectPageAfter.all(cursor, limit + 1)
+            : selectPage.all(limit + 1);
+      const page = withExtras(rows.slice(0, limit));
       const nextCursor = rows.length > limit ? (page.at(-1)?.id ?? null) : null;
-      return { items: page satisfies GenerationSummaryRecord[], nextCursor };
+      return { items: page, nextCursor };
+    },
+
+    /** Every provider + model with its exact count, newest id and up to `latest` newest summaries; most recently used first. */
+    modelGroups({ latest }: { latest: number }) {
+      return selectModelGroups.all().map((raw) => {
+        const g = GroupRow.parse(raw);
+        const items = latest > 0 ? withExtras(selectModelPage.all(g.provider, g.model, latest)) : [];
+        return { provider: g.provider, model: g.model, count: g.count, latestId: g.latest_id, items };
+      });
     },
 
     /** The stored image at this exact relative path, if one is recorded. */

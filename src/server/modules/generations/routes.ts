@@ -7,8 +7,10 @@ import type {
   CurrentJobResponse,
   Generation,
   GenerationPage,
+  GenerationSummary,
   InputImage,
   JobResponse,
+  ModelGroupsResponse,
   OutputImage,
 } from "../../../shared/generations";
 import { MAX_INPUT_BYTES, MAX_INPUT_IMAGES } from "../../../shared/generations";
@@ -16,7 +18,7 @@ import type { CostHistory } from "../../../shared/pricing";
 import { ProviderId } from "../../../shared/providers";
 import { AppError } from "../../lib/errors";
 import type { FileStore } from "../storage/file-store";
-import type { ImageRecord, InputRecord } from "./repo";
+import type { ImageRecord, InputRecord, GenerationSummaryRecord as SummaryRecord } from "./repo";
 import type { GenerationsService, InputFile } from "./service";
 
 export type GenerationsRouteDeps = { service: GenerationsService; files: FileStore };
@@ -26,17 +28,35 @@ const CostHistoryQuery = z.object({
   model: z.string().min(1, { error: "Choose a model" }).max(200),
 });
 
-const ListQuery = z.object({
-  cursor: z
-    .string()
-    .regex(/^[0-9A-Z]{1,26}$/, { error: "Cursor must be a generation id" })
-    .optional(),
-  limit: z.coerce
-    .number({ error: "Limit must be a whole number between 1 and 100" })
-    .int({ error: "Limit must be a whole number between 1 and 100" })
-    .min(1, { error: "Limit must be a whole number between 1 and 100" })
-    .max(100, { error: "Limit must be a whole number between 1 and 100" })
-    .default(24),
+const LimitField = z.coerce
+  .number({ error: "Limit must be a whole number between 1 and 100" })
+  .int({ error: "Limit must be a whole number between 1 and 100" })
+  .min(1, { error: "Limit must be a whole number between 1 and 100" })
+  .max(100, { error: "Limit must be a whole number between 1 and 100" })
+  .default(24);
+
+const FILTER_MSG = "Provider and model go together — send both or neither";
+const filterField = z.string().min(1, { error: FILTER_MSG }).max(200, { error: "At most 200 characters" }).optional();
+
+const ListQuery = z
+  .object({
+    provider: filterField,
+    model: filterField,
+    cursor: z
+      .string()
+      .regex(/^[0-9A-Z]{1,26}$/, { error: "Cursor must be a generation id" })
+      .optional(),
+    limit: LimitField,
+  })
+  .refine((q) => (q.provider === undefined) === (q.model === undefined), { error: FILTER_MSG, path: ["model"] });
+
+const ModelsQuery = z.object({
+  latest: z.coerce
+    .number({ error: "Latest must be a whole number between 0 and 4" })
+    .int({ error: "Latest must be a whole number between 0 and 4" })
+    .min(0, { error: "Latest must be a whole number between 0 and 4" })
+    .max(4, { error: "Latest must be a whole number between 0 and 4" })
+    .default(0),
 });
 
 const FILES_PREFIX = "/api/files/";
@@ -97,6 +117,12 @@ const toImage = (img: ImageRecord): OutputImage => ({
   byteSize: img.byteSize,
 });
 
+const toSummary = (g: SummaryRecord): GenerationSummary => ({
+  ...g,
+  provider: ProviderId.parse(g.provider),
+  thumbnail: toImage(g.thumbnail),
+});
+
 export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps) {
   const { service } = deps;
 
@@ -123,9 +149,27 @@ export function registerGenerationsRoutes(app: Hono, deps: GenerationsRouteDeps)
       });
     const page = service.list(q.data);
     return c.json({
-      items: page.items.map((g) => ({ ...g, provider: ProviderId.parse(g.provider), thumbnail: toImage(g.thumbnail) })),
+      items: page.items.map(toSummary),
       nextCursor: page.nextCursor,
     } satisfies GenerationPage);
+  });
+
+  // Before `/generations/:id`, so «models» is never read as an id.
+  app.get("/generations/models", (c) => {
+    const q = ModelsQuery.safeParse(c.req.query());
+    if (!q.success)
+      throw new AppError("VALIDATION_ERROR", "Invalid models query", 400, {
+        fields: Object.fromEntries(q.error.issues.map((i) => [i.path.join("."), i.message])),
+      });
+    return c.json({
+      models: service.models(q.data.latest).map((g) => ({
+        provider: ProviderId.parse(g.provider),
+        model: g.model,
+        count: g.count,
+        latestId: g.latestId,
+        items: g.items.map(toSummary),
+      })),
+    } satisfies ModelGroupsResponse);
   });
 
   const lineageSource = (id: string, relation: "rerun" | "reuse", output: number | null) => {

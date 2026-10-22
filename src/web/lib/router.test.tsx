@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { APP_LOAD, dialogState, isDialogVisit, Link, navigate, parseRoute, replace, useRoute } from "./router";
 
+const ALL_VIEWS = { grid: { kind: "all" }, order: { kind: "all" } } as const;
+
 function Show() {
   const route = useRoute();
   return (
@@ -73,9 +75,10 @@ describe("history state (ADR-0033)", () => {
   it("navigate() and replace() carry a state into history.state and useRoute()", () => {
     render(<State />);
     expect(screen.getByText("state null")).toBeInTheDocument();
-    act(() => navigate("/generations/01A", dialogState()));
-    expect(window.history.state).toEqual({ dialog: "gallery", load: APP_LOAD });
-    expect(screen.getByText(`state ${JSON.stringify({ dialog: "gallery", load: APP_LOAD })}`)).toBeInTheDocument();
+    act(() => navigate("/generations/01A", dialogState(ALL_VIEWS)));
+    const state = { ...dialogState(ALL_VIEWS) };
+    expect(window.history.state).toEqual(state);
+    expect(screen.getByText(`state ${JSON.stringify(state)}`)).toBeInTheDocument();
     act(() => replace("/generations/01B", { dialog: "gallery", load: "x" }));
     expect(window.history.state).toEqual({ dialog: "gallery", load: "x" });
     act(() => navigate("/gallery"));
@@ -84,10 +87,12 @@ describe("history state (ADR-0033)", () => {
 
   it("isDialogVisit is true only for a detail route carrying this load's dialog state", () => {
     const detail = { name: "detail", id: "01A" } as const;
-    expect(isDialogVisit({ ...detail, state: dialogState() })).toBe(true);
+    expect(isDialogVisit({ ...detail, state: dialogState(ALL_VIEWS) })).toBe(true);
     expect(isDialogVisit({ ...detail, state: { dialog: "gallery", load: "older" } })).toBe(false);
     expect(isDialogVisit({ ...detail, state: null })).toBe(false);
-    expect(isDialogVisit({ name: "page", pathname: "/gallery", search: "", state: dialogState() })).toBe(false);
+    expect(isDialogVisit({ name: "page", pathname: "/gallery", search: "", state: dialogState(ALL_VIEWS) })).toBe(
+      false,
+    );
     expect(typeof APP_LOAD).toBe("string");
   });
 });

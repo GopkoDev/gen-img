@@ -1,4 +1,4 @@
-import { type InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,13 +7,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ApiError } from "@/lib/api";
 import { excerpt } from "@/lib/format";
 import { dialogState, replace } from "@/lib/router";
-import type { GenerationPage } from "../../../shared/generations";
 import { DialogBusyContext, DialogDeleteContext, DialogEscapeContext, type EscapeHandler } from "./DialogBusy";
-import { GALLERY_QUERY_KEY, galleryQueryOptions } from "./Gallery";
+import { GALLERY_QUERY_KEY, galleryQueryOptionsFor } from "./Gallery";
 import { Detail, useGeneration } from "./GenerationDetail";
 import { showGalleryNotice } from "./galleryNotice";
+import { viewKey } from "./galleryView";
 import { bringCardIntoView } from "./gridPlace";
 import { anchoredAtEnd, neighbours } from "./neighbours";
+import { patchSummaries } from "./summaryPatch";
+import { useOrderView } from "./useGalleryView";
 
 const isTextTarget = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
@@ -65,7 +67,8 @@ function Step({
  * The `DialogBusyContext` setter the detail body reports through (and a delete in progress) disables stepping.
  */
 export function GenerationDialog({ id }: { id: string }) {
-  const grid = useInfiniteQuery(galleryQueryOptions);
+  const { grid: behind, order } = useOrderView();
+  const grid = useInfiniteQuery(galleryQueryOptionsFor(order));
   const detail = useGeneration(id);
   const items = grid.data?.pages.flatMap((p) => p.items) ?? [];
   // A refresh can push the shown, last loaded generation off the tail of the list: keep it at the end of the order
@@ -104,12 +107,14 @@ export function GenerationDialog({ id }: { id: string }) {
 
   // The last generation of the grid the dialog showed: where the grid scrolls to on close (sad §8).
   const lastGridId = useRef<string | null>(null);
+  const keepsScroll = useRef(false);
+  keepsScroll.current = behind.kind === "models"; // «By model» keeps its scroll on close (sad §4)
   if (nav.inOrder) lastGridId.current = id;
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (lastGridId.current) bringCardIntoView(lastGridId.current);
+      if (lastGridId.current && !keepsScroll.current) bringCardIntoView(lastGridId.current);
     };
   }, []);
 
@@ -120,7 +125,7 @@ export function GenerationDialog({ id }: { id: string }) {
     for (const url of [newerUrl, olderUrl]) if (url) new Image().src = url;
   }, [newerUrl, olderUrl]);
 
-  const go = (to: string) => replace(`/generations/${to}`, dialogState());
+  const go = (to: string) => replace(`/generations/${to}`, dialogState({ grid: behind, order }));
   const stepNewer = () => {
     if (!busy && nav.newer) go(nav.newer);
   };
@@ -160,10 +165,7 @@ export function GenerationDialog({ id }: { id: string }) {
     const before = nav;
     const loadNext = !before.older && before.inOrder && before.atEnd && grid.hasNextPage;
     // The card leaves the grid first: a failed page load afterwards then keeps its own error on the grid.
-    qc.setQueryData<InfiniteData<GenerationPage, string | undefined>>(
-      GALLERY_QUERY_KEY,
-      (d) => d && { ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((g) => g.id !== deletedId) })) },
-    );
+    patchSummaries(qc, deletedId, "remove");
     let target = before.older;
     let pageFailed = false;
     if (loadNext) {
@@ -172,7 +174,13 @@ export function GenerationDialog({ id }: { id: string }) {
       else target = r.data.pages.flatMap((p) => p.items).find((g) => g.id < deletedId)?.id ?? null;
     }
     if (!pageFailed) target ??= before.newer;
-    if (!pageFailed) qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
+    // Every view re-reads (the models read and the other lists included); only the order's own list keeps the
+    // error its failed page left on the grid, as a refetch would clear it.
+    const orderKey = JSON.stringify(viewKey(order));
+    qc.invalidateQueries({
+      queryKey: GALLERY_QUERY_KEY,
+      predicate: (q) => !pageFailed || JSON.stringify(q.queryKey) !== orderKey,
+    });
     if (!mounted.current || closingRef.current) {
       showGalleryNotice(); // closed meanwhile: the grid says so, and no second Back
     } else if (target) {
@@ -275,7 +283,7 @@ export function GenerationDialog({ id }: { id: string }) {
                   onClick={() => void stepOlder()}
                 />
               </>
-            ) : (
+            ) : grid.isPending ? null : (
               <span className="text-muted-foreground text-sm">Not in the gallery's current order</span>
             )}
             <DialogClose asChild>

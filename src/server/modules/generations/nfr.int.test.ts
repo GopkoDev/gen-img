@@ -167,6 +167,40 @@ describe("rerun-and-reuse NFRs", () => {
   }, 60_000); // 21 × (80 MB read + base64) — well past Vitest's 5 s default
 });
 
+describe("gallery-by-model NFRs", () => {
+  let t: ReturnType<typeof createTestApp>;
+  afterEach(() => t?.cleanup());
+
+  it("a filtered continued page and models read (latest=4) ≤ 300 ms p95 with 1 000 generations over 30 models × 10 tags + comment", async () => {
+    t = createTestApp();
+    const tags = Array.from({ length: 10 }, (_, i) => `tag ${i}`);
+    t.db.transaction(() => {
+      for (let i = 0; i < 1000; i++)
+        seedGeneration(t.db, t.dataDir, {
+          id: `01BYM${String(i).padStart(21, "0")}`,
+          model: `vendor/model-${i % 30}`,
+          tags,
+          comment: "A note",
+        });
+    })();
+    const cursor = "01BYM000000000000000000900";
+    const page = await timed(20, async () => {
+      const res = await t.app.request(
+        `/api/generations?provider=openrouter&model=vendor%2Fmodel-7&cursor=${cursor}&limit=24`,
+      );
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { items: unknown[] }).items.length).toBeGreaterThan(0);
+    });
+    const read = await timed(20, async () => {
+      const res = await t.app.request("/api/generations/models?latest=4");
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { models: unknown[] }).models).toHaveLength(30);
+    });
+    expect(p95(page)).toBeLessThanOrEqual(300);
+    expect(p95(read)).toBeLessThanOrEqual(300);
+  });
+});
+
 describe("model-price-preview NFRs", () => {
   let t: ReturnType<typeof createTestApp>;
   afterEach(() => t.cleanup());

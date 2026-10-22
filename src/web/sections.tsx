@@ -1,6 +1,7 @@
 import { Boxes, Images, type LucideIcon, Sparkles } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Gallery } from "@/features/gallery/Gallery";
+import { GalleryViews } from "@/features/gallery/GalleryViews";
 import { GeneratePanel } from "@/features/generate/GeneratePanel";
 import { JobIndicator } from "@/features/generate/job";
 import { RecentGenerations } from "@/features/generate/RecentGenerations";
@@ -26,6 +27,7 @@ function GalleryPage() {
   return (
     <section aria-label="Gallery" className="flex flex-col gap-4">
       <h2 className="font-semibold">Gallery</h2>
+      <GalleryViews />
       <Gallery />
     </section>
   );

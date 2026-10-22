@@ -342,7 +342,8 @@ export function createGenerationsService(deps: GenerationsServiceDeps) {
 
     getJob: () => deps.jobs.current(),
     dismissJob: () => deps.jobs.dismiss(),
-    list: (q: { cursor?: string; limit: number }) => deps.repo.listPage(q),
+    list: (q: { cursor?: string; limit: number; provider?: string; model?: string }) => deps.repo.listPage(q),
+    models: (latest: number) => deps.repo.modelGroups({ latest }),
     costHistory: (provider: string, model: string) => deps.repo.costHistory(provider, model),
     get: (id: string) => deps.repo.get(id),
     exists: (id: string) => deps.repo.exists(id),
