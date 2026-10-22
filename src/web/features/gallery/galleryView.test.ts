@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { type GalleryView, parseView, viewKey, viewSearch } from "./galleryView";
+import { dialogViews, type GalleryView, parseView, viewKey, viewSearch } from "./galleryView";
+
+const KEY = "0123456789abcdef0123456789abcdef";
 
 describe("galleryView", () => {
   it("parses all / model / models", () => {
@@ -30,5 +32,54 @@ describe("galleryView", () => {
     expect(viewKey({ kind: "all" })).toEqual(["generations"]);
     expect(viewKey({ kind: "models" })).toEqual(["generations", "models"]);
     expect(viewKey({ kind: "model", provider: "p", model: "m" })).toEqual(["generations", "model", "p", "m"]);
+  });
+  it("parses the prompt views", () => {
+    expect(parseView("?view=prompts")).toEqual({ kind: "prompts", single: false });
+    expect(parseView("?view=prompts&single=1")).toEqual({ kind: "prompts", single: true });
+    expect(parseView(`?prompt=${KEY}`)).toEqual({ kind: "prompt", key: KEY });
+  });
+  it("any other prompt= value is the prompt view's invalid state, never All", () => {
+    expect(parseView("?prompt=xyz")).toEqual({ kind: "prompt", key: "xyz", invalid: true });
+    expect(parseView(`?prompt=${KEY.toUpperCase()}`)).toEqual({
+      kind: "prompt",
+      key: KEY.toUpperCase(),
+      invalid: true,
+    });
+    expect(parseView(`?prompt=${KEY}0`)).toMatchObject({ kind: "prompt", invalid: true });
+  });
+  it("round-trips the prompt views", () => {
+    expect(viewSearch({ kind: "prompts", single: false })).toBe("?view=prompts");
+    expect(viewSearch({ kind: "prompts", single: true })).toBe("?view=prompts&single=1");
+    expect(viewSearch({ kind: "prompt", key: KEY })).toBe(`?prompt=${KEY}`);
+    for (const v of [
+      { kind: "prompts", single: true },
+      { kind: "prompts", single: false },
+      { kind: "prompt", key: KEY },
+      { kind: "prompt", key: "xyz", invalid: true },
+    ] as GalleryView[])
+      expect(parseView(viewSearch(v))).toEqual(v);
+  });
+  it("keys for the prompt views", () => {
+    expect(viewKey({ kind: "prompts", single: true })).toEqual(["generations", "prompts", true]);
+    expect(viewKey({ kind: "prompt", key: KEY })).toEqual(["generations", "prompt", KEY]);
+  });
+  it("carries the single-use switch in a prompt view's address, state and nothing else (R1)", () => {
+    expect(parseView(`?prompt=${KEY}&single=1`)).toEqual({ kind: "prompt", key: KEY, single: true });
+    expect(parseView(`?prompt=${KEY}&single=0`)).toEqual({ kind: "prompt", key: KEY });
+    expect(viewSearch({ kind: "prompt", key: KEY, single: true })).toBe(`?prompt=${KEY}&single=1`);
+    expect(parseView(viewSearch({ kind: "prompt", key: KEY, single: true }))).toEqual({
+      kind: "prompt",
+      key: KEY,
+      single: true,
+    });
+    expect(viewKey({ kind: "prompt", key: KEY, single: true })).toEqual(viewKey({ kind: "prompt", key: KEY }));
+    const grid = { kind: "prompt", key: KEY, single: true };
+    expect(dialogViews({ grid, order: grid })).toEqual({ grid, order: grid });
+  });
+  it("dialog state accepts the prompt kinds", () => {
+    const grid = { kind: "prompt", key: KEY };
+    const order = { kind: "prompts", single: true };
+    expect(dialogViews({ grid, order })).toEqual({ grid, order });
+    expect(dialogViews({ grid: { kind: "prompt", key: 5 } })).toEqual({});
   });
 });

@@ -59,4 +59,29 @@ describe("patchSummaries", () => {
     patchSummaries(qc, "a", "remove");
     expect(qc.getQueryData<V>(["generations", "weird"])).toEqual({ foo: 1 });
   });
+  it("skips the prompts caches and the one-group cache, patches a prompt grid", () => {
+    const qc = setup();
+    const promptGroup = {
+      key: "k",
+      prompt: "p",
+      count: 2,
+      images: 2,
+      models: [{ provider: "openrouter", model: "m" }], // `models` is an array: only the key keeps it from reading as «By model» groups
+      moreModels: 0,
+      latestId: "a",
+      cover: { url: "/x.png", width: 1, height: 1 },
+    };
+    const groupPages = { pages: [{ groups: [promptGroup], nextCursor: null }], pageParams: [undefined] };
+    const probe = { items: [card("a")], nextCursor: null };
+    qc.setQueryData(["generations", "prompts", false], groupPages);
+    qc.setQueryData(["generations", "prompt", "k", "group"], promptGroup);
+    qc.setQueryData(["generations", "probe"], probe);
+    qc.setQueryData(["generations", "prompt", "k"], infinite("a", "b"));
+    expect(() => patchSummaries(qc, "a", { costStatus: "known" } as never)).not.toThrow();
+    patchSummaries(qc, "a", "remove");
+    expect(qc.getQueryData<V>(["generations", "prompts", false])).toBe(groupPages);
+    expect(qc.getQueryData<V>(["generations", "prompt", "k", "group"])).toBe(promptGroup);
+    expect(qc.getQueryData<V>(["generations", "probe"])).toBe(probe);
+    expect(qc.getQueryData<V>(["generations", "prompt", "k"]).pages[0].items.map((i: Item) => i.id)).toEqual(["b"]);
+  });
 });

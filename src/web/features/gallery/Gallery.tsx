@@ -6,30 +6,36 @@ import { api } from "@/lib/api";
 import { isDialogVisit, Link, replace, useRoute } from "@/lib/router";
 import type { GenerationPage } from "../../../shared/generations";
 import { ByModel } from "./ByModel";
+import { ByPrompt } from "./ByPrompt";
 import { showView } from "./GalleryViews";
 import { clearGalleryNotice, useGalleryNotice } from "./galleryNotice";
 import { type GalleryView, viewKey } from "./galleryView";
 import { isOwnScroll } from "./gridPlace";
 import { modelsQueryOptions, providerName } from "./modelsQuery";
+import { isNotFound, PromptHeading, PromptUnknown, usePromptGroup } from "./PromptView";
 import { resetGalleryScroll, useSavedScroll } from "./scrollMemory";
 import { Tile } from "./Tile";
 import { useGalleryView } from "./useGalleryView";
 
 /** A view with a paged list behind it: «By model» has none (its read is the models query). */
-export type ListView = Exclude<GalleryView, { kind: "models" }>;
+export type ListView = Exclude<GalleryView, { kind: "models" | "prompts" }>;
 
 export const GALLERY_QUERY_KEY = ["generations"] as const;
-const SENTINEL_MARGIN = "600px";
+export const SENTINEL_MARGIN = "600px";
 
 /**
  * The grid's list query. The dialog (a sibling of the grid in App) reads the very same cache entry with these
  * options, so both see one flattened list and one in-flight page request; with staleTime ∞ it never refetches.
  */
 export function galleryQueryOptionsFor(view: ListView) {
-  const filter = view.kind === "model" ? { provider: view.provider, model: view.model } : undefined;
   return infiniteQueryOptions({
     queryKey: viewKey(view),
-    queryFn: ({ pageParam }) => (filter ? api.generations(pageParam, undefined, filter) : api.generations(pageParam)),
+    queryFn: ({ pageParam }) => {
+      if (view.kind === "prompt") return api.generations(pageParam, undefined, { prompt: view.key });
+      if (view.kind === "model")
+        return api.generations(pageParam, undefined, { provider: view.provider, model: view.model });
+      return api.generations(pageParam);
+    },
     initialPageParam: undefined as string | undefined,
     // Coming back from another section shows the loaded pages as they are (spec §6): every change that adds,
     // edits or removes a generation invalidates this key; another tab's changes still arrive on focus.
@@ -48,7 +54,9 @@ export { resetGalleryScroll };
 export function Gallery() {
   const view = useGalleryView();
   if (view.kind === "models") return <ByModel />;
+  if (view.kind === "prompts") return <ByPrompt key={String(view.single)} single={view.single} />;
   // One grid per view: its own query, scroll position and paging state.
+  if (view.kind === "prompt" && view.invalid) return <PromptUnknown single={view.single === true} />;
   return <Grid key={JSON.stringify(viewKey(view))} view={view} />;
 }
 
@@ -63,6 +71,8 @@ function Grid({ view }: { view: ListView }) {
   }, [justDeleted]);
   const handedOver = useGalleryNotice(); // the dialog closed after a delete
   useEffect(() => clearGalleryNotice, []);
+  const prompt = view.kind === "prompt" ? view : undefined;
+  const group = usePromptGroup(prompt?.key ?? "", prompt !== undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const q = useInfiniteQuery(galleryQueryOptionsFor(view));
   // While the dialog is open the grid loads nothing by itself; after it closes the sentinel is re-armed by the
@@ -119,6 +129,8 @@ function Grid({ view }: { view: ListView }) {
 
   const items = q.data.pages.flatMap((p) => p.items);
   const notice = (justDeleted || handedOver) && <p className="text-muted-foreground text-sm">Generation deleted.</p>;
+  if (prompt && (items.length === 0 || isNotFound(group.error)))
+    return <PromptUnknown single={prompt.single === true} />;
   if (items.length === 0 && one)
     return (
       <div className="flex flex-col items-start gap-3">
@@ -143,6 +155,15 @@ function Grid({ view }: { view: ListView }) {
   return (
     <div className="flex flex-col gap-4">
       {notice}
+      {prompt && (
+        <PromptHeading
+          prompt={group.data?.prompt ?? (group.isError ? items[0]?.prompt : undefined)}
+          count={group.data?.count}
+          countFailed={group.isError && !group.data}
+          onRetry={() => group.refetch()}
+          single={prompt.single === true}
+        />
+      )}
       {one && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-medium">{modelHeading(one, models.data?.models)}</h3>

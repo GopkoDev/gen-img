@@ -13,11 +13,12 @@ export function showView(view: GalleryView) {
   navigate(`/gallery${viewSearch(view)}`);
 }
 
-/** SCR-02 — the view switch (All / By model) and the model choice. */
+/** SCR-02 — the view switch (All / By model / By prompt) and the model choice. */
 export function GalleryViews() {
   const view = useGalleryView();
   const [open, setOpen] = useState(false);
   const models = useQuery({ ...modelsQueryOptions, enabled: open });
+  const byPrompt = view.kind === "prompts" || view.kind === "prompt"; // a prompt's grid belongs to «By prompt»
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -35,6 +36,14 @@ export function GalleryViews() {
         onClick={() => showView({ kind: "models" })}
       >
         By model
+      </Button>
+      <Button
+        variant={byPrompt ? "secondary" : "outline"}
+        size="sm"
+        aria-pressed={byPrompt}
+        onClick={() => showView({ kind: "prompts", single: false })}
+      >
+        By prompt
       </Button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

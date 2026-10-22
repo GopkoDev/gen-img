@@ -69,6 +69,7 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     costSync,
     timeoutMs: deps.generationTimeoutMs ?? GENERATION_TIMEOUT_MS,
   });
+  repo.backfillPromptKeys(); // pre-0010 generations get their prompt key (ADR-0037)
   service.sweepOnBoot(); // drop leftovers of an interrupted save (ADR-0006)
   costSync.resume(); // pending costs survive restarts (ADR-0013)
   registerGenerationsRoutes(api, { service, files });

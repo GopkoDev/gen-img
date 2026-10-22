@@ -19,6 +19,7 @@ vi.mock("@/lib/api", async (orig) => ({
     currentJob: vi.fn(),
     generations: vi.fn(),
     generationModels: vi.fn(),
+    promptGroups: vi.fn(),
   },
 }));
 const m = vi.mocked(api);
@@ -79,6 +80,33 @@ describe("view switch (SCR-02)", () => {
     expect(await screen.findByRole("heading", { name: "Seedream 4" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "By model" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
+    expect(m.generations).not.toHaveBeenCalled();
+  });
+
+  it("«By prompt» pushes ?view=prompts and shows the prompt cards without loading the grid", async () => {
+    m.promptGroups.mockResolvedValue({
+      groups: [
+        {
+          key: "0123456789abcdef0123456789abcdef",
+          prompt: "Shared prompt",
+          count: 3,
+          images: 3,
+          models: [],
+          moreModels: 0,
+          latestId: summary(1).id,
+          cover: { url: "/x.png", width: 1, height: 1 },
+        },
+      ],
+      nextCursor: null,
+    });
+    renderViews();
+    await screen.findByText("A test prompt number 3");
+    m.generations.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "By prompt" }));
+    expect(address()).toBe("/gallery?view=prompts");
+    expect(await screen.findByText("3 generations · 3 images")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "By prompt" })).toHaveAttribute("aria-pressed", "true");
+    expect(m.promptGroups).toHaveBeenCalledWith(undefined, false);
     expect(m.generations).not.toHaveBeenCalled();
   });
 

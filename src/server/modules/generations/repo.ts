@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_TAGS } from "../../../shared/curation";
 import { RequestedParams } from "../../../shared/generations";
 import type { Db } from "../../db/client";
+import { promptKey } from "./promptKey";
 
 const CostStatus = z.enum(["known", "pending", "unavailable"]);
 const ImageMediaType = z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -162,11 +163,18 @@ export function createGenerationsRepo(db: Db) {
   const insertGen = db.prepare(
     `INSERT INTO generations (id, provider, model, prompt, requested_params, accepted_params, images_requested,
        cost_micros, cost_status, cost_ref, created_at, duration_ms, raw_request, raw_response,
-       source_id, source_relation, source_output)
+       source_id, source_relation, source_output, prompt_key)
      VALUES (@id, @provider, @model, @prompt, @requestedParams, @acceptedParams, @imagesRequested,
        @costMicros, @costStatus, @costRef, @createdAt, @durationMs, @rawRequest, @rawResponse,
-       @sourceId, @sourceRelation, @sourceOutput)`,
+       @sourceId, @sourceRelation, @sourceOutput, @promptKey)`,
   );
+  const selectKeyless = db.prepare("SELECT id, prompt FROM generations WHERE prompt_key IS NULL");
+  const updateKey = db.prepare("UPDATE generations SET prompt_key = ? WHERE id = ?");
+  const backfillAll = db.transaction((): number => {
+    const rows = z.array(z.object({ id: z.string(), prompt: z.string() })).parse(selectKeyless.all());
+    for (const r of rows) updateKey.run(promptKey(r.prompt), r.id);
+    return rows.length;
+  });
   const insertImage = db.prepare(
     `INSERT INTO generation_images (generation_id, position, path, media_type, width, height, byte_size)
      VALUES (@generationId, @position, @path, @mediaType, @width, @height, @byteSize)`,
@@ -188,6 +196,38 @@ export function createGenerationsRepo(db: Db) {
   const selectModelPageAfter = db.prepare(
     `SELECT ${summaryCols} FROM generations g WHERE g.provider = ? AND g.model = ? AND g.id < ? ORDER BY g.id DESC LIMIT ?`,
   );
+  const selectPromptPage = db.prepare(
+    `SELECT ${summaryCols} FROM generations g WHERE g.prompt_key = ? ORDER BY g.id DESC LIMIT ?`,
+  );
+  const selectPromptPageAfter = db.prepare(
+    `SELECT ${summaryCols} FROM generations g WHERE g.prompt_key = ? AND g.id < ? ORDER BY g.id DESC LIMIT ?`,
+  );
+  const promptGroupSelect = (having: string) =>
+    `SELECT prompt_key AS key, count(*) AS count,
+       (SELECT count(*) FROM generation_images i JOIN generations x ON x.id = i.generation_id WHERE x.prompt_key = g.prompt_key) AS images,
+       max(id) AS latest_id
+     FROM generations g WHERE prompt_key IS NOT NULL ${having}`;
+  const selectGroups = db.prepare(
+    `${promptGroupSelect("")} GROUP BY prompt_key HAVING count(*) > 1 ORDER BY latest_id DESC LIMIT ?`,
+  );
+  const selectGroupsAfter = db.prepare(
+    `${promptGroupSelect("")} GROUP BY prompt_key HAVING count(*) > 1 AND max(id) < ? ORDER BY latest_id DESC LIMIT ?`,
+  );
+  const selectGroupsSingle = db.prepare(`${promptGroupSelect("")} GROUP BY prompt_key ORDER BY latest_id DESC LIMIT ?`);
+  const selectGroupsSingleAfter = db.prepare(
+    `${promptGroupSelect("")} GROUP BY prompt_key HAVING max(id) < ? ORDER BY latest_id DESC LIMIT ?`,
+  );
+  const selectGroupOne = db.prepare(`${promptGroupSelect("AND prompt_key = ?")} GROUP BY prompt_key`);
+  const selectGroupModels = db.prepare(
+    "SELECT provider, model FROM generations WHERE prompt_key = ? GROUP BY provider, model ORDER BY max(id) DESC",
+  );
+  const selectGroupPrompt = db.prepare("SELECT prompt FROM generations WHERE id = ?").pluck();
+  const PromptGroupRow = z.object({
+    key: z.string(),
+    count: z.number().int(),
+    images: z.number().int(),
+    latest_id: z.string(),
+  });
   const selectModelGroups = db.prepare(
     "SELECT provider, model, count(*) AS count, max(id) AS latest_id FROM generations GROUP BY provider, model ORDER BY latest_id DESC",
   );
@@ -200,6 +240,20 @@ export function createGenerationsRepo(db: Db) {
   const selectFirstImage = db.prepare(
     "SELECT position, path, media_type, width, height, byte_size FROM generation_images WHERE generation_id = ? ORDER BY position LIMIT 1",
   );
+  function toPromptGroup(raw: unknown) {
+    const r = PromptGroupRow.parse(raw);
+    const models = z.array(z.object({ provider: z.string(), model: z.string() })).parse(selectGroupModels.all(r.key));
+    return {
+      key: r.key,
+      prompt: z.string().parse(selectGroupPrompt.get(r.latest_id)),
+      count: r.count,
+      images: r.images,
+      models: models.slice(0, 3),
+      moreModels: Math.max(0, models.length - 3),
+      latestId: r.latest_id,
+      cover: ImageRow.parse(selectFirstImage.get(r.latest_id)),
+    };
+  }
   const insertInput = db.prepare(
     `INSERT INTO generation_inputs (generation_id, position, path, media_type, width, height, byte_size, original_name)
      VALUES (@generationId, @position, @path, @mediaType, @width, @height, @byteSize, @originalName)`,
@@ -334,6 +388,7 @@ export function createGenerationsRepo(db: Db) {
     (gen: NewGeneration, images: ImageRecord[], inputs: InputRecord[], commitFiles: () => void) => {
       insertGen.run({
         ...gen,
+        promptKey: promptKey(gen.prompt),
         costRef: gen.costRef ?? null,
         sourceId: gen.sourceId ?? null,
         sourceRelation: gen.sourceId ? (gen.sourceRelation ?? null) : null,
@@ -353,6 +408,11 @@ export function createGenerationsRepo(db: Db) {
     /** Inserts a generation, its outputs and input copies in one transaction whose last step moves the files into place. */
     insertAtomic(gen: NewGeneration, images: ImageRecord[], commitFiles: () => void, inputs: InputRecord[] = []): void {
       insertAll(gen, images, inputs, commitFiles);
+    },
+
+    /** Keys every generation whose prompt_key is NULL (stored before migration 0010), in one transaction. Returns the count updated; idempotent. */
+    backfillPromptKeys(): number {
+      return backfillAll();
     },
 
     get(id: string): GenerationRecord | undefined {
@@ -384,23 +444,49 @@ export function createGenerationsRepo(db: Db) {
       limit,
       provider,
       model,
+      promptKey: byPrompt,
     }: {
       cursor?: string;
       limit: number;
       provider?: string;
       model?: string;
+      promptKey?: string;
     }) {
       const rows =
-        provider !== undefined && model !== undefined
+        byPrompt !== undefined
           ? cursor
-            ? selectModelPageAfter.all(provider, model, cursor, limit + 1)
-            : selectModelPage.all(provider, model, limit + 1)
-          : cursor
-            ? selectPageAfter.all(cursor, limit + 1)
-            : selectPage.all(limit + 1);
+            ? selectPromptPageAfter.all(byPrompt, cursor, limit + 1)
+            : selectPromptPage.all(byPrompt, limit + 1)
+          : provider !== undefined && model !== undefined
+            ? cursor
+              ? selectModelPageAfter.all(provider, model, cursor, limit + 1)
+              : selectModelPage.all(provider, model, limit + 1)
+            : cursor
+              ? selectPageAfter.all(cursor, limit + 1)
+              : selectPage.all(limit + 1);
       const page = withExtras(rows.slice(0, limit));
       const nextCursor = rows.length > limit ? (page.at(-1)?.id ?? null) : null;
       return { items: page, nextCursor };
+    },
+
+    /** Prompt groups, the most recently used first; reused prompts only unless `single`. Cursor = the last group's latestId. */
+    promptGroups({ cursor, limit, single }: { cursor?: string; limit: number; single: boolean }) {
+      const stmt = single
+        ? cursor
+          ? selectGroupsSingleAfter
+          : selectGroupsSingle
+        : cursor
+          ? selectGroupsAfter
+          : selectGroups;
+      const rows = cursor ? stmt.all(cursor, limit + 1) : stmt.all(limit + 1);
+      const groups = rows.slice(0, limit).map(toPromptGroup);
+      return { groups, nextCursor: rows.length > limit ? (groups.at(-1)?.latestId ?? null) : null };
+    },
+
+    /** One prompt group by key (single-use included), or undefined when no generation uses it. */
+    promptGroup(key: string) {
+      const raw = selectGroupOne.get(key);
+      return raw ? toPromptGroup(raw) : undefined;
     },
 
     /** Every provider + model with its exact count, newest id and up to `latest` newest summaries; most recently used first. */

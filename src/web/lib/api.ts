@@ -8,6 +8,9 @@ import {
   JobResponse,
   type ModelFilter,
   ModelGroupsResponse,
+  type PromptFilter,
+  PromptGroup,
+  PromptGroupPage,
   type StartGenerationRequest,
 } from "../../shared/generations";
 import { HealthResponse } from "../../shared/health";
@@ -72,9 +75,10 @@ export const api = {
     request(ModelPreference, "/model-preferences", json("PATCH", body)),
   currentJob: () => request(CurrentJobResponse, "/generation-job"),
   dismissJob: () => request(z.null(), "/generation-job", json("DELETE")),
-  generations: (cursor?: string, limit?: number, filter?: ModelFilter) => {
+  generations: ((cursor?: string, limit?: number, filter?: ModelFilter | PromptFilter) => {
     const q = new URLSearchParams();
-    if (filter) {
+    if (filter && "prompt" in filter) q.set("prompt", filter.prompt);
+    else if (filter) {
       q.set("provider", filter.provider);
       q.set("model", filter.model);
     }
@@ -82,7 +86,19 @@ export const api = {
     if (limit !== undefined) q.set("limit", String(limit));
     const qs = q.toString();
     return request(GenerationPage, `/generations${qs ? `?${qs}` : ""}`);
+  }) as {
+    // The model-filter signature is last: mocks infer their parameters from it.
+    (cursor: string | undefined, limit: number | undefined, filter: PromptFilter): Promise<GenerationPage>;
+    (cursor?: string, limit?: number, filter?: ModelFilter): Promise<GenerationPage>;
   },
+  promptGroups: (cursor?: string, single?: boolean) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set("cursor", cursor);
+    if (single) q.set("single", "1");
+    const qs = q.toString();
+    return request(PromptGroupPage, `/generations/prompts${qs ? `?${qs}` : ""}`);
+  },
+  promptGroup: (key: string) => request(PromptGroup, `/generations/prompts/${encodeURIComponent(key)}`),
   generationModels: (latest: number) => request(ModelGroupsResponse, `/generations/models?latest=${latest}`),
   setComment: (id: string, body: string) =>
     request(CommentResponse, `/generations/${encodeURIComponent(id)}/comment`, json("PUT", { body })),
